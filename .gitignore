@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Asset pipeline inputs (raw stock photos — not deployed, licensing lives in tools/sources.csv)
+tools/raw/*/*
+tools/.env
+
+# Asset pipeline output — tools/cut.ts writes these locally for dev, but the
+# deployed app fetches both the images and manifest.json from R2
+# (tools/publish.ts), not from the Pages build. That's the whole point of
+# moving assets off the build: the library updates without a code deploy.
+# A committed manifest.json would defeat that, so it's gitignored too — see
+# VITE_MANIFEST_URL in src/assets/localSource.ts for the local-dev fallback.
+public/assets/*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

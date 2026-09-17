@@ -1,5 +1,10 @@
 import Canvas from './components/Canvas'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
-  return <Canvas />
+  return (
+    <ErrorBoundary>
+      <Canvas />
+    </ErrorBoundary>
+  )
 }

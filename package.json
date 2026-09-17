@@ -1,5 +1,5 @@
 {
-  "name": "smash",
+  "name": "smoosh",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@imgly/background-removal": "^1.7.0",
     "konva": "^10.5.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
