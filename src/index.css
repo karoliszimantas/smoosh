@@ -364,3 +364,398 @@ button {
   font-weight: 600;
   font-size: 14px;
 }
+
+/* ---------- multiplayer shared ---------- */
+
+.reconnect-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f59e0b;
+  color: #171717;
+}
+
+.phase-status,
+.form-error {
+  text-align: center;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.form-error {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.deadline-timer {
+  align-self: center;
+  margin: 10px auto;
+  min-width: 56px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #262626;
+  color: #f5f5f5;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.deadline-timer-amber {
+  background: #f59e0b;
+  color: #171717;
+}
+
+.deadline-timer-red {
+  background: #ef4444;
+  color: white;
+}
+
+.deadline-timer-pulse {
+  background: #ef4444;
+  color: white;
+  animation: deadline-pulse 0.6s ease-in-out infinite;
+}
+
+@keyframes deadline-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.picture-display {
+  display: block;
+  max-width: min(90vw, 480px);
+  max-height: 45dvh;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #262626;
+}
+
+/* ---------- home view ---------- */
+
+.home-view,
+.lobby-view,
+.scores-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.home-view h1,
+.lobby-view h1,
+.scores-view h1 {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.home-status {
+  color: #888;
+  font-size: 13px;
+}
+
+.home-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.home-tabs button,
+.home-view > button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: #404040;
+  color: #d4d4d4;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-tabs button.active {
+  background: #4ade80;
+  color: #171717;
+}
+
+.home-view > button:not(:disabled),
+.home-view > button {
+  background: #4ade80;
+  color: #171717;
+}
+
+.home-view > button:disabled {
+  opacity: 0.5;
+}
+
+.home-view input {
+  min-height: 44px;
+  width: min(280px, 80vw);
+  padding: 0 14px;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  background: #262626;
+  color: #f5f5f5;
+  font-size: 15px;
+}
+
+.home-error {
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- lobby view ---------- */
+
+.player-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.player-list li {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #262626;
+  font-size: 14px;
+}
+
+.player-list li.disconnected {
+  opacity: 0.5;
+}
+
+.lobby-settings {
+  display: flex;
+  gap: 16px;
+}
+
+.lobby-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #888;
+}
+
+.lobby-settings select {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #404040;
+  background: #262626;
+  color: #f5f5f5;
+  font-size: 14px;
+}
+
+.lobby-settings-readonly,
+.lobby-estimate {
+  font-size: 13px;
+  color: #d4d4d4;
+}
+
+.lobby-view button {
+  min-height: 44px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 10px;
+  background: #4ade80;
+  color: #171717;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.lobby-view button:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- build view ---------- */
+
+.build-view {
+  position: relative;
+  height: 100dvh;
+}
+
+.build-waiting-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(23, 23, 23, 0.85);
+  pointer-events: none;
+}
+
+/* ---------- lie / guess views ---------- */
+
+.lie-view,
+.guess-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.lie-form,
+.guess-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.lie-form input {
+  min-height: 44px;
+  width: min(320px, 90vw);
+  padding: 0 14px;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  background: #262626;
+  color: #f5f5f5;
+  font-size: 15px;
+}
+
+.lie-form button,
+.guess-option {
+  min-height: 44px;
+  width: min(320px, 90vw);
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: #404040;
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lie-form button {
+  background: #4ade80;
+  color: #171717;
+}
+
+.lie-form button:disabled {
+  opacity: 0.4;
+}
+
+.guess-option.picked {
+  background: #4ade80;
+  color: #171717;
+}
+
+.guess-option.own-lie {
+  opacity: 0.35;
+}
+
+.guess-option:disabled {
+  opacity: 0.6;
+}
+
+/* ---------- reveal view ---------- */
+
+.reveal-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.reveal-options {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, 90vw);
+}
+
+.reveal-option {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #262626;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reveal-option.truth {
+  background: #4ade80;
+  color: #171717;
+}
+
+.reveal-option-label,
+.reveal-picked-by {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.reveal-points {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- scores view ---------- */
+
+.scores-winner {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.scoreboard {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.scoreboard li {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #262626;
+  font-size: 14px;
+}
+
+.scores-view button {
+  min-height: 44px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 10px;
+  background: #4ade80;
+  color: #171717;
+  font-weight: 700;
+  font-size: 15px;
+}

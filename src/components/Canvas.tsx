@@ -1,9 +1,8 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { Stage, Layer } from 'react-konva'
 import Konva from 'konva'
 import type { Asset } from '../assets'
 import { generateId } from '../id'
-import { randomPrompt } from '../prompts'
 import type { LayerItem } from './layerItem'
 import PromptBar from './PromptBar'
 import Toolbar from './Toolbar'
@@ -13,9 +12,29 @@ import DraggableImage from './DraggableImage'
 
 Konva.hitOnDragEnabled = true
 
-export default function Canvas() {
-  const [promptText] = useState(randomPrompt)
-  const [items, setItems] = useState<LayerItem[]>([])
+export type CanvasHandle = {
+  exportImage: () => Promise<Blob | null>
+}
+
+type CanvasProps = {
+  promptText: string
+  // called with the flattened WebP once exportImage succeeds — the caller
+  // (BuildView) owns what happens with it (upload, etc.), Canvas no longer
+  // triggers a browser download itself
+  onSubmit: (blob: Blob) => void
+  // seeds the items array on mount, e.g. restoring a canvas persisted to
+  // sessionStorage after a reload mid-BUILD
+  initialItems?: LayerItem[]
+  // when set, `items` is persisted to sessionStorage under this key on every
+  // change, debounced — omit to opt out (e.g. outside a multiplayer BUILD phase)
+  storageKey?: string
+}
+
+const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
+  { promptText, onSubmit, initialItems, storageKey },
+  ref,
+) {
+  const [items, setItems] = useState<LayerItem[]>(() => initialItems ?? [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
@@ -39,6 +58,20 @@ export default function Canvas() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // debounced restore-on-reload persistence — best effort, sessionStorage
+  // can throw (private browsing, quota) and that must never break the canvas
+  useEffect(() => {
+    if (!storageKey) return
+    const id = setTimeout(() => {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(items))
+      } catch {
+        // ignore — persistence is a convenience, not a requirement
+      }
+    }, 250)
+    return () => clearTimeout(id)
+  }, [items, storageKey])
 
   const addItem = useCallback((asset: Asset) => {
     const id = generateId()
@@ -105,9 +138,9 @@ export default function Canvas() {
   }, [])
   const handleAssetSelect = useCallback((asset: Asset) => addItem(asset), [addItem])
 
-  const exportImage = async () => {
+  const exportImage = useCallback(async (): Promise<Blob | null> => {
     const stage = stageRef.current
-    if (!stage) return
+    if (!stage) return null
 
     const selectedNode = selectedId ? stage.findOne<Konva.Image>(`#${selectedId}`) : null
 
@@ -123,23 +156,20 @@ export default function Canvas() {
       })
       if (!blob) throw new Error('failed to encode export')
 
-      console.log('exported size:', Math.round(blob.size / 1024), 'KB')
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.download = 'creation.webp'
-      link.href = url
-      link.click()
-      URL.revokeObjectURL(url)
+      onSubmit(blob)
+      return blob
     } catch (err) {
       console.error('export failed', err)
+      return null
     } finally {
       if (selectedNode) {
         selectedNode.strokeWidth(3)
         stage.batchDraw()
       }
     }
-  }
+  }, [selectedId, onSubmit])
+
+  useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
   const selectedIndex = items.findIndex((i) => i.id === selectedId)
   const isSelected = selectedIndex !== -1
@@ -193,4 +223,6 @@ export default function Canvas() {
       <AssetSheet open={sheetOpen} onClose={closeSheet} onSelect={handleAssetSelect} />
     </div>
   )
-}
+})
+
+export default Canvas
