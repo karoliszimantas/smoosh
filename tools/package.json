@@ -6,7 +6,7 @@
   "scripts": {
     "cut": "tsx cut.ts",
     "fetch": "tsx fetch.ts",
-    "publish": "tsx publish.ts",
+    "publish": "tsx --env-file=.env publish.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
