@@ -8,11 +8,6 @@ import type { LayerItem } from './layerItem'
 // source can hand back full-resolution photos
 const MAX_SOURCE_PX = 1024
 
-const MIN_SCALE = 0.15
-const MAX_SCALE = 5
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-
 function downscale(image: HTMLImageElement): { promise: Promise<HTMLImageElement>; cancel: () => void } {
   const scale = Math.min(1, MAX_SOURCE_PX / Math.max(image.width, image.height))
   if (scale >= 1) return { promise: Promise.resolve(image), cancel: () => {} }
@@ -95,20 +90,18 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 const DraggableImage = memo(function DraggableImage({
   item,
   isSelected,
-  onSelect,
+  isGestureOwner,
   onChange,
 }: {
   item: LayerItem
   isSelected: boolean
-  onSelect: (id: string) => void
+  isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
 }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [dims, setDims] = useState({ w: 120, h: 120 })
   const ref = useRef<Konva.Image>(null)
-  const lastDist = useRef(0)
-  const lastAngle = useRef(0)
-  const pinching = useRef(false)
+  const blockedDrag = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -134,77 +127,23 @@ const DraggableImage = memo(function DraggableImage({
     }
   }, [item.src])
 
-  const getDistance = (p1: Touch, p2: Touch) =>
-    Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY)
-
-  const getAngle = (p1: Touch, p2: Touch) =>
-    (Math.atan2(p2.clientY - p1.clientY, p2.clientX - p1.clientX) * 180) / Math.PI
-
-  const commitTransform = () => {
-    const node = ref.current
-    if (!node) return
-    onChange(item.id, { scale: node.scaleX(), rotation: node.rotation() })
-  }
-
-  const handleTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
-    const touches = e.evt.touches
-    if (touches.length !== 2) return
-
-    const touch0 = touches[0]
-    const touch1 = touches[1]
-    if (!touch0 || !touch1) return
-
-    e.evt.preventDefault()
-    const node = ref.current
-    if (!node) return
-
-    if (!pinching.current) {
-      pinching.current = true
-      node.stopDrag()
-    }
-
-    const dist = getDistance(touch0, touch1)
-    const angle = getAngle(touch0, touch1)
-
-    if (!lastDist.current) lastDist.current = dist
-    if (!lastAngle.current) lastAngle.current = angle
-
-    const scale = clamp(node.scaleX() * (dist / lastDist.current), MIN_SCALE, MAX_SCALE)
-    node.scaleX(scale)
-    node.scaleY(scale)
-    node.rotation(node.rotation() + (angle - lastAngle.current))
-
-    lastDist.current = dist
-    lastAngle.current = angle
-  }
-
-  const handleTouchEnd = (e: Konva.KonvaEventObject<TouchEvent>) => {
-    if (e.evt.touches.length >= 2) return
-    if (!pinching.current) return
-
-    pinching.current = false
-    lastDist.current = 0
-    lastAngle.current = 0
-    commitTransform()
-
-    // one finger is still down after the pinch — Konva's own drag was
-    // stopped mid-gesture, so restart it from here or the layer freezes
-    // until re-touched, then jumps
-    if (e.evt.touches.length === 1) {
-      ref.current?.startDrag()
-    }
+  // Konva will happily drag several nodes at once (one per finger) — only
+  // the image the gesture started on may move, everything else stays put
+  const handleDragStart = () => {
+    if (isGestureOwner(item.id)) return
+    blockedDrag.current = true
+    ref.current?.stopDrag()
   }
 
   const handleDragEnd = () => {
     const node = ref.current
     if (!node) return
+    if (blockedDrag.current) {
+      blockedDrag.current = false
+      node.position({ x: item.x, y: item.y })
+      return
+    }
     onChange(item.id, { x: node.x(), y: node.y() })
-  }
-
-  const handleSelect = () => {
-    // selecting must not reorder — the items array in Canvas is the single
-    // source of truth for z-order; Konva's own child order is never touched
-    onSelect(item.id)
   }
 
   if (!img) return null
@@ -226,10 +165,7 @@ const DraggableImage = memo(function DraggableImage({
       draggable
       stroke={isSelected ? '#4ade80' : undefined}
       strokeWidth={isSelected ? 3 : 0}
-      onTouchStart={handleSelect}
-      onMouseDown={handleSelect}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     />
   )

@@ -49,10 +49,16 @@ export function resolveSeat(room: Room, sessionId: string, requestedName: string
 export function promoteHostIfNeeded(room: Room, disconnectedSeat: Seat): void {
   if (!disconnectedSeat.isHost) return
   disconnectedSeat.isHost = false
+  ensureHost(room)
+}
 
+// a room whose host left while nobody else was connected ends up hostless —
+// nobody could start or change settings, so whoever (re)connects next takes it
+export function ensureHost(room: Room): void {
   let next: Seat | null = null
   for (const seat of room.seats.values()) {
-    if (!seat.connected || seat === disconnectedSeat) continue
+    if (seat.isHost) return
+    if (!seat.connected) continue
     if (!next || seat.joinedAt < next.joinedAt) next = seat
   }
   if (next) next.isHost = true

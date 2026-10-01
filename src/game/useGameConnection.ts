@@ -122,7 +122,11 @@ export function useGameConnection(): GameConnection {
       // TS can't verify [payload, ack] against Parameters<ClientToServerEvents[E]>
       // for a generic E, even though it holds for every concrete instantiation
       // callers actually use — this is the one place that widens the type.
-      const typelessEmit = socket.emit as (event: E, payload: EmitPayload<E>, ack: (result: AckArg<E>) => void) => void
+      const typelessEmit = socket.emit.bind(socket) as (
+        event: E,
+        payload: EmitPayload<E>,
+        ack: (result: AckArg<E>) => void,
+      ) => void
       typelessEmit(event, payload, (result) => resolve(result))
     })
   }, [])

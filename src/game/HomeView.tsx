@@ -4,9 +4,11 @@ import type { GameConnection, ConnectionStatus } from './useGameConnection'
 export default function HomeView({
   emit,
   connectionStatus,
+  onSandbox,
 }: {
   emit: GameConnection['emit']
   connectionStatus: ConnectionStatus
+  onSandbox: () => void
 }) {
   const [mode, setMode] = useState<'create' | 'join'>('create')
   const [name, setName] = useState('')
@@ -70,6 +72,12 @@ export default function HomeView({
 
       <button disabled={busy || connectionStatus !== 'connected'} onClick={() => void (mode === 'create' ? handleCreate() : handleJoin())}>
         {mode === 'create' ? 'Create' : 'Join'}
+      </button>
+
+      {/* a utility, not the main path — and never gated on the connection:
+          it has to work with the game server down */}
+      <button className="home-secondary" onClick={onSandbox}>
+        Just mess around
       </button>
     </div>
   )

@@ -10,6 +10,8 @@ export default function Toolbar({
   onFront,
   onBack,
   onDelete,
+  onReport,
+  doneLabel = 'Done',
 }: {
   addButtonRef: Ref<HTMLButtonElement>
   onAdd: () => void
@@ -20,6 +22,9 @@ export default function Toolbar({
   onFront: () => void
   onBack: () => void
   onDelete: () => void
+  // only for layers that came from Pixabay — curated assets aren't reportable
+  onReport?: () => void
+  doneLabel?: string
 }) {
   return (
     <div className="toolbar">
@@ -48,11 +53,16 @@ export default function Toolbar({
           <button className="toolbar-btn toolbar-btn-danger" onClick={onDelete}>
             <span aria-hidden="true">✕</span> Delete
           </button>
+          {onReport && (
+            <button className="toolbar-btn toolbar-btn-icon" onClick={onReport} aria-label="Report this image">
+              <span aria-hidden="true">⚑</span>
+            </button>
+          )}
         </>
       )}
 
       <button className="toolbar-btn" onClick={onDone}>
-        Done
+        {doneLabel}
       </button>
     </div>
   )

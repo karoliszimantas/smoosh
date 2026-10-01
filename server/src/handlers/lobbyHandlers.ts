@@ -6,7 +6,7 @@ import {
   MIN_PLAYERS_TO_START,
 } from '@smoosh/protocol'
 import { createAndRegisterRoom, getRoom, touchRoom } from '../rooms/Room.ts'
-import { resolveSeat } from '../rooms/seats.ts'
+import { resolveSeat, ensureHost } from '../rooms/seats.ts'
 import { startBuild, type PhaseMachineDeps } from '../game/phaseMachine.ts'
 import { deleteRoomSubmissions } from '../submissions/store.ts'
 import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
@@ -38,6 +38,7 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
       seat.connected = true
       seat.socketId = socket.id
       socket.data.roomCode = room.code
+      ensureHost(room)
       touchRoom(room)
       cb(ok(undefined))
       deps.onSnapshot(room)

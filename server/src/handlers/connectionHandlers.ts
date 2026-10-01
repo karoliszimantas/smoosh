@@ -17,6 +17,10 @@ export function registerConnectionHandlers(_io: TypedServer, socket: TypedSocket
 
     seat.connected = false
     seat.socketId = null
+    // before the game starts there's nothing to hold a seat for — dropping it
+    // frees the slot (MAX_PLAYERS counts seats) and clears the "(disconnected)"
+    // ghost; a reload just rejoins as a fresh seat
+    if (room.phase.phase === 'lobby') room.seats.delete(socket.data.sessionId)
     promoteHostIfNeeded(room, seat)
     touchRoom(room)
 

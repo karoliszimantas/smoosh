@@ -10,4 +10,15 @@ export type LayerItem = {
   y: number
   scale: number
   rotation: number
+  // set for anything that came from Pixabay, so the layer can be reported
+  pixabayId?: number
+}
+
+// what the asset sheet hands the canvas to place — a curated asset, a shared
+// cut, a fresh on-device cut (blob: URL), or a full Pixabay rectangle
+export type Placement = {
+  full: string
+  thumb: string
+  label: string
+  pixabayId: number | null
 }

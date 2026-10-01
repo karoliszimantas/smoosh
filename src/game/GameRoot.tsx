@@ -9,11 +9,11 @@ import GuessView from './phases/GuessView'
 import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
 
-export default function GameRoot() {
+export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const { snapshot, connectionStatus, emit } = useGameConnection()
 
   if (!snapshot) {
-    return <HomeView emit={emit} connectionStatus={connectionStatus} />
+    return <HomeView emit={emit} connectionStatus={connectionStatus} onSandbox={onSandbox} />
   }
 
   return (

@@ -171,6 +171,10 @@ button {
   white-space: nowrap;
 }
 
+.toolbar-btn-icon {
+  flex: 0 0 44px;
+}
+
 .toolbar-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -209,7 +213,7 @@ button {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 55dvh;
+  height: 65dvh;
   display: flex;
   flex-direction: column;
   background: #262626;
@@ -294,33 +298,232 @@ button {
   color: #171717;
 }
 
+.asset-sheet-search {
+  flex-shrink: 0;
+  padding: 0 10px 8px;
+}
+
+.asset-sheet-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #404040;
+  border-radius: 10px;
+  background: #1f1f1f;
+  color: #f5f5f5;
+  font-size: 16px; /* under 16px, iOS zooms the page on focus */
+}
+
+.asset-sheet-search input:focus {
+  outline: 2px solid #4ade80;
+  outline-offset: -1px;
+}
+
 .asset-sheet-grid {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  /* cards clip (overflow: hidden), which lets auto rows squash them to
+     nothing once the grid is taller than the sheet — rows take the card's
+     own height instead, and the grid scrolls */
+  grid-auto-rows: max-content;
   gap: 10px;
   padding: 0 10px 10px;
   align-content: start;
 }
 
-.asset-sheet-item {
-  aspect-ratio: 1;
+.asset-sheet-message {
+  grid-column: 1 / -1;
+  margin: 16px 0;
+  text-align: center;
+  color: #a3a3a3;
+  font-size: 13px;
+}
+
+.asset-sheet-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+}
+
+.asset-sheet-more {
   min-height: 44px;
-  min-width: 44px;
+  padding: 0 24px;
   border: none;
   border-radius: 10px;
   background: #404040;
-  padding: 4px;
+  color: #f5f5f5;
+  font-weight: 600;
+}
+
+.result-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #404040;
   overflow: hidden;
 }
 
-.asset-sheet-item img {
-  width: 100%;
-  height: 100%;
+.result-card.skeleton {
+  aspect-ratio: 3 / 4;
+}
+
+.result-thumb {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+/* absolutely placed so a tall image can't stretch the square (an
+   aspect-ratio box otherwise grows to fit its content) */
+.result-thumb img {
+  position: absolute;
+  inset: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
   object-fit: contain;
   display: block;
+}
+
+/* already cut = instant. The outline follows the subject's own edge (it's a
+   drop-shadow of the alpha channel, not a box), in the canvas selection
+   colour from DraggableImage */
+.result-card.is-cut .result-thumb img {
+  filter: drop-shadow(1.5px 0 0 #4ade80) drop-shadow(-1.5px 0 0 #4ade80) drop-shadow(0 1.5px 0 #4ade80)
+    drop-shadow(0 -1.5px 0 #4ade80);
+}
+
+.result-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(23, 23, 23, 0.78);
+  color: #f5f5f5;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.result-status.error {
+  color: #fca5a5;
+}
+
+.result-progress {
+  width: 80%;
+  height: 4px;
+  border-radius: 2px;
+  background: #555;
+  overflow: hidden;
+}
+
+.result-progress > span {
+  display: block;
+  height: 100%;
+  background: #4ade80;
+  transition: width 150ms linear;
+}
+
+.result-report {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 0 0 0 10px;
+  background: rgba(23, 23, 23, 0.55);
+  color: #d4d4d4;
+  font-size: 14px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 4px 4px;
+}
+
+.result-action {
+  flex: 1;
+  min-height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: #525252;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.result-action.primary {
+  background: #4ade80;
+  color: #171717;
+}
+
+.result-action:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- report dialog ---------- */
+
+.report-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 30;
+}
+
+.report-dialog {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #262626;
+  color: #f5f5f5;
+}
+
+.report-dialog h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.report-dialog p {
+  margin: 0 0 4px;
+  color: #a3a3a3;
+  font-size: 13px;
+}
+
+.report-dialog button {
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #404040;
+  color: #f5f5f5;
+  font-size: 14px;
+  text-align: left;
+  padding: 0 14px;
+}
+
+.report-dialog .report-cancel {
+  background: transparent;
+  text-align: center;
+  color: #a3a3a3;
+}
+
+.report-dialog .report-error {
+  color: #fca5a5;
 }
 
 /* ---------- shared ---------- */
@@ -502,6 +705,14 @@ button {
   opacity: 0.5;
 }
 
+.home-view > button.home-secondary {
+  margin-top: 16px;
+  background: transparent;
+  color: #a3a3a3;
+  border: 1px solid #404040;
+  font-weight: 500;
+}
+
 .home-view input {
   min-height: 44px;
   width: min(280px, 80vw);
@@ -589,6 +800,17 @@ button {
 .build-view {
   position: relative;
   height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* the timer sits above the canvas, so the canvas takes what's left of the
+   viewport instead of a full 100dvh — otherwise the toolbar gets pushed
+   off-screen */
+.build-view .app {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .build-waiting-overlay {
@@ -604,6 +826,49 @@ button {
   font-weight: 600;
   background: rgba(23, 23, 23, 0.85);
   pointer-events: none;
+}
+
+/* ---------- sandbox ---------- */
+
+.sandbox-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* same reason as .build-view .app — the bar above takes its share */
+.sandbox-view .app {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.sandbox-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  background: #1f1f1f;
+  border-bottom: 1px solid #333;
+}
+
+.sandbox-bar button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: #404040;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sandbox-bar button:last-child {
+  margin-left: auto;
+  background: transparent;
+  color: #fca5a5;
 }
 
 /* ---------- lie / guess views ---------- */

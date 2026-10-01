@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { getRoom, touchRoom } from './rooms/Room.ts'
 import { putSubmission, getSubmission } from './submissions/store.ts'
 import { dropPendingActor, type PhaseMachineDeps } from './game/phaseMachine.ts'
+import { handleMediaRequest } from './media/routes.ts'
 
 const MAX_UPLOAD_BYTES = 1_000_000
 
@@ -45,6 +46,8 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
       res.end()
       return
     }
+
+    if (handleMediaRequest(req, res, url)) return
 
     const target = parseUploadPath(url.pathname)
     if (!target) {

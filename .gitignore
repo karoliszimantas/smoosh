@@ -34,3 +34,9 @@ public/assets/*
 *.njsproj
 *.sln
 *.sw?
+
+# Server runtime state: moderation files (blocklist.json, reports.jsonl) and
+# dev-mode local cuts. Lives with the deployed server, edited by
+# tools/moderate.ts — never shipped from the repo.
+server/data/
+server/.env
