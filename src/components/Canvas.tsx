@@ -213,29 +213,29 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setSelectedId(null)
   }, [selectedId])
 
-  // z-order lives only in the items array's index (0 = back). These are the
-  // only two ways it ever changes, besides drag-to-reorder in LayerStrip.
-  const moveSelectedToFront = useCallback(() => {
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.id === selectedId)
-      if (idx === -1 || idx === prev.length - 1) return prev
-      const next = prev.slice()
-      const [item] = next.splice(idx, 1)
-      if (item) next.push(item)
-      return next
-    })
-  }, [selectedId])
-
-  const moveSelectedToBack = useCallback(() => {
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.id === selectedId)
-      if (idx <= 0) return prev
-      const next = prev.slice()
-      const [item] = next.splice(idx, 1)
-      if (item) next.unshift(item)
-      return next
-    })
-  }, [selectedId])
+  // z-order lives only in the items array's index (0 = back). The toolbar
+  // moves the selected layer one step at a time — swapping it with its
+  // neighbour — so it can land between two others; dragging a thumbnail in
+  // LayerStrip is the way to jump it straight to an exact position.
+  const moveSelected = useCallback(
+    (step: 1 | -1) => {
+      setItems((prev) => {
+        const idx = prev.findIndex((i) => i.id === selectedId)
+        const target = idx + step
+        if (idx === -1 || target < 0 || target >= prev.length) return prev
+        const next = prev.slice()
+        const item = next[idx]
+        const neighbour = next[target]
+        if (!item || !neighbour) return prev
+        next[idx] = neighbour
+        next[target] = item
+        return next
+      })
+    },
+    [selectedId],
+  )
+  const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
+  const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
 
   const reorderLayers = useCallback((next: LayerItem[]) => setItems(next), [])
 
@@ -324,8 +324,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         isSelected={isSelected}
         canMoveFront={canMoveFront}
         canMoveBack={canMoveBack}
-        onFront={moveSelectedToFront}
-        onBack={moveSelectedToBack}
+        onFront={moveSelectedForward}
+        onBack={moveSelectedBackward}
         onDelete={deleteSelected}
         onReport={selectedPixabayId !== undefined ? () => setReportTarget(selectedPixabayId) : undefined}
       />

@@ -89,6 +89,7 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
     const w = getWorker()
     const downloads = new Map<string, { loaded: number; total: number }>()
     let timer: number | undefined
+    let cutStartedAt = 0
 
     const arm = (ms: number, onFire: () => void) => {
       window.clearTimeout(timer)
@@ -127,6 +128,7 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
           return
         }
         case 'cutting':
+          cutStartedAt = performance.now()
           onProgress({ stage: 'cutting' })
           arm(CUT_TIMEOUT_MS, () => {
             // terminating is the only way to stop inference mid-run; the
@@ -141,6 +143,7 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
           })
           return
         case 'done':
+          console.info(`[cut] inference took ${Math.round(performance.now() - cutStartedAt)}ms`)
           finish()
           resolve({ place: msg.place, upload: msg.upload })
           return

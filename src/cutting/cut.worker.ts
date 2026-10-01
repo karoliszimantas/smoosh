@@ -79,8 +79,10 @@ async function cut(url: string): Promise<{ place: Blob; upload: Blob | null }> {
   const lib = await imgly
   await lib.preload(config)
 
-  post({ type: 'cutting', job: currentJob })
   const input = await fetchDownscaled(url)
+  // the cut timeout starts here — a slow image download is the network's
+  // problem, not a sign this device is too slow to cut
+  post({ type: 'cutting', job: currentJob })
   const output = await lib.removeBackground(input, config)
 
   const bitmap = await createImageBitmap(output)

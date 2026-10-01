@@ -249,12 +249,20 @@ export type CachedImage = { bytes: Buffer; contentType: string }
 const imageCache = new ByteLru<CachedImage>(IMAGE_CACHE_BYTES)
 const inFlightImages = new Map<string, Promise<CachedImage>>()
 
-// Pixabay documents swapping the "_640" suffix of a webformatURL for "_340"
-// (or _180/_960) to get other sizes. previewURL (150px) is too soft for a
-// result card on a 3x phone screen; 340px is the smallest that isn't.
-function sourceUrlFor(hit: KnownHit, size: ImageSize): string {
-  if (size === 'full') return hit.webformatURL
-  return /_640\.(jpe?g|png)$/i.test(hit.webformatURL) ? hit.webformatURL.replace(/_640\./, '_340.') : hit.previewURL
+// Both sizes come from cdn.pixabay.com, derived from previewURL ("_150" →
+// "_640" for full). The documented webformatURL lives on pixabay.com/get/,
+// which throttles this server's IP hard: from the VM it answered 429 to two
+// of three *first* requests for fresh search results, while the CDN served
+// the same photos every time — byte-identical files. webformatURL stays as
+// the fallback for full images in case the CDN path ever stops working.
+function cdnUrl(hit: KnownHit, size: ImageSize): string | null {
+  if (size === 'thumb') return hit.previewURL
+  return /_150\.(jpe?g|png)$/i.test(hit.previewURL) ? hit.previewURL.replace(/_150\.(\w+)$/, '_640.$1') : null
+}
+
+function sourceUrlsFor(hit: KnownHit, size: ImageSize): string[] {
+  const urls = [cdnUrl(hit, size), size === 'full' ? hit.webformatURL : null]
+  return urls.filter((u): u is string => u !== null)
 }
 
 async function readBounded(res: Response): Promise<Buffer> {
@@ -277,13 +285,33 @@ async function readBounded(res: Response): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
+const RETRY_AFTER_429_MS = 1500
+
 async function downloadImage(url: string): Promise<CachedImage> {
   if (!isPixabayHost(url)) throw new Error(`refusing to fetch non-Pixabay URL: ${url}`)
-  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  let res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  // one retry: a 429 here is usually a short burst, and the player is
+  // waiting on this image to place or cut it
+  if (res.status === 429) {
+    await new Promise((resolve) => setTimeout(resolve, RETRY_AFTER_429_MS))
+    res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  }
   if (!res.ok) throw new Error(`image fetch failed: HTTP ${res.status}`)
   const contentType = res.headers.get('content-type') ?? ''
   if (!/^image\/(jpeg|png|webp)$/.test(contentType)) throw new Error(`unexpected content-type "${contentType}"`)
   return { bytes: await readBounded(res), contentType }
+}
+
+async function downloadFirst(urls: string[]): Promise<CachedImage> {
+  let lastError: unknown = new Error('no source URL for this image')
+  for (const url of urls) {
+    try {
+      return await downloadImage(url)
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError
 }
 
 export async function getImage(hit: KnownHit, size: ImageSize): Promise<CachedImage> {
@@ -293,7 +321,7 @@ export async function getImage(hit: KnownHit, size: ImageSize): Promise<CachedIm
 
   let pending = inFlightImages.get(key)
   if (!pending) {
-    pending = downloadImage(sourceUrlFor(hit, size))
+    pending = downloadFirst(sourceUrlsFor(hit, size))
     inFlightImages.set(key, pending)
     pending.then(
       (img) => imageCache.set(key, img),

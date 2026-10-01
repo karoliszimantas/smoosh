@@ -1,0 +1,10 @@
+# Cross-origin isolation, so the on-device cutter (onnxruntime-web) can use
+# WebAssembly threads: ~3.4s per cut instead of ~9s single-threaded, which is
+# the difference between fitting the 15s cut timeout on a phone or not.
+# "credentialless" (not "require-corp") keeps cross-origin images from R2 and
+# the game server loading without them having to send CORP headers.
+# Browsers without credentialless support (Safari) ignore it and cut
+# single-threaded, as before. Mirrored in vite.config.ts for dev/preview.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless

@@ -38,17 +38,17 @@ export default function Toolbar({
             className="toolbar-btn"
             onClick={onFront}
             disabled={!canMoveFront}
-            aria-label="Move layer to front"
+            aria-label="Move layer forward one step"
           >
-            <span aria-hidden="true">▲</span> Front
+            <span aria-hidden="true">▲</span> Up
           </button>
           <button
             className="toolbar-btn"
             onClick={onBack}
             disabled={!canMoveBack}
-            aria-label="Move layer to back"
+            aria-label="Move layer backward one step"
           >
-            <span aria-hidden="true">▼</span> Back
+            <span aria-hidden="true">▼</span> Down
           </button>
           <button className="toolbar-btn toolbar-btn-danger" onClick={onDelete}>
             <span aria-hidden="true">✕</span> Delete
