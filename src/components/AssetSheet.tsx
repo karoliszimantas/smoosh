@@ -321,6 +321,16 @@ export default function AssetSheet({
         )}
 
         <div className="asset-sheet-grid">
+          {/* Pixabay's one condition for free API use: wherever its search
+              results are shown, say where they come from */}
+          {termState && termState.hits.length > 0 && (
+            <p className="asset-sheet-credit">
+              Images from{' '}
+              <a href="https://pixabay.com/" target="_blank" rel="noopener noreferrer">
+                Pixabay
+              </a>
+            </p>
+          )}
           {activeTerm === null ? (
             <p className="asset-sheet-message">
               {tabIndex === null ? 'Keep typing…' : 'Search for anything to add to your picture.'}

@@ -334,6 +334,21 @@ button {
   align-content: start;
 }
 
+.asset-sheet-credit {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  text-align: right;
+  color: #a3a3a3;
+  font-size: 11px;
+}
+
+.asset-sheet-credit a {
+  color: #d4d4d4;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .asset-sheet-message {
   grid-column: 1 / -1;
   margin: 16px 0;
