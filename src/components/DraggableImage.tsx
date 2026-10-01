@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, memo } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
-import type { LayerItem } from './layerItem'
+import { CANVAS_SIZE, type LayerItem } from './layerItem'
 
 // pipeline assets cap at 800px on their longest side (see tools/cut.ts), so
 // this never fires for local assets today — kept for when a remote/search
@@ -112,7 +112,8 @@ const DraggableImage = memo(function DraggableImage({
     loadImage(item.src)
       .then((small) => {
         if (cancelled) return
-        const maxSide = Math.min(window.innerWidth, window.innerHeight) * 0.3
+        // new layers start at 30% of the frame, in canvas units
+        const maxSide = CANVAS_SIZE * 0.3
         const ratio = small.width / small.height
         setDims({
           w: ratio > 1 ? maxSide : maxSide * ratio,
@@ -165,6 +166,8 @@ const DraggableImage = memo(function DraggableImage({
       draggable
       stroke={isSelected ? '#4ade80' : undefined}
       strokeWidth={isSelected ? 3 : 0}
+      // the stage is scaled to fit the frame — keep the outline 3 screen px
+      strokeScaleEnabled={false}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     />

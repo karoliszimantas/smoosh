@@ -1,9 +1,9 @@
-import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
-import { Stage, Layer } from 'react-konva'
+import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Stage, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
 import type { ImageVariant } from '../assets'
 import { generateId } from '../id'
-import type { LayerItem, Placement } from './layerItem'
+import { CANVAS_SIZE, type LayerItem, type Placement } from './layerItem'
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
 import PromptBar from './PromptBar'
 import Toolbar from './Toolbar'
@@ -18,6 +18,16 @@ Konva.hitOnDragEnabled = true
 const loadAssetSheet = () => import('./AssetSheet')
 const AssetSheet = lazy(loadAssetSheet)
 const ReportDialog = lazy(() => import('./ReportDialog'))
+
+// the square frame: only what's inside it is exported and submitted. It's
+// fitted into the stage with this much room around it, so layers can still
+// be parked just outside it.
+const FRAME_PADDING = 12
+// the exported picture is always this many pixels square
+const EXPORT_SIZE = 1024
+const FRAME_FILL = '#262626' // matches .picture-display, where submissions are shown
+// far enough past the frame to cover any visible part of the stage
+const OUTSIDE = 20000
 
 const MIN_SCALE = 0.15
 const MAX_SCALE = 5
@@ -73,7 +83,20 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const [reportTarget, setReportTarget] = useState<number | null>(null)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
 
+  // where the square frame sits on screen, and the stage scale that maps
+  // CANVAS_SIZE canvas units onto it — centered, as large as fits
+  const frame = useMemo(() => {
+    const size = Math.max(1, Math.min(stageSize.w, stageSize.h) - FRAME_PADDING * 2)
+    return {
+      size,
+      x: (stageSize.w - size) / 2,
+      y: (stageSize.h - size) / 2,
+      scale: size / CANVAS_SIZE,
+    }
+  }, [stageSize])
+
   const stageRef = useRef<Konva.Stage>(null)
+  const frameDecorRef = useRef<Konva.Layer>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLButtonElement>(null)
   // the image the current gesture started on (first finger / mouse press).
@@ -115,7 +138,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const addItem = useCallback((placement: Placement) => {
     const id = generateId()
-    const jitter = () => (Math.random() - 0.5) * 80 // ±40px so stacked copies are distinguishable
+    const jitter = () => (Math.random() - 0.5) * 100 // ±50 units so stacked copies are distinguishable
     setItems((prev) => [
       ...prev,
       {
@@ -123,15 +146,15 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         src: placement.full,
         thumb: placement.thumb,
         label: placement.label,
-        x: stageSize.w / 2 + jitter(),
-        y: stageSize.h / 2 + jitter(),
+        x: CANVAS_SIZE / 2 + jitter(),
+        y: CANVAS_SIZE / 2 + jitter(),
         scale: 1,
         rotation: 0,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
       },
     ])
     setSelectedId(id)
-  }, [stageSize])
+  }, [])
 
   // A cut made on this device is placed straight away from a blob: URL; once
   // its upload lands, point the layer at the shared copy instead, so the
@@ -251,14 +274,24 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (!stage) return null
 
     const selectedNode = selectedId ? stage.findOne<Konva.Image>(`#${selectedId}`) : null
+    const frameDecor = frameDecorRef.current
 
     try {
-      // hide the selection outline for the capture without touching React
-      // state — avoids the setState+sleep race that could bake the stroke in
+      // hide the selection outline and the frame's border/dimming for the
+      // capture without touching React state — avoids the setState+sleep
+      // race that could bake them in
       selectedNode?.strokeWidth(0)
+      frameDecor?.visible(false)
       stage.batchDraw()
 
-      const canvas = stage.toCanvas({ pixelRatio: 2 })
+      // only the frame is the picture; anything parked outside it is cut off
+      const canvas = stage.toCanvas({
+        x: frame.x,
+        y: frame.y,
+        width: frame.size,
+        height: frame.size,
+        pixelRatio: EXPORT_SIZE / frame.size,
+      })
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, 'image/webp', 0.8)
       })
@@ -271,12 +304,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       console.error('export failed', err)
       return null
     } finally {
-      if (selectedNode) {
-        selectedNode.strokeWidth(3)
-        stage.batchDraw()
-      }
+      selectedNode?.strokeWidth(3)
+      frameDecor?.visible(true)
+      stage.batchDraw()
     }
-  }, [selectedId, onSubmit])
+  }, [selectedId, onSubmit, frame])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
@@ -295,11 +327,18 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           ref={stageRef}
           width={stageSize.w}
           height={stageSize.h}
+          x={frame.x}
+          y={frame.y}
+          scaleX={frame.scale}
+          scaleY={frame.scale}
           onMouseDown={handlePointerDown}
           onTouchStart={handlePointerDown}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
+          <Layer listening={false}>
+            <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={FRAME_FILL} />
+          </Layer>
           <Layer>
             {items.map((item) => (
               <DraggableImage
@@ -310,6 +349,23 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
                 onChange={updateItem}
               />
             ))}
+          </Layer>
+          {/* above the images: dims whatever hangs outside the frame, so it
+              reads as "not in the picture"; never takes a tap */}
+          <Layer listening={false} ref={frameDecorRef}>
+            <Rect x={-OUTSIDE} y={-OUTSIDE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill="rgba(10, 10, 10, 0.62)" />
+            <Rect x={-OUTSIDE} y={CANVAS_SIZE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill="rgba(10, 10, 10, 0.62)" />
+            <Rect x={-OUTSIDE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill="rgba(10, 10, 10, 0.62)" />
+            <Rect x={CANVAS_SIZE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill="rgba(10, 10, 10, 0.62)" />
+            <Rect
+              x={0}
+              y={0}
+              width={CANVAS_SIZE}
+              height={CANVAS_SIZE}
+              stroke="rgba(255, 255, 255, 0.35)"
+              strokeWidth={1.5}
+              strokeScaleEnabled={false}
+            />
           </Layer>
         </Stage>
       </div>
