@@ -11,12 +11,16 @@ body,
 #root {
   height: 100dvh;
   overflow: hidden;
-  background: #171717;
-  color: #f5f5f5;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+/* form controls don't inherit the page font by default */
+button,
+input,
+select {
+  font-family: inherit;
 }
 
 body {
@@ -28,6 +32,40 @@ button {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* a theme with button jitter sets every button a fraction off true. The
+     tilt varies along a row (nth-child), so neighbours don't all lean the
+     same way; with --jitter: 0deg it's a no-op */
+  transform: rotate(calc(var(--jitter) * var(--tilt, 0)));
+}
+
+button:nth-child(4n + 1) {
+  --tilt: -0.8;
+}
+
+button:nth-child(4n + 2) {
+  --tilt: 0.55;
+}
+
+button:nth-child(4n + 3) {
+  --tilt: -0.3;
+}
+
+button:nth-child(4n) {
+  --tilt: 1;
+}
+
+/* the theme's display face: the prompt, titles. Set in caps with tracking
+   in themes that want the delivery deadpan */
+.prompt-bar-text,
+h1,
+h2,
+.scores-winner,
+.rate-average,
+.lobby-mode-readonly {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  letter-spacing: var(--display-tracking);
+  font-weight: 400;
 }
 
 .app {
@@ -46,17 +84,24 @@ button {
   align-items: center;
   justify-content: center;
   padding: 0 16px;
-  background: #1f1f1f;
-  border-bottom: 1px solid #333;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  color: var(--chrome-text);
 }
 
 .prompt-bar-text {
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: center;
   max-width: 100%;
+  /* up to two lines inside the bar's fixed height: a heavy, tracked-out
+     display face (Scrapbook, Noir) doesn't fit a whole prompt on one line,
+     and a cut-off prompt is unreadable */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 /* ---------- canvas ---------- */
@@ -83,15 +128,16 @@ button {
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  background: #262626;
-  border-top: 1px solid #404040;
+  background: var(--chrome-bg);
+  border-top: 1px solid var(--chrome-border);
+  color: var(--chrome-text);
 }
 
 .layer-strip-label {
   flex-shrink: 0;
   font-size: 10px;
   font-weight: 600;
-  color: #888;
+  color: var(--chrome-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -112,8 +158,8 @@ button {
   width: 56px;
   height: 56px;
   border: 2px solid transparent;
-  border-radius: 12px;
-  background: #404040;
+  border-radius: var(--radius);
+  background: var(--surface);
   padding: 2px;
   overflow: hidden;
   transition:
@@ -122,7 +168,7 @@ button {
 }
 
 .layer-chip.selected {
-  border-color: #4ade80;
+  border-color: var(--selection);
 }
 
 .layer-chip img {
@@ -147,10 +193,11 @@ button {
   gap: 3px;
   padding: 6px 6px;
   padding-bottom: calc(6px + env(safe-area-inset-bottom));
-  background: #1f1f1f;
-  border-top: 1px solid #333;
+  background: var(--chrome-bg);
+  border-top: 1px solid var(--chrome-border);
   overflow-x: auto;
   scrollbar-width: none;
+  color: var(--chrome-text);
 }
 
 .toolbar::-webkit-scrollbar {
@@ -168,9 +215,9 @@ button {
   gap: 3px;
   padding: 4px 3px;
   border: none;
-  border-radius: 10px;
-  background: #333;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -186,30 +233,31 @@ button {
   flex: 0 0 44px;
   min-width: 44px;
   background: transparent;
+  color: var(--chrome-text);
 }
 
 /* clearly "off", not just inert: no fill, a faint outline, greyed out */
 .toolbar-btn:disabled {
   background: transparent;
-  box-shadow: inset 0 0 0 1px #3a3a3a;
-  color: #5a5a5a;
+  box-shadow: inset 0 0 0 1px var(--chrome-border);
+  color: var(--chrome-text-muted);
   cursor: not-allowed;
 }
 
 /* a mirror/flip that's switched on */
 .toolbar-btn-on {
-  background: #14532d;
-  color: #4ade80;
+  background: color-mix(in srgb, var(--selection) 22%, var(--surface));
+  color: var(--text);
 }
 
 .toolbar-btn-primary {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .toolbar-btn-danger {
-  background: #7f1d1d;
-  color: #fecaca;
+  background: var(--danger);
+  color: var(--danger-text);
 }
 
 /* ---------- long-press depth readout ---------- */
@@ -223,10 +271,11 @@ button {
   align-items: center;
   gap: 2px;
   padding: 6px 14px;
-  border-radius: 12px;
-  background: rgba(23, 23, 23, 0.92);
-  border: 1px solid #4ade80;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--chrome-bg) 92%, transparent);
+  border: 2px solid var(--selection);
   pointer-events: none;
+  color: var(--chrome-text);
   z-index: 2;
 }
 
@@ -243,7 +292,7 @@ button {
 .depth-badge-hint {
   font-size: 10px;
   font-weight: 600;
-  color: #888;
+  color: var(--chrome-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -253,7 +302,7 @@ button {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms ease-out;
@@ -273,12 +322,13 @@ button {
   height: 65dvh;
   display: flex;
   flex-direction: column;
-  background: #262626;
-  border-radius: 16px 16px 0 0;
+  background: var(--chrome-bg);
+  border-radius: var(--radius) var(--radius) 0 0;
   transform: translateY(100%);
   transition: transform 200ms ease-out;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 21;
+  color: var(--chrome-text);
 }
 
 .asset-sheet.open {
@@ -300,8 +350,8 @@ button {
   flex-shrink: 0;
   width: 40px;
   height: 4px;
-  border-radius: 2px;
-  background: #555;
+  border-radius: var(--radius);
+  background: var(--chrome-border);
   margin: 10px auto;
 }
 
@@ -314,7 +364,7 @@ button {
   gap: 8px;
   padding: 12px;
   text-align: center;
-  color: #d4d4d4;
+  color: var(--chrome-text);
   font-size: 13px;
 }
 
@@ -323,9 +373,9 @@ button {
   min-width: 44px;
   padding: 0 16px;
   border: none;
-  border-radius: 8px;
-  background: #4ade80;
-  color: #171717;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -343,16 +393,16 @@ button {
   min-width: 44px;
   padding: 0 16px;
   border: none;
-  border-radius: 8px;
-  background: #404040;
-  color: #d4d4d4;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 13px;
   white-space: nowrap;
 }
 
 .asset-sheet-tab.active {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .asset-sheet-search {
@@ -364,15 +414,15 @@ button {
   width: 100%;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid #404040;
-  border-radius: 10px;
-  background: #1f1f1f;
-  color: #f5f5f5;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 16px; /* under 16px, iOS zooms the page on focus */
 }
 
 .asset-sheet-search input:focus {
-  outline: 2px solid #4ade80;
+  outline: 2px solid var(--selection);
   outline-offset: -1px;
 }
 
@@ -395,12 +445,12 @@ button {
   grid-column: 1 / -1;
   margin: -2px 0 0;
   text-align: right;
-  color: #a3a3a3;
+  color: var(--chrome-text-muted);
   font-size: 11px;
 }
 
 .asset-sheet-credit a {
-  color: #d4d4d4;
+  color: var(--chrome-text);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -410,7 +460,7 @@ button {
   grid-column: 1 / -1;
   margin: 16px 0;
   text-align: center;
-  color: #a3a3a3;
+  color: var(--chrome-text-muted);
   font-size: 13px;
 }
 
@@ -424,9 +474,9 @@ button {
   min-height: 44px;
   padding: 0 24px;
   border: none;
-  border-radius: 10px;
-  background: #404040;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -434,8 +484,8 @@ button {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
-  background: #404040;
+  border-radius: var(--radius);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -463,8 +513,8 @@ button {
    drop-shadow of the alpha channel, not a box), in the canvas selection
    colour from DraggableImage */
 .result-card.is-cut .result-thumb img {
-  filter: drop-shadow(1.5px 0 0 #4ade80) drop-shadow(-1.5px 0 0 #4ade80) drop-shadow(0 1.5px 0 #4ade80)
-    drop-shadow(0 -1.5px 0 #4ade80);
+  filter: drop-shadow(1.5px 0 0 var(--selection)) drop-shadow(-1.5px 0 0 var(--selection))
+    drop-shadow(0 1.5px 0 var(--selection)) drop-shadow(0 -1.5px 0 var(--selection));
 }
 
 .result-status {
@@ -476,29 +526,29 @@ button {
   justify-content: center;
   gap: 6px;
   padding: 8px;
-  background: rgba(23, 23, 23, 0.78);
-  color: #f5f5f5;
+  background: color-mix(in srgb, var(--chrome-bg) 78%, transparent);
+  color: var(--chrome-text);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
 }
 
 .result-status.error {
-  color: #fca5a5;
+  color: var(--chrome-danger);
 }
 
 .result-progress {
   width: 80%;
   height: 4px;
-  border-radius: 2px;
-  background: #555;
+  border-radius: var(--radius);
+  background: var(--chrome-border);
   overflow: hidden;
 }
 
 .result-progress > span {
   display: block;
   height: 100%;
-  background: #4ade80;
+  background: var(--primary-bg);
   transition: width 150ms linear;
 }
 
@@ -509,9 +559,9 @@ button {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 0 0 0 10px;
-  background: rgba(23, 23, 23, 0.55);
-  color: #d4d4d4;
+  border-radius: 0 0 0 var(--radius);
+  background: color-mix(in srgb, var(--chrome-bg) 55%, transparent);
+  color: var(--chrome-text);
   font-size: 14px;
 }
 
@@ -525,16 +575,16 @@ button {
   flex: 1;
   min-height: 40px;
   border: none;
-  border-radius: 8px;
-  background: #525252;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--chrome-border);
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
 
 .result-action.primary {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .result-action:disabled {
@@ -550,7 +600,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   z-index: 30;
 }
 
@@ -561,9 +611,10 @@ button {
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  border-radius: 14px;
-  background: #262626;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--chrome-bg);
+  
+  color: var(--chrome-text);
 }
 
 .report-dialog h2 {
@@ -573,16 +624,16 @@ button {
 
 .report-dialog p {
   margin: 0 0 4px;
-  color: #a3a3a3;
+  color: var(--chrome-text-muted);
   font-size: 13px;
 }
 
 .report-dialog button {
   min-height: 44px;
   border: none;
-  border-radius: 10px;
-  background: #404040;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 14px;
   text-align: left;
   padding: 0 14px;
@@ -591,17 +642,22 @@ button {
 .report-dialog .report-cancel {
   background: transparent;
   text-align: center;
-  color: #a3a3a3;
+  color: var(--chrome-text-muted);
 }
 
 .report-dialog .report-error {
-  color: #fca5a5;
+  color: var(--chrome-danger);
 }
 
 /* ---------- shared ---------- */
 
 .skeleton {
-  background: linear-gradient(90deg, #333 25%, #3f3f3f 37%, #333 63%);
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    color-mix(in srgb, var(--surface) 88%, var(--text)) 37%,
+    var(--surface) 63%
+  );
   background-size: 400% 100%;
   animation: skeleton-pulse 1.4s ease infinite;
 }
@@ -622,8 +678,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: #171717;
-  color: #f5f5f5;
+  background: var(--page-bg);
+  color: var(--text);
   text-align: center;
   padding: 24px;
 }
@@ -633,9 +689,9 @@ button {
   min-width: 44px;
   padding: 0 20px;
   border: none;
-  border-radius: 8px;
-  background: #4ade80;
-  color: #171717;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
   font-weight: 600;
   font-size: 14px;
 }
@@ -652,8 +708,8 @@ button {
   text-align: center;
   font-size: 13px;
   font-weight: 600;
-  background: #f59e0b;
-  color: #171717;
+  background: var(--warning);
+  color: var(--primary-text);
 }
 
 .phase-status,
@@ -664,7 +720,7 @@ button {
 }
 
 .form-error {
-  color: #ef4444;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -673,27 +729,27 @@ button {
   margin: 10px auto;
   min-width: 56px;
   padding: 6px 14px;
-  border-radius: 999px;
-  background: #262626;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 15px;
   font-weight: 700;
   text-align: center;
 }
 
 .deadline-timer-amber {
-  background: #f59e0b;
-  color: #171717;
+  background: var(--warning);
+  color: var(--warning-text);
 }
 
 .deadline-timer-red {
-  background: #ef4444;
-  color: white;
+  background: var(--danger);
+  color: var(--danger-text);
 }
 
 .deadline-timer-pulse {
-  background: #ef4444;
-  color: white;
+  background: var(--danger);
+  color: var(--danger-text);
   animation: deadline-pulse 0.6s ease-in-out infinite;
 }
 
@@ -707,14 +763,26 @@ button {
   }
 }
 
+/* Submissions, wherever they're shown. The theme sets the band behind the
+   picture, an optional filter over it, and — letterboxed — a full-width
+   strip with bars above and below, like a projected slide. The bars are
+   padding, so the picture itself keeps its size. Only the band is
+   revealBg; text around it stays on the page colour, so it stays legible. */
 .picture-display {
   display: block;
+  box-sizing: content-box;
+  width: auto;
   max-width: min(90vw, 480px);
   max-height: 45dvh;
-  margin: 0 auto;
   object-fit: contain;
-  border-radius: 12px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--reveal-bg);
+  filter: var(--reveal-filter);
+  padding: var(--reveal-letterbox) calc((var(--reveal-width) - min(90vw, 480px)) / 2);
+  /* explicit centring: a full-width letterbox band is wider than its padded
+     parent, and auto margins can't centre an element that overflows */
+  margin: 0 calc(50% - var(--reveal-width) / 2);
+  flex-shrink: 0;
 }
 
 /* ---------- home view ---------- */
@@ -740,7 +808,7 @@ button {
 }
 
 .home-status {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -755,22 +823,22 @@ button {
   min-width: 44px;
   padding: 0 18px;
   border: none;
-  border-radius: 8px;
-  background: #404040;
-  color: #d4d4d4;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
 
 .home-tabs button.active {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .home-view > button:not(:disabled),
 .home-view > button {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .home-view > button:disabled {
@@ -780,8 +848,8 @@ button {
 .home-view > button.home-secondary {
   margin-top: 16px;
   background: transparent;
-  color: #a3a3a3;
-  border: 1px solid #404040;
+  color: var(--text-muted);
+  border: 1px solid var(--chrome-border);
   font-weight: 500;
 }
 
@@ -789,15 +857,15 @@ button {
   min-height: 44px;
   width: min(280px, 80vw);
   padding: 0 14px;
-  border: 1px solid #404040;
-  border-radius: 8px;
-  background: #262626;
-  color: #f5f5f5;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 15px;
 }
 
 .home-error {
-  color: #ef4444;
+  color: var(--danger);
   font-size: 13px;
   font-weight: 600;
 }
@@ -814,8 +882,8 @@ button {
 
 .player-list li {
   padding: 8px 14px;
-  border-radius: 8px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--surface);
   font-size: 14px;
 }
 
@@ -833,32 +901,32 @@ button {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .lobby-settings select {
   min-height: 44px;
   padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid #404040;
-  background: #262626;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  border: 1px solid var(--chrome-border);
+  background: var(--surface);
+  color: var(--text);
   font-size: 14px;
 }
 
 .lobby-settings-readonly,
 .lobby-estimate {
   font-size: 13px;
-  color: #d4d4d4;
+  color: var(--text);
 }
 
 .lobby-view button {
   min-height: 44px;
   padding: 0 24px;
   border: none;
-  border-radius: 10px;
-  background: #4ade80;
-  color: #171717;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
   font-weight: 700;
   font-size: 15px;
 }
@@ -878,35 +946,35 @@ button {
 .segmented {
   display: flex;
   padding: 3px;
-  border-radius: 10px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .lobby-view .segmented-option {
   min-height: 44px;
   min-width: 96px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
-  color: #a3a3a3;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 600;
 }
 
 .lobby-view .segmented-option.active {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .lobby-mode-blurb {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .lobby-mode-readonly {
   font-size: 15px;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--accent);
 }
 
 /* ---------- build view ---------- */
@@ -938,8 +1006,9 @@ button {
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-  background: rgba(23, 23, 23, 0.85);
+  background: color-mix(in srgb, var(--chrome-bg) 85%, transparent);
   pointer-events: none;
+  color: var(--chrome-text);
 }
 
 /* ---------- sandbox ---------- */
@@ -963,17 +1032,18 @@ button {
   gap: 8px;
   padding: 8px 10px;
   padding-top: calc(8px + env(safe-area-inset-top));
-  background: #1f1f1f;
-  border-bottom: 1px solid #333;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  color: var(--chrome-text);
 }
 
 .sandbox-bar button {
   min-height: 44px;
   padding: 0 12px;
   border: none;
-  border-radius: 10px;
-  background: #404040;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -982,7 +1052,7 @@ button {
 .sandbox-bar button:last-child {
   margin-left: auto;
   background: transparent;
-  color: #fca5a5;
+  color: var(--chrome-danger);
 }
 
 /* ---------- lie / guess views ---------- */
@@ -1011,10 +1081,10 @@ button {
   min-height: 44px;
   width: min(320px, 90vw);
   padding: 0 14px;
-  border: 1px solid #404040;
-  border-radius: 8px;
-  background: #262626;
-  color: #f5f5f5;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 15px;
 }
 
@@ -1024,16 +1094,16 @@ button {
   width: min(320px, 90vw);
   padding: 0 16px;
   border: none;
-  border-radius: 10px;
-  background: #404040;
-  color: #f5f5f5;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
 
 .lie-form button {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .lie-form button:disabled {
@@ -1041,8 +1111,8 @@ button {
 }
 
 .guess-option.picked {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .guess-option.own-lie {
@@ -1076,8 +1146,8 @@ button {
 
 .reveal-option {
   padding: 10px 14px;
-  border-radius: 10px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--surface);
   font-size: 14px;
   display: flex;
   flex-direction: column;
@@ -1085,8 +1155,8 @@ button {
 }
 
 .reveal-option.truth {
-  background: #4ade80;
-  color: #171717;
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 .reveal-option-label,
@@ -1121,7 +1191,7 @@ button {
 
 .rate-context {
   font-size: 13px;
-  color: #a3a3a3;
+  color: var(--text-muted);
   max-width: 90vw;
 }
 
@@ -1134,15 +1204,15 @@ button {
   width: 56px;
   height: 56px;
   border: none;
-  border-radius: 12px;
-  background: #262626;
-  color: #525252;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--chrome-border);
   font-size: 32px;
   line-height: 1;
 }
 
 .rate-star.filled {
-  color: #facc15;
+  color: var(--accent);
 }
 
 .rate-star:disabled {
@@ -1157,7 +1227,7 @@ button {
 .rate-average {
   font-size: 40px;
   font-weight: 800;
-  color: #facc15;
+  color: var(--accent);
 }
 
 .rate-breakdown {
@@ -1173,7 +1243,7 @@ button {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #a3a3a3;
+  color: var(--text-muted);
 }
 
 .rate-breakdown-label {
@@ -1184,15 +1254,15 @@ button {
 .rate-breakdown-bar {
   flex: 1;
   height: 8px;
-  border-radius: 4px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--surface);
   overflow: hidden;
 }
 
 .rate-breakdown-bar span {
   display: block;
   height: 100%;
-  background: #facc15;
+  background: var(--accent);
 }
 
 .rate-breakdown-count {
@@ -1203,7 +1273,7 @@ button {
 .rate-points {
   font-size: 18px;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--accent);
 }
 
 /* ---------- scores view ---------- */
@@ -1211,7 +1281,7 @@ button {
 .scores-winner {
   font-size: 18px;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--accent);
 }
 
 .scoreboard {
@@ -1224,8 +1294,8 @@ button {
 
 .scoreboard li {
   padding: 8px 14px;
-  border-radius: 8px;
-  background: #262626;
+  border-radius: var(--radius);
+  background: var(--surface);
   font-size: 14px;
 }
 
@@ -1233,9 +1303,80 @@ button {
   min-height: 44px;
   padding: 0 24px;
   border: none;
-  border-radius: 10px;
-  background: #4ade80;
-  color: #171717;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
   font-weight: 700;
   font-size: 15px;
+}
+
+/* ---------- theme switcher ---------- */
+
+.theme-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+/* button.-qualified so the lobby's and sandbox bar's generic button rules
+   (same specificity, earlier in the file) don't restyle the swatches */
+button.theme-swatch {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* colours come inline from the swatch's own theme */
+  border: 2px solid;
+  border-radius: var(--radius);
+}
+
+button.theme-swatch.active {
+  outline: 3px solid var(--selection);
+  outline-offset: 2px;
+}
+
+.theme-swatch-number {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* inside a round: one swatch in the top-left corner, opening the row */
+.theme-switcher-compact {
+  position: relative;
+}
+
+.theme-switcher-float {
+  position: fixed;
+  top: calc(4px + env(safe-area-inset-top));
+  left: 8px;
+  z-index: 40;
+}
+
+.theme-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  padding: 8px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--chrome-bg);
+  z-index: 41;
+}
+
+.lobby-theme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
 }

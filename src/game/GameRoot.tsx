@@ -10,17 +10,34 @@ import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
 import RateView from './phases/RateView'
 import RateResultView from './phases/RateResultView'
+import ThemeSwitcher from '../themes/ThemeSwitcher'
+
+// everywhere but the lobby (which shows the full swatch row): one swatch in
+// the corner. The theme never leaves this device — nothing goes over the socket.
+function FloatingThemeSwitcher() {
+  return (
+    <div className="theme-switcher-float">
+      <ThemeSwitcher variant="compact" />
+    </div>
+  )
+}
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const { snapshot, connectionStatus, emit } = useGameConnection()
 
   if (!snapshot) {
-    return <HomeView emit={emit} connectionStatus={connectionStatus} onSandbox={onSandbox} />
+    return (
+      <>
+        <FloatingThemeSwitcher />
+        <HomeView emit={emit} connectionStatus={connectionStatus} onSandbox={onSandbox} />
+      </>
+    )
   }
 
   return (
     <>
       {connectionStatus === 'reconnecting' && <div className="reconnect-banner">Reconnecting…</div>}
+      {snapshot.phase.phase !== 'lobby' && <FloatingThemeSwitcher />}
       <PhaseView snapshot={snapshot} emit={emit} />
     </>
   )

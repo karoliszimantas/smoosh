@@ -1,6 +1,7 @@
 import { ROUND_OPTIONS, BUILD_TIME_OPTIONS, MIN_PLAYERS_TO_START, estimateDurationSec } from '@smoosh/protocol'
 import type { GameMode, GameSettings } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
+import ThemeSwitcher from '../../themes/ThemeSwitcher'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
   guess: { label: 'Guess', blurb: 'Secret prompts — fool the others with fake ones' },
@@ -141,6 +142,12 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
       )}
 
       <p className="lobby-estimate">Estimated length: ~{estimateMin} min</p>
+
+      {/* per player and per device — your pick, not the room's */}
+      <div className="lobby-theme">
+        Your style
+        <ThemeSwitcher variant="inline" />
+      </div>
 
       {you.isHost && (
         <button className="lobby-start" disabled={!canStart} onClick={() => void emit('room:start', {})}>

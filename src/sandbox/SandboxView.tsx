@@ -3,6 +3,7 @@ import Canvas from '../components/Canvas'
 import type { LayerItem } from '../components/layerItem'
 import { clearCanvasItems, loadCanvasItems } from '../game/canvasStorage'
 import { SANDBOX_PROMPTS } from './prompts'
+import ThemeSwitcher from '../themes/ThemeSwitcher'
 
 // The canvas with the game taken away: no room, no socket, no timer, no
 // submission. It is the same Canvas BuildView mounts — just without an
@@ -62,6 +63,7 @@ export default function SandboxView({ onExit }: { onExit: () => void }) {
         <button onClick={() => setPrompt((p) => randomPrompt(p))} aria-label="Shuffle prompt">
           <span aria-hidden="true">⤮</span> New prompt
         </button>
+        <ThemeSwitcher variant="compact" />
         <button onClick={clear}>Clear canvas</button>
       </div>
       <Canvas

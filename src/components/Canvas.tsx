@@ -19,6 +19,8 @@ import Toolbar, { type ToolbarMode } from './Toolbar'
 import LayerStrip from './LayerStrip'
 import DraggableImage from './DraggableImage'
 import CropOverlay from './CropOverlay'
+import CanvasFrame from './CanvasFrame'
+import { useTheme } from '../themes/useTheme'
 
 Konva.hitOnDragEnabled = true
 
@@ -35,7 +37,8 @@ const ReportDialog = lazy(() => import('./ReportDialog'))
 const FRAME_PADDING = 12
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
-const FRAME_FILL = '#262626' // matches .picture-display, where submissions are shown
+// how much of the page colour covers whatever hangs outside the frame
+const OUTSIDE_DIM_OPACITY = 0.62
 // far enough past the frame to cover any visible part of the stage
 const OUTSIDE = 20000
 
@@ -188,6 +191,32 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     saveCanvasItems(storageKey, items, storageArea)
   }, [items, storageKey, storageArea])
 
+  const theme = useTheme()
+  // read at placement time without making addItem change identity on every
+  // theme switch
+  const themeRef = useRef(theme)
+  useEffect(() => {
+    themeRef.current = theme
+  }, [theme])
+
+  // the theme's canvas texture, decoded once per theme
+  const [texture, setTexture] = useState<HTMLImageElement | null>(null)
+  useEffect(() => {
+    if (!theme.canvasTexture) {
+      setTexture(null)
+      return
+    }
+    let cancelled = false
+    const image = new window.Image()
+    image.onload = () => {
+      if (!cancelled) setTexture(image)
+    }
+    image.src = theme.canvasTexture
+    return () => {
+      cancelled = true
+    }
+  }, [theme.canvasTexture])
+
   const addItem = useCallback((placement: Placement) => {
     const id = generateId()
     const jitter = () => (Math.random() - 0.5) * 100 // ±50 units so stacked copies are distinguishable
@@ -201,7 +230,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         x: CANVAS_SIZE / 2 + jitter(),
         y: CANVAS_SIZE / 2 + jitter(),
         scale: 1,
-        rotation: 0,
+        // a theme with jitter drops each new layer a little off true —
+        // within ±jitter/2. Only on placement: switching theme later
+        // never re-rotates anything already placed
+        rotation: (Math.random() - 0.5) * themeRef.current.layerJitterDegrees,
         flipX: false,
         flipY: false,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
@@ -557,7 +589,18 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onTouchEnd={handleTouchEnd}
         >
           <Layer listening={false}>
-            <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={FRAME_FILL} />
+            <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={theme.canvasBg} />
+            {texture && (
+              <Rect
+                x={0}
+                y={0}
+                width={CANVAS_SIZE}
+                height={CANVAS_SIZE}
+                fillPatternImage={texture}
+                fillPatternRepeat="repeat"
+              />
+            )}
+            <CanvasFrame frame={theme.canvasFrame} />
           </Layer>
           <Layer listening={!cropping}>
             {shownItems.map((item) => (
@@ -576,16 +619,16 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           {/* above the images: dims whatever hangs outside the frame, so it
               reads as "not in the picture"; never takes a tap */}
           <Layer listening={false} ref={frameDecorRef}>
-            <Rect x={-OUTSIDE} y={-OUTSIDE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill="rgba(10, 10, 10, 0.62)" />
-            <Rect x={-OUTSIDE} y={CANVAS_SIZE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill="rgba(10, 10, 10, 0.62)" />
-            <Rect x={-OUTSIDE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill="rgba(10, 10, 10, 0.62)" />
-            <Rect x={CANVAS_SIZE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill="rgba(10, 10, 10, 0.62)" />
+            <Rect x={-OUTSIDE} y={-OUTSIDE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
+            <Rect x={-OUTSIDE} y={CANVAS_SIZE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
+            <Rect x={-OUTSIDE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
+            <Rect x={CANVAS_SIZE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
             <Rect
               x={0}
               y={0}
               width={CANVAS_SIZE}
               height={CANVAS_SIZE}
-              stroke="rgba(255, 255, 255, 0.35)"
+              stroke={theme.chromeBorder}
               strokeWidth={1.5}
               strokeScaleEnabled={false}
             />

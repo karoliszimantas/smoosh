@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, memo } from 'react'
+import { useEffect, useMemo, useRef, useState, memo } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { FULL_CROP, baseSize, type LayerItem } from './layerItem'
+import { CANVAS_UNITS_PER_THEME_PX, paperFor } from './paper'
+import { useTheme } from '../themes/useTheme'
 
 // pipeline assets cap at 800px on their longest side (see tools/cut.ts), so
 // this never fires for local assets today — kept for when a remote/search
@@ -94,7 +96,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 const HIT_MASK_MAX_PX = 256
 const HIT_ALPHA_THRESHOLD = 32
 
-function buildHitMask(image: HTMLImageElement, colorKey: string): HTMLCanvasElement | null {
+function buildHitMask(image: HTMLImageElement | HTMLCanvasElement, colorKey: string): HTMLCanvasElement | null {
   const scale = Math.min(1, HIT_MASK_MAX_PX / Math.max(image.width, image.height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(image.width * scale))
@@ -146,7 +148,20 @@ const DraggableImage = memo(function DraggableImage({
   const [dims, setDims] = useState({ w: 120, h: 120 })
   const ref = useRef<Konva.Image>(null)
   const blockedDrag = useRef(false)
-  const hitMask = useRef<{ image: HTMLImageElement; colorKey: string; mask: HTMLCanvasElement | null } | null>(null)
+  const hitMask = useRef<{
+    source: HTMLImageElement | HTMLCanvasElement
+    colorKey: string
+    mask: HTMLCanvasElement | null
+  } | null>(null)
+  const theme = useTheme()
+
+  // the image as the theme prints it (border + torn edge) — built once per
+  // image and theme, then cached; switching theme swaps the source only,
+  // never the layer's position, scale, rotation or order
+  const paper = useMemo(
+    () => (img ? paperFor(img, theme.layerBorderColor, theme.layerBorderWidth, dims.w / img.width) : null),
+    [img, theme.layerBorderColor, theme.layerBorderWidth, dims.w],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -187,14 +202,41 @@ const DraggableImage = memo(function DraggableImage({
   }
 
   const crop = item.crop ?? FULL_CROP
-  // the visible part, in canvas units at scale 1
-  const width = dims.w * crop.width
-  const height = dims.h * crop.height
+
+  // The part of the paper to draw. The crop is in the original image's
+  // terms; the paper adds `pad` all round. An edge the crop leaves alone
+  // keeps its paper border; an edge the crop cuts is cut straight through,
+  // like scissors would.
+  const W = img?.width ?? 1
+  const H = img?.height ?? 1
+  const pad = paper?.pad ?? 0
+  const u = dims.w / W // canvas units per source pixel
+  const eps = 1e-3
+  const padL = crop.x < eps ? pad : 0
+  const padT = crop.y < eps ? pad : 0
+  const padR = crop.x + crop.width > 1 - eps ? pad : 0
+  const padB = crop.y + crop.height > 1 - eps ? pad : 0
+  const cropW = crop.width * W
+  const cropH = crop.height * H
+  const src = { x: crop.x * W + pad - padL, y: crop.y * H + pad - padT, width: cropW + padL + padR, height: cropH + padT + padB }
+  const width = src.width * u
+  const height = src.height * u
+  // the node's origin stays the centre of the crop itself (what x/y and the
+  // crop maths assume), however much border hangs off each side
+  const offsetX = (padL + cropW / 2) * u
+  const offsetY = (padT + cropH / 2) * u
+
+  // Konva scales shadow sizes by the node's absolute scale; divide out the
+  // layer's own scale so the shadow is the theme's size whatever the layer's,
+  // and undo a mirror's sign so the shadow still falls downward
+  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(item.scale, 0.01)
 
   const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
+    const source = paper?.source ?? img
+    if (!source) return
     const cached = hitMask.current
-    if (!cached || cached.image !== img || cached.colorKey !== shape.colorKey) {
-      hitMask.current = { image: img!, colorKey: shape.colorKey, mask: buildHitMask(img!, shape.colorKey) }
+    if (!cached || cached.source !== source || cached.colorKey !== shape.colorKey) {
+      hitMask.current = { source, colorKey: shape.colorKey, mask: buildHitMask(source, shape.colorKey) }
     }
     const mask = hitMask.current!.mask
     if (!mask) {
@@ -208,12 +250,14 @@ const DraggableImage = memo(function DraggableImage({
     const native = ctx._context
     const smoothing = native.imageSmoothingEnabled
     native.imageSmoothingEnabled = false
+    const sx = mask.width / source.width
+    const sy = mask.height / source.height
     native.drawImage(
       mask,
-      crop.x * mask.width,
-      crop.y * mask.height,
-      crop.width * mask.width,
-      crop.height * mask.height,
+      src.x * sx,
+      src.y * sy,
+      src.width * sx,
+      src.height * sy,
       0,
       0,
       shape.width(),
@@ -222,13 +266,13 @@ const DraggableImage = memo(function DraggableImage({
     native.imageSmoothingEnabled = smoothing
   }
 
-  if (!img) return null
+  if (!img || !paper) return null
 
   return (
     <KonvaImage
       id={item.id}
       ref={ref}
-      image={img}
+      image={paper.source}
       x={item.x}
       y={item.y}
       scaleX={item.scale * (item.flipX ? -1 : 1)}
@@ -236,22 +280,23 @@ const DraggableImage = memo(function DraggableImage({
       rotation={item.rotation}
       width={width}
       height={height}
-      offsetX={width / 2}
-      offsetY={height / 2}
+      offsetX={offsetX}
+      offsetY={offsetY}
       // Konva's own crop: drawn from the untouched image, so it's
       // non-destructive and can always be widened again. Always a full
       // object — Konva's setter can't take undefined when a crop is reset
-      crop={{
-        x: crop.x * img.width,
-        y: crop.y * img.height,
-        width: crop.width * img.width,
-        height: crop.height * img.height,
-      }}
+      crop={src}
+      shadowColor={theme.layerShadowColor}
+      shadowBlur={theme.layerShadowBlur * shadowScale}
+      shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (item.flipX ? -1 : 1)}
+      shadowOffsetY={theme.layerShadowOffset.y * shadowScale * (item.flipY ? -1 : 1)}
+      // the selection outline is UI, not paper — it casts no shadow
+      shadowForStrokeEnabled={false}
       visible={!hidden}
       opacity={dimmed ? 0.4 : 1}
       draggable
       hitFunc={hitFunc}
-      stroke={isSelected ? '#4ade80' : undefined}
+      stroke={isSelected ? theme.selectionColor : undefined}
       strokeWidth={isSelected ? 3 : 0}
       // the stage is scaled to fit the frame — keep the outline 3 screen px
       strokeScaleEnabled={false}

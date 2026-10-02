@@ -1,6 +1,7 @@
 import { Layer, Group, Rect, Circle, Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { baseSize, cropCenterOffset, FULL_CROP, type CropRect, type LayerItem } from './layerItem'
+import { useTheme } from '../themes/useTheme'
 
 // screen pixels, whatever the layer's scale: handles look small but take a
 // fingertip-sized touch
@@ -28,6 +29,7 @@ export default function CropOverlay({
   stageScale: number
   onDraftChange: (draft: CropRect) => void
 }) {
+  const theme = useTheme()
   // everything below is drawn in the FULL image's own space (0..W, 0..H),
   // under the layer's scale, flips and rotation — so handles sit on the
   // image however it's turned, and re-cropping always works against the
@@ -92,7 +94,8 @@ export default function CropOverlay({
         y={-OUTSIDE}
         width={OUTSIDE * 2}
         height={OUTSIDE * 2}
-        fill="rgba(10, 10, 10, 0.72)"
+        fill={theme.pageBg}
+        opacity={0.78}
         listening={false}
       />
       <Group
@@ -127,7 +130,7 @@ export default function CropOverlay({
           height={bottom - top}
           // invisible fill so the whole inside takes the drag
           fill="transparent"
-          stroke="#f5f5f5"
+          stroke={theme.selectionColor}
           strokeWidth={2}
           strokeScaleEnabled={false}
           draggable
@@ -140,8 +143,8 @@ export default function CropOverlay({
               <Circle radius={hitR} fill="transparent" />
               <Circle
                 radius={dotR}
-                fill="#f5f5f5"
-                stroke="#171717"
+                fill={theme.selectionColor}
+                stroke={theme.canvasBg}
                 strokeWidth={1.5}
                 strokeScaleEnabled={false}
                 listening={false}
