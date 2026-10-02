@@ -3,6 +3,7 @@ import { getRoom, touchRoom } from './rooms/Room.ts'
 import { putSubmission, getSubmission } from './submissions/store.ts'
 import { dropPendingActor, type PhaseMachineDeps } from './game/phaseMachine.ts'
 import { handleMediaRequest } from './media/routes.ts'
+import { handlePromptsRequest, PROMPT_CORS_HEADERS } from './prompts/routes.ts'
 
 const MAX_UPLOAD_BYTES = 1_000_000
 
@@ -14,8 +15,9 @@ type UploadTarget = { roomCode: string; round: number; playerId: string }
 // preflight the browser will block without these
 function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Id')
+  // PATCH/DELETE and the prompt headers are for /api/prompts
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', `Content-Type, X-Session-Id, ${PROMPT_CORS_HEADERS}`)
 }
 
 function send(res: ServerResponse, status: number, body?: string): void {
@@ -47,6 +49,7 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
       return
     }
 
+    if (handlePromptsRequest(req, res, url)) return
     if (handleMediaRequest(req, res, url)) return
 
     const target = parseUploadPath(url.pathname)

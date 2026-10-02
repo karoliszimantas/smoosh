@@ -2,6 +2,8 @@ import { useState } from 'react'
 import GameRoot from './game/GameRoot'
 import SandboxView from './sandbox/SandboxView'
 import ErrorBoundary from './components/ErrorBoundary'
+import PromptsView from './prompts/PromptsView'
+import { isPromptsPath } from './prompts/access'
 
 // Remembered per tab so a reload in the sandbox stays in the sandbox.
 const MODE_KEY = 'smoosh_mode'
@@ -25,6 +27,18 @@ function saveMode(mode: Mode): void {
 }
 
 export default function App() {
+  // the team's prompt list: its own page, no game, no socket
+  if (isPromptsPath()) {
+    return (
+      <ErrorBoundary>
+        <PromptsView />
+      </ErrorBoundary>
+    )
+  }
+  return <GameApp />
+}
+
+function GameApp() {
   const [mode, setMode] = useState<Mode>(loadMode)
 
   const switchTo = (next: Mode) => {
