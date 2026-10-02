@@ -23,7 +23,17 @@ function computeHasActed(room: Room, seat: Seat): boolean {
     if (phase.authorId === seat.playerId) return true
     return room.guessesByPictureIndex.get(phase.pictureIndex)?.has(seat.playerId) ?? false
   }
+  if (phase.phase === 'rate') {
+    if (phase.authorId === seat.playerId) return true
+    return room.ratingsByPictureIndex.get(phase.pictureIndex)?.has(seat.playerId) ?? false
+  }
   return false
+}
+
+function computeOwnRating(room: Room, seat: Seat): number | null {
+  const phase = room.phase
+  if (phase.phase !== 'rate') return null
+  return room.ratingsByPictureIndex.get(phase.pictureIndex)?.get(seat.playerId) ?? null
 }
 
 // per-recipient view — the `you` block differs per seat, so this is never
@@ -50,6 +60,7 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
       secretPrompt,
       hasActedThisPhase: computeHasActed(room, seat),
       ownOptionId: computeOwnOptionId(room, seat),
+      ownRating: computeOwnRating(room, seat),
     },
   }
 }

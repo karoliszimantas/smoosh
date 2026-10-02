@@ -9,6 +9,10 @@ import { getSessionId } from '../useGameConnection'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
 
+// freestyle gets an empty prompt from the server; the bar still shows (so
+// the layout is the same in every mode) with this instead
+const FREESTYLE_PROMPT = 'Build whatever you want'
+
 export default function BuildView({ snapshot }: PhaseProps) {
   const phase = snapshot.phase
   const isBuild = phase.phase === 'build'
@@ -49,13 +53,17 @@ export default function BuildView({ snapshot }: PhaseProps) {
 
   if (phase.phase !== 'build') return null
 
+  const freestyle = snapshot.settings.mode === 'gallery' && !snapshot.settings.prompted
+  const prompt = snapshot.you.secretPrompt ?? ''
+
   return (
     <div className="build-view">
       <DeadlineTimer deadline={phase.deadline} />
       {submitted && <div className="build-waiting-overlay">Submitted — waiting for others…</div>}
       <Canvas
         ref={canvasRef}
-        promptText={snapshot.you.secretPrompt ?? ''}
+        promptText={freestyle || !prompt ? FREESTYLE_PROMPT : prompt}
+        freestyle={freestyle}
         onSubmit={submit}
         initialItems={initialItems}
         storageKey={submitted ? undefined : storageKey}

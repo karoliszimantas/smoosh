@@ -4,6 +4,8 @@ import {
   UpdateSettingsSchema,
   GameError,
   MIN_PLAYERS_TO_START,
+  settingsProblem,
+  promptsNeeded,
 } from '@smoosh/protocol'
 import { createAndRegisterRoom, getRoom, touchRoom } from '../rooms/Room.ts'
 import { resolveSeat, ensureHost } from '../rooms/seats.ts'
@@ -54,7 +56,10 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
       if (!seat.isHost) throw new GameError('NOT_HOST', 'only the host can change settings')
       if (room.phase.phase !== 'lobby') throw new GameError('ALREADY_STARTED', 'settings are locked once the game starts')
 
-      room.settings = UpdateSettingsSchema.parse(payload)
+      const settings = UpdateSettingsSchema.parse(payload)
+      const problem = settingsProblem(settings)
+      if (problem) throw new GameError('INVALID_SETTINGS', problem)
+      room.settings = settings
       touchRoom(room)
       cb(ok(undefined))
       deps.onSnapshot(room)
@@ -75,7 +80,12 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
         throw new GameError('NOT_ENOUGH_PLAYERS', `need at least ${MIN_PLAYERS_TO_START} players to start`)
       }
 
-      const needed = room.settings.rounds * seatCount
+      // settings are locked from here on (updateSettings rejects outside the
+      // lobby); re-checked in case a bad combination slipped in some other way
+      const problem = settingsProblem(room.settings)
+      if (problem) throw new GameError('INVALID_SETTINGS', problem)
+
+      const needed = promptsNeeded(room.settings, seatCount)
       const available = deps.promptPool.length - room.usedPrompts.size
       if (available < needed) {
         throw new GameError('INVALID_SETTINGS', 'not enough prompts left for this many rounds and players')
@@ -105,6 +115,7 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
       room.liesByPictureIndex.clear()
       room.guessesByPictureIndex.clear()
       room.optionsByPictureIndex.clear()
+      room.ratingsByPictureIndex.clear()
       room.usedPrompts.clear()
       room.pendingActors = new Set()
       for (const s of room.seats.values()) s.score = 0

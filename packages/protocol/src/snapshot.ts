@@ -15,6 +15,8 @@ export const RoomSnapshotSchema = z.object({
   you: z.object({
     playerId: PlayerIdSchema,
     isHost: z.boolean(),
+    // this round's prompt during BUILD — secret in guess, shared in gallery,
+    // "" in freestyle (the client shows a placeholder instead)
     secretPrompt: z.string().nullable(),
     hasActedThisPhase: z.boolean(),
     // during GUESS, the id of the option that is this player's own lie (if
@@ -23,6 +25,8 @@ export const RoomSnapshotSchema = z.object({
     // out "you can't pick your own lie" without waiting for reveal to know
     // which one that is
     ownOptionId: z.string().nullable(),
+    // during gallery RATE, the stars this player gave the current picture
+    ownRating: z.number().int().nullable(),
   }),
 })
 export type RoomSnapshot = z.infer<typeof RoomSnapshotSchema>

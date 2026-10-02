@@ -33,6 +33,7 @@ export type Room = {
   liesByPictureIndex: Map<number, Map<string, string>> // pictureIndex -> authorId -> lie text
   guessesByPictureIndex: Map<number, Map<string, string>> // pictureIndex -> guesserId -> optionId
   optionsByPictureIndex: Map<number, PictureOption[]>
+  ratingsByPictureIndex: Map<number, Map<string, number>> // gallery: pictureIndex -> raterId -> stars
   lastActivityAt: number
 }
 
@@ -52,6 +53,7 @@ export function createRoom(code: string): Room {
     liesByPictureIndex: new Map(),
     guessesByPictureIndex: new Map(),
     optionsByPictureIndex: new Map(),
+    ratingsByPictureIndex: new Map(),
     lastActivityAt: Date.now(),
   }
 }

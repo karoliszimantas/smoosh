@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scorePicture } from '../src/game/scoring.ts'
+import { scorePicture, scoreRatings } from '../src/game/scoring.ts'
 
 describe('scorePicture', () => {
   it('awards the guesser and the author 1000 each when the truth is guessed', () => {
@@ -101,5 +101,24 @@ describe('scorePicture', () => {
       ]),
     )
     expect(deltas).toHaveLength(4)
+  })
+})
+
+describe('scoreRatings', () => {
+  it('scores the average, 200 points per star', () => {
+    expect(scoreRatings([5, 5, 5])).toEqual({ average: 5, counts: [0, 0, 0, 0, 3], points: 1000 })
+    expect(scoreRatings([1, 2])).toEqual({ average: 1.5, counts: [1, 1, 0, 0, 0], points: 300 })
+  })
+
+  it('rounds to whole points', () => {
+    expect(scoreRatings([4, 4, 5]).points).toBe(867)
+  })
+
+  it('is unaffected by how many people rated — a timeout does not cost the author', () => {
+    expect(scoreRatings([4]).points).toBe(scoreRatings([4, 4, 4, 4]).points)
+  })
+
+  it('no ratings: no average, no points', () => {
+    expect(scoreRatings([])).toEqual({ average: null, counts: [0, 0, 0, 0, 0], points: 0 })
   })
 })

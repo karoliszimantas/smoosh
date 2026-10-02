@@ -8,6 +8,8 @@ import LieView from './phases/LieView'
 import GuessView from './phases/GuessView'
 import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
+import RateView from './phases/RateView'
+import RateResultView from './phases/RateResultView'
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const { snapshot, connectionStatus, emit } = useGameConnection()
@@ -40,6 +42,10 @@ function PhaseView({ snapshot, emit }: { snapshot: RoomSnapshot; emit: GameConne
       return <GuessView key={`guess-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'reveal':
       return <RevealView key={`reveal-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
+    case 'rate':
+      return <RateView key={`rate-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
+    case 'rateResult':
+      return <RateResultView key={`rateResult-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'scores':
       return <ScoresView key={`scores-${phase.round}`} snapshot={snapshot} emit={emit} />
   }

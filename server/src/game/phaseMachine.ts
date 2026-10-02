@@ -1,9 +1,16 @@
-import { LIE_PHASE_SEC, GUESS_PHASE_SEC, REVEAL_PHASE_SEC, SCORES_PHASE_SEC } from '@smoosh/protocol'
+import {
+  LIE_PHASE_SEC,
+  GUESS_PHASE_SEC,
+  REVEAL_PHASE_SEC,
+  SCORES_PHASE_SEC,
+  RATE_PHASE_SEC,
+  RATE_RESULT_PHASE_SEC,
+} from '@smoosh/protocol'
 import type { Room, PictureOption } from '../rooms/Room.ts'
 import { connectedSeats, findSeatByPlayerId } from '../rooms/Room.ts'
 import { submissionPath } from '../submissions/store.ts'
 import { assignPrompts } from './promptAssignment.ts'
-import { scorePicture } from './scoring.ts'
+import { scorePicture, scoreRatings } from './scoring.ts'
 
 export type PhaseMachineDeps = {
   promptPool: readonly string[]
@@ -52,6 +59,9 @@ function advanceCurrentPhase(room: Room, deps: PhaseMachineDeps): void {
     case 'guess':
       startReveal(room, deps)
       return
+    case 'rate':
+      startRateResult(room, deps)
+      return
     default:
       return
   }
@@ -75,14 +85,27 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   room.liesByPictureIndex.clear()
   room.guessesByPictureIndex.clear()
   room.optionsByPictureIndex.clear()
+  room.ratingsByPictureIndex.clear()
   room.pictureQueue = []
   room.pictureIndex = -1
 
   const seatPlayerIds = [...room.seats.values()].map((s) => s.playerId)
   const availablePool = deps.promptPool.filter((p) => !room.usedPrompts.has(p))
-  const { assignments, used } = assignPrompts(seatPlayerIds, availablePool)
-  room.promptByPlayer = assignments
-  for (const p of used) room.usedPrompts.add(p)
+  if (room.settings.mode === 'guess') {
+    const { assignments, used } = assignPrompts(seatPlayerIds, availablePool)
+    room.promptByPlayer = assignments
+    for (const p of used) room.usedPrompts.add(p)
+  } else {
+    // gallery: one prompt everybody shares — or, freestyle, an empty one.
+    // Freestyle is otherwise the same game; the client shows a placeholder.
+    let shared = ''
+    if (room.settings.prompted) {
+      const { used } = assignPrompts(['shared'], availablePool)
+      shared = used[0] ?? ''
+      if (shared) room.usedPrompts.add(shared)
+    }
+    room.promptByPlayer = new Map(seatPlayerIds.map((id) => [id, shared]))
+  }
 
   room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId))
   const deadline = deadlineIn(room.settings.buildTimeSec)
@@ -102,7 +125,8 @@ function endBuild(room: Room, deps: PhaseMachineDeps): void {
     endRoundOrGame(room, deps)
     return
   }
-  startLie(room, deps)
+  if (room.settings.mode === 'gallery') startRate(room, deps)
+  else startLie(room, deps)
 }
 
 export function startLie(room: Room, deps: PhaseMachineDeps): void {
@@ -225,6 +249,80 @@ function afterReveal(room: Room, deps: PhaseMachineDeps): void {
   }
 }
 
+// ---------- gallery: rate each picture, then show how it did
+
+// the prompt everyone built to this round ("" in freestyle) — the same for
+// every player in gallery, so any seat's assignment is the one
+function sharedPrompt(room: Room, authorId: string): string {
+  return room.promptByPlayer.get(authorId) ?? ''
+}
+
+export function startRate(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  room.pictureIndex += 1
+  const authorId = room.pictureQueue[room.pictureIndex]
+  if (authorId === undefined) throw new Error('internal error: startRate called with no current picture')
+
+  room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
+  room.phase = {
+    phase: 'rate',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    pictureIndex: room.pictureIndex,
+    pictureCount: room.pictureQueue.length,
+    authorId,
+    imagePath: submissionPath(room.code, room.round, authorId),
+    prompt: sharedPrompt(room, authorId),
+    deadline: deadlineIn(RATE_PHASE_SEC),
+  }
+  schedulePhaseEnd(room, RATE_PHASE_SEC * 1000, () => advanceCurrentPhase(room, deps))
+  // nobody else connected to rate it — straight to the result
+  if (room.pendingActors.size === 0) {
+    startRateResult(room, deps)
+    return
+  }
+  deps.onSnapshot(room)
+}
+
+function startRateResult(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  const pictureIndex = room.pictureIndex
+  const authorId = room.pictureQueue[pictureIndex]
+  if (authorId === undefined) throw new Error('internal error: startRateResult called with no current picture')
+
+  const stars = [...(room.ratingsByPictureIndex.get(pictureIndex)?.values() ?? [])]
+  const summary = scoreRatings(stars)
+  const author = findSeatByPlayerId(room, authorId)
+  if (author) author.score += summary.points
+
+  room.phase = {
+    phase: 'rateResult',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    pictureIndex,
+    pictureCount: room.pictureQueue.length,
+    authorId,
+    imagePath: submissionPath(room.code, room.round, authorId),
+    prompt: sharedPrompt(room, authorId),
+    average: summary.average,
+    counts: summary.counts,
+    points: summary.points,
+    deadline: deadlineIn(RATE_RESULT_PHASE_SEC),
+  }
+  room.pendingActors = new Set()
+  schedulePhaseEnd(room, RATE_RESULT_PHASE_SEC * 1000, () => afterRateResult(room, deps))
+  deps.onSnapshot(room)
+}
+
+function afterRateResult(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  if (room.pictureIndex + 1 < room.pictureQueue.length) {
+    startRate(room, deps)
+  } else {
+    endRoundOrGame(room, deps)
+  }
+}
+
 function endRoundOrGame(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   const isFinalRound = room.round >= room.settings.rounds
@@ -256,6 +354,12 @@ export function recordGuess(room: Room, pictureIndex: number, playerId: string, 
   const map = room.guessesByPictureIndex.get(pictureIndex) ?? new Map<string, string>()
   map.set(playerId, optionId)
   room.guessesByPictureIndex.set(pictureIndex, map)
+}
+
+export function recordRating(room: Room, pictureIndex: number, playerId: string, stars: number): void {
+  const map = room.ratingsByPictureIndex.get(pictureIndex) ?? new Map<string, number>()
+  map.set(playerId, stars)
+  room.ratingsByPictureIndex.set(pictureIndex, map)
 }
 
 export function existingLieTexts(room: Room, pictureIndex: number): string[] {

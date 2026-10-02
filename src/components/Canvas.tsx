@@ -100,6 +100,9 @@ type CanvasProps = {
   storageArea?: CanvasStorageArea
   // label for the toolbar's export button
   doneLabel?: string
+  // no prompt to seed the asset sheet's tabs from — it offers the curated
+  // categories instead
+  freestyle?: boolean
 }
 
 function downloadBlob(blob: Blob): void {
@@ -113,7 +116,7 @@ function downloadBlob(blob: Blob): void {
 }
 
 const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { promptText, onSubmit, initialItems, storageKey, storageArea = 'session', doneLabel },
+  { promptText, onSubmit, initialItems, storageKey, storageArea = 'session', doneLabel, freestyle = false },
   ref,
 ) {
   const [items, setItems] = useState<LayerItem[]>(() => initialItems ?? [])
@@ -641,6 +644,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           key={promptText}
           open={sheetOpen}
           promptText={promptText}
+          freestyle={freestyle}
           onClose={closeSheet}
           onPlace={handleAssetSelect}
           onCutShared={handleCutShared}

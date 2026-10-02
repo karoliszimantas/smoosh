@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { RoomCodeSchema } from './ids.ts'
-import { GameSettingsSchema } from './settings.ts'
+import { GameSettingsSchema, MIN_RATING, MAX_RATING } from './settings.ts'
 import { RoomSnapshotSchema } from './snapshot.ts'
 import { ErrorCodeSchema } from './errors.ts'
 
@@ -20,6 +20,11 @@ export const SubmitGuessSchema = z.object({
   optionId: z.string().min(1),
 })
 
+export const SubmitRatingSchema = z.object({
+  pictureIndex: z.number().int().nonnegative(),
+  stars: z.number().int().min(MIN_RATING).max(MAX_RATING),
+})
+
 // handshake `auth` payload, validated in an io.use middleware before any
 // event handler runs
 export const HandshakeAuthSchema = z.object({ sessionId: z.string().min(1) })
@@ -36,6 +41,7 @@ export interface ClientToServerEvents {
   'room:playAgain': (payload: z.infer<typeof PlayAgainSchema>, ack: (r: AckResult) => void) => void
   'lie:submit': (payload: z.infer<typeof SubmitLieSchema>, ack: (r: AckResult) => void) => void
   'guess:submit': (payload: z.infer<typeof SubmitGuessSchema>, ack: (r: AckResult) => void) => void
+  'rating:submit': (payload: z.infer<typeof SubmitRatingSchema>, ack: (r: AckResult) => void) => void
 }
 
 export interface ServerToClientEvents {

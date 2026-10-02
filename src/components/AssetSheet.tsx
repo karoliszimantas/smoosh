@@ -47,22 +47,28 @@ type CardStatus = { kind: 'download'; pct: number } | { kind: 'cutting' } | { ki
 
 const PER_PAGE = 20
 
+// a word from the prompt (searched: curated + Pixabay) or, in freestyle,
+// where there's no prompt to take words from, a curated category (browsed —
+// no Pixabay call)
+type SheetTab = { kind: 'word' | 'category'; label: string; key: string }
+
 export default function AssetSheet({
   open,
   promptText,
+  freestyle,
   onClose,
   onPlace,
   onCutShared,
 }: {
   open: boolean
   promptText: string
+  freestyle: boolean
   onClose: () => void
   onPlace: (placement: Placement) => void
   // a cut made on this device finished uploading — the canvas swaps its
   // local blob: URL for the shared one so the layer survives a reload
   onCutShared: (localSrc: string, shared: ImageVariant) => void
 }) {
-  const tabs = useMemo(() => promptTabs(promptText), [promptText])
   const [tabIndex, setTabIndex] = useState<number | null>(0)
   const lastTabIndex = useRef(0)
   const [input, setInput] = useState('')
@@ -81,13 +87,25 @@ export default function AssetSheet({
     return () => window.clearTimeout(id)
   }, [input])
 
+  const tabs = useMemo((): SheetTab[] => {
+    if (!freestyle) return promptTabs(promptText).map((t) => ({ kind: 'word', label: t.label, key: t.term }))
+    // categories in manifest order, each once — known once curated loads
+    const seen = new Map<string, string>()
+    for (const e of curated ?? []) if (!seen.has(e.asset.category)) seen.set(e.asset.category, e.categoryLabel)
+    return [...seen].map(([key, label]) => ({ kind: 'category', label, key }))
+  }, [freestyle, promptText, curated])
+  const activeTab = tabIndex === null ? undefined : tabs[tabIndex]
+
   const manualTerm = input.trim() ? debouncedInput.trim().toLowerCase() : ''
   const activeTerm =
     tabIndex === null
       ? manualTerm.length >= MIN_MANUAL_CHARS
         ? manualTerm
         : null
-      : (tabs[tabIndex]?.term ?? null)
+      : activeTab?.kind === 'word'
+        ? activeTab.key
+        : null
+  const activeCategory = activeTab?.kind === 'category' ? activeTab.key : null
 
   useEffect(() => {
     if (!open || curated) return
@@ -183,6 +201,10 @@ export default function AssetSheet({
   const termState = activeTerm ? terms[activeTerm] : undefined
 
   const results = useMemo(() => {
+    if (activeCategory) {
+      const assets = (curated ?? []).filter((e) => e.asset.category === activeCategory).map((e) => e.asset)
+      return mergeResults(assets, [])
+    }
     if (!activeTerm) return []
     const curatedMatches = (curated ?? [])
       .filter((e) => matchesCurated(e.asset, e.categoryLabel, activeTerm))
@@ -190,7 +212,7 @@ export default function AssetSheet({
     return mergeResults(curatedMatches, termState?.hits ?? []).filter(
       (r) => r.pixabayId === null || r.tier === 1 || !hidden.has(r.pixabayId),
     )
-  }, [activeTerm, curated, termState, hidden])
+  }, [activeTerm, activeCategory, curated, termState, hidden])
 
   const selectTab = (index: number) => {
     lastTabIndex.current = index
@@ -268,7 +290,10 @@ export default function AssetSheet({
     setReportTarget(null)
   }
 
-  const showSkeleton = activeTerm !== null && results.length === 0 && (termState?.loading ?? true) && !termState?.error
+  const showSkeleton =
+    (activeTerm !== null && results.length === 0 && (termState?.loading ?? true) && !termState?.error) ||
+    // freestyle's category tabs appear once curated loads
+    (freestyle && tabIndex !== null && curated === null)
 
   return (
     <>
@@ -305,10 +330,14 @@ export default function AssetSheet({
         </div>
 
         {tabs.length > 0 && (
-          <div className="asset-sheet-tabs" role="tablist" aria-label="Words from your prompt">
+          <div
+            className="asset-sheet-tabs"
+            role="tablist"
+            aria-label={freestyle ? 'Picture categories' : 'Words from your prompt'}
+          >
             {tabs.map((tab, i) => (
               <button
-                key={tab.term}
+                key={tab.key}
                 role="tab"
                 aria-selected={i === tabIndex}
                 className={`asset-sheet-tab${i === tabIndex ? ' active' : ''}`}
@@ -331,7 +360,7 @@ export default function AssetSheet({
               </a>
             </p>
           )}
-          {activeTerm === null ? (
+          {activeTerm === null && activeCategory === null && !showSkeleton ? (
             <p className="asset-sheet-message">
               {tabIndex === null ? 'Keep typing…' : 'Search for anything to add to your picture.'}
             </p>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { GameSettings, PhaseState } from '@smoosh/protocol'
 import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
-import { startBuild, dropPendingActor, type PhaseMachineDeps } from '../src/game/phaseMachine.ts'
+import { startBuild, dropPendingActor, recordRating, type PhaseMachineDeps } from '../src/game/phaseMachine.ts'
 
 function makeSeat(n: number, connected = true): Seat {
   return {
@@ -20,9 +20,15 @@ function makeSeat(n: number, connected = true): Seat {
 // at the protocol/zod boundary on room:updateSettings) — phaseMachine itself
 // doesn't care about the exact allowed set, so tests deliberately use
 // off-menu values like 1-2 rounds to keep scenarios short
-function makeRoom(playerCount: number, rounds = 3, buildTimeSec = 90): Room {
+function makeRoom(
+  playerCount: number,
+  rounds = 3,
+  buildTimeSec = 90,
+  mode: GameSettings['mode'] = 'guess',
+  prompted = true,
+): Room {
   const room = createRoom('TEST')
-  room.settings = { rounds, buildTimeSec } as GameSettings
+  room.settings = { rounds, buildTimeSec, mode, prompted } as GameSettings
   for (let i = 1; i <= playerCount; i++) {
     const seat = makeSeat(i)
     room.seats.set(seat.sessionId, seat)
@@ -202,5 +208,105 @@ describe('round and game progression', () => {
     // nothing should move it forward — no timer was scheduled
     vi.advanceTimersByTime(10 * 60_000)
     expect(room.phase.phase).toBe('scores')
+  })
+})
+
+describe('GALLERY mode', () => {
+  function buildToRate(prompted = true, playerCount = 3) {
+    const room = makeRoom(playerCount, 2, 60, 'gallery', prompted)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    return { room, deps }
+  }
+
+  it('prompted: everyone gets the same prompt, drawn once from the pool', () => {
+    const { room } = buildToRate(true)
+    const prompts = new Set(room.promptByPlayer.values())
+    expect(prompts.size).toBe(1)
+    const [prompt] = prompts
+    expect(prompt).toBeTruthy()
+    expect(room.usedPrompts.size).toBe(1)
+  })
+
+  it('freestyle: everyone gets an empty prompt and none are drawn', () => {
+    const { room } = buildToRate(false)
+    expect([...room.promptByPlayer.values()]).toEqual(['', '', ''])
+    expect(room.usedPrompts.size).toBe(0)
+  })
+
+  it('goes build -> rate, with the author excluded from rating', () => {
+    const { room } = buildToRate()
+    vi.advanceTimersByTime(60_000)
+    const phase = expectPhase(room, 'rate')
+    expect(phase.pictureIndex).toBe(0)
+    expect(room.pendingActors.has(phase.authorId)).toBe(false)
+    expect(room.pendingActors.size).toBe(2)
+  })
+
+  it('carries the shared prompt into rate — empty in freestyle', () => {
+    const prompted = buildToRate(true)
+    vi.advanceTimersByTime(60_000)
+    expect(expectPhase(prompted.room, 'rate').prompt).toBe([...prompted.room.promptByPlayer.values()][0])
+
+    const freestyle = buildToRate(false)
+    vi.advanceTimersByTime(60_000)
+    expect(expectPhase(freestyle.room, 'rate').prompt).toBe('')
+  })
+
+  it('early-advances to the result once every rater has rated, and scores the author by the average', () => {
+    const { room, deps } = buildToRate()
+    vi.advanceTimersByTime(60_000)
+    const { authorId, pictureIndex } = expectPhase(room, 'rate')
+    const [first, second] = [...room.pendingActors]
+    if (!first || !second) throw new Error('expected two raters')
+    recordRating(room, pictureIndex, first, 5)
+    dropPendingActor(room, deps, first)
+    expectPhase(room, 'rate')
+    recordRating(room, pictureIndex, second, 4)
+    dropPendingActor(room, deps, second)
+
+    const result = expectPhase(room, 'rateResult')
+    expect(result.average).toBe(4.5)
+    expect(result.counts).toEqual([0, 0, 0, 1, 1])
+    expect(result.points).toBe(900)
+    const author = [...room.seats.values()].find((s) => s.playerId === authorId)
+    expect(author?.score).toBe(900)
+  })
+
+  it('a picture nobody rated scores nothing', () => {
+    const { room } = buildToRate()
+    vi.advanceTimersByTime(60_000) // -> rate
+    vi.advanceTimersByTime(15_000) // nobody rates
+    const result = expectPhase(room, 'rateResult')
+    expect(result.average).toBeNull()
+    expect(result.points).toBe(0)
+  })
+
+  it('rates every picture in turn, then shows scores and moves to the next round', () => {
+    const { room } = buildToRate()
+    vi.advanceTimersByTime(60_000)
+    for (let i = 0; i < 3; i++) {
+      expect(expectPhase(room, 'rate').pictureIndex).toBe(i)
+      vi.advanceTimersByTime(15_000) // rate -> result
+      expectPhase(room, 'rateResult')
+      vi.advanceTimersByTime(6_000) // result -> next picture / scores
+    }
+    expect(expectPhase(room, 'scores').isFinalRound).toBe(false)
+    vi.advanceTimersByTime(6_000)
+    expectPhase(room, 'build')
+    expect(room.round).toBe(2)
+    // ratings from round 1 don't leak into round 2
+    expect(room.ratingsByPictureIndex.size).toBe(0)
+  })
+
+  it('never enters the guess phases', () => {
+    const { room } = buildToRate(false)
+    const seen = new Set<string>()
+    for (let t = 0; t < 400; t++) {
+      seen.add(room.phase.phase)
+      vi.advanceTimersByTime(1_000)
+    }
+    expect(seen.has('lie') || seen.has('guess') || seen.has('reveal')).toBe(false)
+    expect(seen.has('rate') && seen.has('rateResult')).toBe(true)
   })
 })

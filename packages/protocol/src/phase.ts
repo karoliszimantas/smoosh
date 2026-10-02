@@ -49,6 +49,25 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     deadline: z.number(),
   }),
 
+  // gallery: everyone but the author rates the picture. `prompt` is the
+  // shared one everybody built to — empty in freestyle
+  PictureContextSchema.extend({
+    phase: z.literal('rate'),
+    prompt: z.string(),
+    deadline: z.number(),
+  }),
+
+  PictureContextSchema.extend({
+    phase: z.literal('rateResult'),
+    prompt: z.string(),
+    // null when nobody rated it (everyone timed out)
+    average: z.number().nullable(),
+    // how many raters gave 1, 2, 3, 4, 5 stars
+    counts: z.array(z.number().int().nonnegative()).length(5),
+    points: z.number().int(),
+    deadline: z.number(),
+  }),
+
   z.object({
     phase: z.literal('scores'),
     round: z.number().int().positive(),
