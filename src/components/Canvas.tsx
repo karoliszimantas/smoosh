@@ -51,6 +51,10 @@ const LONG_PRESS_MS = 400
 const LONG_PRESS_SLOP_PX = 10
 // then every this-many pixels of vertical finger travel is one layer
 const DEPTH_STEP_PX = 40
+// Reorder is a vertical gesture. A finger that held still long enough to
+// start one, then sets off sideways this far (and mostly sideways) before
+// changing depth, meant to drag — people pause before dragging all the time
+const REORDER_HANDOFF_PX = 14
 // room the depth readout needs above the finger, and half its width
 const DEPTH_BADGE_CLEARANCE = 140
 const DEPTH_BADGE_HALF_WIDTH = 60
@@ -153,7 +157,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const pinch = useRef<{ dist: number; angle: number } | null>(null)
   // the pending/active long-press, if any — its cleanup removes its window
   // listeners and timer
-  const press = useRef<{ active: boolean; cleanup: () => void } | null>(null)
+  const press = useRef<{
+    active: boolean
+    cleanup: () => void
+    // gives a long-press that turns out to be a sideways drag back to the
+    // drag; true if it did
+    handOff: (clientX: number, clientY: number) => boolean
+  } | null>(null)
   // read by the long-press timer, which fires outside any render
   const itemsRef = useRef(items)
   useEffect(() => {
@@ -299,6 +309,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const node = stageRef.current?.findOne<Konva.Image>(`#${id}`)
     if (!node) return
     const startPos = node.position()
+    const startAbs = node.absolutePosition()
     let last = { x: startX, y: startY }
     let from = -1
     let to = -1
@@ -361,8 +372,25 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
 
+    // called from the stage's own move handlers, after Konva has recorded
+    // the finger's current position, so the drag it restarts follows the
+    // finger from exactly where it is
+    const handOff = (clientX: number, clientY: number): boolean => {
+      if (!state.active || to !== from) return false
+      const dy = clientY - startY
+      const sideways = clientX - startX
+      if (Math.abs(sideways) < REORDER_HANDOFF_PX || Math.abs(sideways) < Math.abs(dy) * 1.5) return false
+      cancelPress()
+      // put the layer where it would be had it been dragging all along, then
+      // resume Konva's drag on this finger — no jump, no lost movement
+      node.absolutePosition({ x: startAbs.x + (clientX - startX), y: startAbs.y + (clientY - startY) })
+      node.startDrag()
+      return true
+    }
+
     const state = {
       active: false,
+      handOff,
       cleanup: () => {
         window.clearTimeout(timer)
         window.removeEventListener('pointermove', onMove)
@@ -383,6 +411,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const handleTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
     const touch0 = e.evt.touches[0]
     const touch1 = e.evt.touches[1]
+    if (e.evt.touches.length === 1 && touch0) {
+      press.current?.handOff(touch0.clientX, touch0.clientY)
+      return
+    }
     if (e.evt.touches.length !== 2 || !touch0 || !touch1) return
     if (press.current?.active) return
     const node = ownerNode()
@@ -586,6 +618,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onMouseDown={handlePointerDown}
           onTouchStart={handlePointerDown}
           onTouchMove={handleTouchMove}
+          onMouseMove={(e) => press.current?.handOff(e.evt.clientX, e.evt.clientY)}
           onTouchEnd={handleTouchEnd}
         >
           <Layer listening={false}>
