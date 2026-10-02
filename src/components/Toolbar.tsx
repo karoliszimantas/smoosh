@@ -1,4 +1,6 @@
-import type { ReactNode, Ref } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { MIN_OPACITY } from './layerItem'
+import type { BrushSize } from './erase'
 
 // 24×24 stroke icons — inline so they render the same on every phone,
 // unlike symbol glyphs, whose look depends on the system font
@@ -8,22 +10,26 @@ const ICONS = {
   front: 'M12 19V5M5 12l7-7 7 7',
   back: 'M12 5v14M5 12l7 7 7-7',
   mirror: 'M12 3v18M9 7L3 17h6zM15 7l6 10h-6z',
-  flip: 'M3 12h18M7 9l10-6v6zM7 15l10 6v-6z',
   crop: 'M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2',
+  erase: 'M8 20h12M4.5 15.5l9-9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8z M9 11l5 5',
   delete: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
   report: 'M5 21V4h11l-2 4 2 4H5',
   reset: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4',
   cancel: 'M6 6l12 12M18 6L6 18',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
 } as const
+type IconName = keyof typeof ICONS
 
-function Icon({ name }: { name: keyof typeof ICONS }) {
+function Icon({ name }: { name: IconName }) {
   return (
     <svg
       className="toolbar-icon"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      // the "more" dots are zero-length lines: their size is the stroke
+      strokeWidth={name === 'more' ? 4 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -41,16 +47,21 @@ function ToolButton({
   disabled,
   ariaLabel,
   pressed,
+  expanded,
   buttonRef,
+  children,
 }: {
-  icon: keyof typeof ICONS
+  icon?: IconName
   label?: string
   onClick: () => void
   variant?: 'primary' | 'danger'
   disabled?: boolean
   ariaLabel?: string
   pressed?: boolean
+  expanded?: boolean
   buttonRef?: Ref<HTMLButtonElement>
+  // custom glyph instead of an icon (the brush-size dots)
+  children?: ReactNode
 }) {
   const classes = ['toolbar-btn']
   if (variant) classes.push(`toolbar-btn-${variant}`)
@@ -64,22 +75,70 @@ function ToolButton({
       disabled={disabled}
       aria-label={ariaLabel}
       aria-pressed={pressed}
+      aria-expanded={expanded}
     >
-      <Icon name={icon} />
+      {icon && <Icon name={icon} />}
+      {children}
       {label && <span className="toolbar-label">{label}</span>}
     </button>
   )
 }
 
-export type ToolbarMode = 'idle' | 'layer' | 'crop'
+export type ToolbarMode = 'idle' | 'layer' | 'crop' | 'erase'
 
-// Contextual: the controls for what's selected, in one row that scrolls
-// sideways if a narrow phone can't fit it — never a second row, which would
-// come out of the canvas. Its height is fixed in CSS, so switching states
-// never resizes the stage (which would make every layer appear to jump).
+// Live while dragging (onPreview touches the Konva node only), committed to
+// layer state once on release — the same split as drag and pinch.
+function OpacitySlider({
+  value,
+  onPreview,
+  onCommit,
+}: {
+  value: number
+  onPreview: (v: number) => void
+  onCommit: (v: number) => void
+}) {
+  // starts from the layer's value; the parent remounts this per layer
+  const [draft, setDraft] = useState(value)
+  const dragging = useRef(false)
+
+  const commit = () => {
+    dragging.current = false
+    onCommit(draft)
+  }
+
+  return (
+    <label className="opacity-row">
+      <span className="opacity-label">Opacity</span>
+      <input
+        className="opacity-slider"
+        type="range"
+        min={MIN_OPACITY}
+        max={1}
+        step={0.05}
+        value={draft}
+        onPointerDown={() => (dragging.current = true)}
+        onChange={(e) => {
+          const v = Number(e.target.value)
+          setDraft(v)
+          onPreview(v)
+        }}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={() => dragging.current && commit()}
+      />
+      <span className="opacity-value">{Math.round(draft * 100)}%</span>
+    </label>
+  )
+}
+
+// Contextual: the controls for what's selected, in one fixed-height row that
+// scrolls sideways if a narrow phone can't fit it — never a second row,
+// which would come out of the canvas. Less-used layer tools live behind
+// More, in a popover that floats above the row and so never resizes it.
 // Add stays first and primary whenever it's shown; Done stays last.
 export default function Toolbar({
   mode,
+  selectedId,
   addButtonRef,
   onAdd,
   onDone,
@@ -88,18 +147,28 @@ export default function Toolbar({
   canMoveBack,
   onFront,
   onBack,
-  flipX,
-  flipY,
+  mirrored,
+  opacity,
   onMirror,
-  onFlip,
   onCrop,
+  onErase,
   onDelete,
   onReport,
+  onOpacityPreview,
+  onOpacityCommit,
   onCropReset,
   onCropCancel,
   onCropApply,
+  brush,
+  onBrush,
+  canUndoErase,
+  onEraseUndo,
+  onEraseReset,
+  onEraseDone,
 }: {
   mode: ToolbarMode
+  // the selected layer — the More popover's slider starts fresh for each
+  selectedId: string | null
   addButtonRef: Ref<HTMLButtonElement>
   onAdd: () => void
   onDone: () => void
@@ -108,18 +177,43 @@ export default function Toolbar({
   canMoveBack: boolean
   onFront: () => void
   onBack: () => void
-  flipX: boolean
-  flipY: boolean
+  mirrored: boolean
+  opacity: number
   onMirror: () => void
-  onFlip: () => void
   onCrop: () => void
+  onErase: () => void
   onDelete: () => void
   // only for layers that came from Pixabay — curated assets aren't reportable
   onReport?: () => void
+  onOpacityPreview: (v: number) => void
+  onOpacityCommit: (v: number) => void
   onCropReset: () => void
   onCropCancel: () => void
   onCropApply: () => void
+  brush: BrushSize
+  onBrush: (size: BrushSize) => void
+  canUndoErase: boolean
+  onEraseUndo: () => void
+  onEraseReset: () => void
+  onEraseDone: () => void
 }) {
+  // the popover is open for one toolbar state: entering crop or erase, or
+  // deselecting, closes it without an effect having to
+  const [moreOpenIn, setMoreOpenIn] = useState<ToolbarMode | null>(null)
+  const moreOpen = moreOpenIn === mode && mode === 'layer'
+  const setMoreOpen = (open: boolean) => setMoreOpenIn(open ? mode : null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // …and any tap outside it
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setMoreOpenIn(null)
+    }
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [moreOpen])
+
   let buttons: ReactNode
   if (mode === 'crop') {
     buttons = (
@@ -127,6 +221,25 @@ export default function Toolbar({
         <ToolButton icon="reset" label="Reset" onClick={onCropReset} ariaLabel="Reset crop to the full image" />
         <ToolButton icon="cancel" label="Cancel" onClick={onCropCancel} />
         <ToolButton icon="done" label="Apply" onClick={onCropApply} variant="primary" />
+      </>
+    )
+  } else if (mode === 'erase') {
+    buttons = (
+      <>
+        {(['S', 'M', 'L'] as const).map((size) => (
+          <ToolButton
+            key={size}
+            label={size}
+            onClick={() => onBrush(size)}
+            pressed={brush === size}
+            ariaLabel={`${{ S: 'Small', M: 'Medium', L: 'Large' }[size]} brush`}
+          >
+            <span className={`brush-dot brush-dot-${size}`} aria-hidden="true" />
+          </ToolButton>
+        ))}
+        <ToolButton icon="undo" label="Undo" onClick={onEraseUndo} disabled={!canUndoErase} ariaLabel="Undo last stroke" />
+        <ToolButton icon="reset" label="Reset" onClick={onEraseReset} disabled={!canUndoErase} ariaLabel="Restore the whole layer" />
+        <ToolButton icon="done" label="Done" onClick={onEraseDone} variant="primary" ariaLabel="Done erasing" />
       </>
     )
   } else if (mode === 'layer') {
@@ -147,11 +260,16 @@ export default function Toolbar({
           disabled={!canMoveBack}
           ariaLabel="Move layer backward one step"
         />
-        <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={flipX} ariaLabel="Mirror left to right" />
-        <ToolButton icon="flip" label="Flip" onClick={onFlip} pressed={flipY} ariaLabel="Flip upside down" />
-        <ToolButton icon="crop" label="Crop" onClick={onCrop} />
+        <ToolButton icon="erase" label="Erase" onClick={onErase} />
         <ToolButton icon="delete" label="Delete" onClick={onDelete} variant="danger" />
-        {onReport && <ToolButton icon="report" onClick={onReport} ariaLabel="Report this image" />}
+        <ToolButton
+          icon="more"
+          label="More"
+          onClick={() => setMoreOpen(!moreOpen)}
+          pressed={moreOpen}
+          expanded={moreOpen}
+          ariaLabel="More layer tools"
+        />
         <ToolButton icon="done" label={doneLabel} onClick={onDone} />
       </>
     )
@@ -164,5 +282,31 @@ export default function Toolbar({
     )
   }
 
-  return <div className="toolbar">{buttons}</div>
+  return (
+    <div className="toolbar-wrap" ref={wrapRef}>
+      {mode === 'layer' && moreOpen && (
+        <div className="toolbar-more" role="group" aria-label="More layer tools">
+          <div className="toolbar-more-row">
+            <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
+            <ToolButton
+              icon="crop"
+              label="Crop"
+              onClick={() => {
+                setMoreOpen(false)
+                onCrop()
+              }}
+            />
+            {onReport && <ToolButton icon="report" label="Report" onClick={onReport} ariaLabel="Report this image" />}
+          </div>
+          <OpacitySlider
+            key={selectedId ?? ''}
+            value={opacity}
+            onPreview={onOpacityPreview}
+            onCommit={onOpacityCommit}
+          />
+        </div>
+      )}
+      <div className="toolbar">{buttons}</div>
+    </div>
+  )
 }

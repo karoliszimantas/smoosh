@@ -29,7 +29,9 @@ function seeded(seedText: string): () => number {
 
 const DIRECTIONS = 48
 
-function buildPaper(image: HTMLImageElement, color: string, pad: number): Paper {
+type Source = HTMLImageElement | HTMLCanvasElement
+
+function buildPaper(image: Source, color: string, pad: number, seed: string): Paper {
   const tint = document.createElement('canvas')
   tint.width = image.width
   tint.height = image.height
@@ -48,7 +50,7 @@ function buildPaper(image: HTMLImageElement, color: string, pad: number): Paper 
 
   // stamp it around a circle at an uneven radius per direction (a dilation
   // whose reach wobbles — the torn edge), plus an inner ring to fill gaps
-  const rand = seeded(image.src)
+  const rand = seeded(seed)
   for (const ring of [1, 0.55]) {
     for (let k = 0; k < DIRECTIONS; k++) {
       const angle = (k / DIRECTIONS) * Math.PI * 2
@@ -60,16 +62,20 @@ function buildPaper(image: HTMLImageElement, color: string, pad: number): Paper 
   return { source: out, pad }
 }
 
-const cache = new WeakMap<HTMLImageElement, Map<string, Paper>>()
+// keyed by the source object: an erased layer's source is a fresh canvas each
+// time its strokes change, so a stale paper is never reused
+const cache = new WeakMap<Source, Map<string, Paper>>()
 
 // `unitsPerPx`: canvas units per source pixel at scale 1 — the border is
 // sized against the frame, so the same theme gives the same border on a
 // small or large image
+// `seed` fixes the torn edge's shape — pass something stable per image
 export function paperFor(
-  image: HTMLImageElement,
+  image: Source,
   color: string | null,
   borderThemePx: number,
   unitsPerPx: number,
+  seed: string,
 ): Paper {
   const pad = Math.round((borderThemePx * CANVAS_UNITS_PER_THEME_PX) / unitsPerPx)
   if (!color || pad < 1) return { source: image, pad: 0 }
@@ -81,7 +87,7 @@ export function paperFor(
   }
   let paper = byKey.get(key)
   if (!paper) {
-    paper = buildPaper(image, color, pad)
+    paper = buildPaper(image, color, pad, seed)
     byKey.set(key, paper)
   }
   return paper

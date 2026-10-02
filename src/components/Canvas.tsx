@@ -9,13 +9,18 @@ import {
   baseSize,
   cropCenterOffset,
   isFullCrop,
+  MAX_ERASE_STROKES,
   type CropRect,
+  type EraseStroke,
   type LayerItem,
   type Placement,
 } from './layerItem'
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
 import PromptBar from './PromptBar'
 import Toolbar, { type ToolbarMode } from './Toolbar'
+import { BRUSH_PX, type BrushSize } from './erase'
+import EraseOverlay from './EraseOverlay'
+import { loadImage } from './imageCache'
 import LayerStrip from './LayerStrip'
 import DraggableImage from './DraggableImage'
 import CropOverlay from './CropOverlay'
@@ -82,6 +87,9 @@ function moveToIndex(items: LayerItem[], id: string, to: number): LayerItem[] {
 // crop mode works on a draft; nothing changes on the layer until Apply
 type Cropping = { id: string; image: HTMLImageElement; draft: CropRect }
 
+// erase mode: which layer, its original image, and the brush
+type Erasing = { id: string; image: HTMLImageElement; brush: BrushSize }
+
 // a long-press reorder in progress: the layer, where it'll land, and where
 // to show the depth readout (container pixels, at the finger)
 type DepthDrag = { id: string; to: number; x: number; y: number; below: boolean }
@@ -132,6 +140,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const [reportTarget, setReportTarget] = useState<number | null>(null)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
   const [cropping, setCropping] = useState<Cropping | null>(null)
+  const [erasing, setErasing] = useState<Erasing | null>(null)
+  // a mode that owns the canvas: no selecting, dragging or reordering layers
+  const editing = cropping !== null || erasing !== null
   const [depth, setDepth] = useState<DepthDrag | null>(null)
 
   // where the square frame sits on screen, and the stage scale that maps
@@ -244,8 +255,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         // within ±jitter/2. Only on placement: switching theme later
         // never re-rotates anything already placed
         rotation: (Math.random() - 0.5) * themeRef.current.layerJitterDegrees,
-        flipX: false,
-        flipY: false,
+        mirrored: false,
+        opacity: 1,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
       },
     ])
@@ -268,12 +279,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   }, [])
 
-  // crop mode owns the selection until Apply/Cancel
+  // crop and erase modes own the selection until they're closed
   const selectItem = useCallback(
     (id: string) => {
-      if (!cropping) setSelectedId(id)
+      if (!editing) setSelectedId(id)
     },
-    [cropping],
+    [editing],
   )
 
   const isGestureOwner = useCallback((id: string) => gestureOwner.current === id, [])
@@ -281,8 +292,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const handlePointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // only the first contact of a gesture picks its target
     if ('touches' in e.evt && e.evt.touches.length > 1) return
-    // crop handles live on the stage too; they mustn't change the selection
-    if (cropping) return
+    // crop handles and the eraser live on the stage too; they mustn't change
+    // the selection
+    if (editing) return
     const id = e.target.getClassName() === 'Image' ? e.target.id() : null
     gestureOwner.current = id
     // selecting must not reorder — the items array is the single source of
@@ -488,22 +500,77 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
   const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
 
-  const toggleFlip = useCallback(
-    (axis: 'flipX' | 'flipY') => {
-      setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, [axis]: !i[axis] } : i)))
+  const mirrorSelected = useCallback(() => {
+    setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, mirrored: !i.mirrored } : i)))
+  }, [selectedId])
+
+  // Opacity: the slider previews on the Konva node directly and commits to
+  // state once, on release — the same split as drag and pinch
+  const previewOpacity = useCallback(
+    (opacity: number) => {
+      const node = selectedId ? stageRef.current?.findOne<Konva.Image>(`#${selectedId}`) : undefined
+      node?.opacity(opacity)
+      node?.getLayer()?.batchDraw()
     },
     [selectedId],
   )
-  const mirrorSelected = useCallback(() => toggleFlip('flipX'), [toggleFlip])
-  const flipSelected = useCallback(() => toggleFlip('flipY'), [toggleFlip])
+  const commitOpacity = useCallback(
+    (opacity: number) => {
+      if (selectedId) updateItem(selectedId, { opacity })
+    },
+    [selectedId, updateItem],
+  )
 
+  // Crop and erase work on the ORIGINAL image, from the shared image cache —
+  // not on whatever the layer's node currently draws (a themed paper
+  // canvas, an erased copy)
   const startCrop = useCallback(() => {
     const item = items.find((i) => i.id === selectedId)
-    const image = item ? stageRef.current?.findOne<Konva.Image>(`#${item.id}`)?.image() : undefined
-    // not decoded yet — nothing to crop
-    if (!item || !(image instanceof HTMLImageElement)) return
-    setCropping({ id: item.id, image, draft: item.crop ?? FULL_CROP })
+    if (!item) return
+    void loadImage(item.src).then(
+      (image) => setCropping({ id: item.id, image, draft: item.crop ?? FULL_CROP }),
+      () => {}, // not loadable — the layer isn't showing either; nothing to crop
+    )
   }, [items, selectedId])
+
+  const startErase = useCallback(() => {
+    const item = items.find((i) => i.id === selectedId)
+    if (!item) return
+    void loadImage(item.src).then(
+      (image) => setErasing({ id: item.id, image, brush: 'M' }),
+      () => {},
+    )
+  }, [items, selectedId])
+
+  const setBrush = useCallback((brush: BrushSize) => setErasing((prev) => (prev ? { ...prev, brush } : prev)), [])
+
+  const setErase = useCallback((id: string, update: (strokes: EraseStroke[]) => EraseStroke[]) => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i
+        const strokes = update(i.erase ?? [])
+        const next: LayerItem = { ...i }
+        if (strokes.length > 0) next.erase = strokes
+        else delete next.erase
+        return next
+      }),
+    )
+  }, [])
+
+  // one finger-down to finger-up is one stroke, and one undo step
+  const addEraseStroke = useCallback(
+    (stroke: EraseStroke) => {
+      if (erasing) setErase(erasing.id, (s) => (s.length >= MAX_ERASE_STROKES ? s : [...s, stroke]))
+    },
+    [erasing, setErase],
+  )
+  const undoErase = useCallback(() => {
+    if (erasing) setErase(erasing.id, (s) => s.slice(0, -1))
+  }, [erasing, setErase])
+  const resetErase = useCallback(() => {
+    if (erasing) setErase(erasing.id, () => [])
+  }, [erasing, setErase])
+  const finishErase = useCallback(() => setErasing(null), [])
 
   const setCropDraft = useCallback(
     (draft: CropRect) => setCropping((prev) => (prev ? { ...prev, draft } : prev)),
@@ -549,7 +616,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     // a round can end mid-crop: export the layer as last applied, without
     // the crop mode's dimming and handles
     const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
-    const croppingNode = cropping ? stage.findOne<Konva.Image>(`#${cropping.id}`) : null
+    const eraseOverlay = stage.findOne<Konva.Layer>('.erase-overlay')
+    const editedId = cropping?.id ?? erasing?.id
+    const croppingNode = editedId ? stage.findOne<Konva.Image>(`#${editedId}`) : null
 
     try {
       // hide the selection outline and the frame's border/dimming for the
@@ -558,6 +627,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       selectedNode?.strokeWidth(0)
       frameDecor?.visible(false)
       cropOverlay?.visible(false)
+      eraseOverlay?.visible(false)
       croppingNode?.visible(true)
       stage.batchDraw()
 
@@ -584,10 +654,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       selectedNode?.strokeWidth(3)
       frameDecor?.visible(true)
       cropOverlay?.visible(true)
+      eraseOverlay?.visible(true)
       croppingNode?.visible(false)
       stage.batchDraw()
     }
-  }, [selectedId, onSubmit, frame, cropping])
+  }, [selectedId, onSubmit, frame, cropping, erasing])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
@@ -598,7 +669,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const canMoveBack = isSelected && selectedIndex !== 0
   const selectedPixabayId = selectedItem?.pixabayId
   const croppingItem = cropping ? items.find((i) => i.id === cropping.id) : undefined
-  const toolbarMode: ToolbarMode = croppingItem ? 'crop' : isSelected ? 'layer' : 'idle'
+  const erasingItem = erasing ? items.find((i) => i.id === erasing.id) : undefined
+  const toolbarMode: ToolbarMode = croppingItem
+    ? 'crop'
+    : erasingItem
+      ? 'erase'
+      : isSelected
+        ? 'layer'
+        : 'idle'
   // during a long-press reorder the stack previews the new order live
   const shownItems = depth ? moveToIndex(items, depth.id, depth.to) : items
 
@@ -635,13 +713,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             )}
             <CanvasFrame frame={theme.canvasFrame} />
           </Layer>
-          <Layer listening={!cropping}>
+          <Layer listening={!editing}>
             {shownItems.map((item) => (
               <DraggableImage
                 key={item.id}
                 item={item}
                 isSelected={item.id === selectedId}
-                hidden={item.id === croppingItem?.id}
+                hidden={item.id === croppingItem?.id || item.id === erasingItem?.id}
                 // the layer being reordered stands out from the rest
                 dimmed={depth !== null && item.id !== depth.id}
                 isGestureOwner={isGestureOwner}
@@ -666,6 +744,15 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               strokeScaleEnabled={false}
             />
           </Layer>
+          {erasing && erasingItem && (
+            <EraseOverlay
+              item={erasingItem}
+              image={erasing.image}
+              stageScale={frame.scale}
+              brushPx={BRUSH_PX[erasing.brush]}
+              onStroke={addEraseStroke}
+            />
+          )}
           {cropping && croppingItem && (
             <CropOverlay
               item={croppingItem}
@@ -695,6 +782,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
       <Toolbar
         mode={toolbarMode}
+        selectedId={selectedId}
         addButtonRef={addButtonRef}
         onAdd={openSheet}
         onDone={exportImage}
@@ -703,16 +791,24 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         canMoveBack={canMoveBack}
         onFront={moveSelectedForward}
         onBack={moveSelectedBackward}
-        flipX={selectedItem?.flipX ?? false}
-        flipY={selectedItem?.flipY ?? false}
+        mirrored={selectedItem?.mirrored ?? false}
+        opacity={selectedItem?.opacity ?? 1}
         onMirror={mirrorSelected}
-        onFlip={flipSelected}
         onCrop={startCrop}
+        onErase={startErase}
         onDelete={deleteSelected}
         onReport={selectedPixabayId !== undefined ? () => setReportTarget(selectedPixabayId) : undefined}
+        onOpacityPreview={previewOpacity}
+        onOpacityCommit={commitOpacity}
         onCropReset={resetCrop}
         onCropCancel={cancelCrop}
         onCropApply={applyCrop}
+        brush={erasing?.brush ?? 'M'}
+        onBrush={setBrush}
+        canUndoErase={(erasingItem?.erase?.length ?? 0) > 0}
+        onEraseUndo={undoErase}
+        onEraseReset={resetErase}
+        onEraseDone={finishErase}
       />
 
       <Suspense fallback={null}>

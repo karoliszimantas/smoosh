@@ -1,7 +1,9 @@
 import { Layer, Group, Rect, Circle, Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { baseSize, cropCenterOffset, FULL_CROP, type CropRect, type LayerItem } from './layerItem'
+import { useMemo } from 'react'
 import { useTheme } from '../themes/useTheme'
+import { renderErased } from './erase'
 
 // screen pixels, whatever the layer's scale: handles look small but take a
 // fingertip-sized touch
@@ -30,6 +32,11 @@ export default function CropOverlay({
   onDraftChange: (draft: CropRect) => void
 }) {
   const theme = useTheme()
+  // show what the layer really looks like, eraser strokes included
+  const shown = useMemo(
+    () => (item.erase && item.erase.length > 0 ? renderErased(image, item.erase) : image),
+    [image, item.erase],
+  )
   // everything below is drawn in the FULL image's own space (0..W, 0..H),
   // under the layer's scale, flips and rotation — so handles sit on the
   // image however it's turned, and re-cropping always works against the
@@ -102,15 +109,15 @@ export default function CropOverlay({
         x={fullCenter.x}
         y={fullCenter.y}
         rotation={item.rotation}
-        scaleX={item.scale * (item.flipX ? -1 : 1)}
-        scaleY={item.scale * (item.flipY ? -1 : 1)}
+        scaleX={item.scale * (item.mirrored ? -1 : 1)}
+        scaleY={item.scale}
         offsetX={W / 2}
         offsetY={H / 2}
       >
         {/* the whole original, faint, so the player sees what they can get back */}
-        <KonvaImage image={image} width={W} height={H} opacity={0.3} listening={false} />
+        <KonvaImage image={shown} width={W} height={H} opacity={0.3} listening={false} />
         <KonvaImage
-          image={image}
+          image={shown}
           x={left}
           y={top}
           width={right - left}

@@ -1,4 +1,4 @@
-import type { CropRect, LayerItem } from '../components/layerItem'
+import { MIN_OPACITY, type CropRect, type LayerItem } from '../components/layerItem'
 
 // session: a BUILD round's canvas, which only needs to survive a reload.
 // local: the sandbox, which should survive closing the tab.
@@ -25,9 +25,28 @@ function isCropRect(value: unknown): value is CropRect {
   return x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1 + eps && y + height <= 1 + eps
 }
 
-// flips and crop are newer than the rest — a canvas saved before they
-// existed still restores, as unflipped and uncropped
-type StoredLayerItem = Omit<LayerItem, 'flipX' | 'flipY'> & { flipX?: boolean; flipY?: boolean }
+function isEraseStroke(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.r === 'number' &&
+    v.r > 0 &&
+    Array.isArray(v.p) &&
+    v.p.length >= 2 &&
+    v.p.length % 2 === 0 &&
+    v.p.every((n) => typeof n === 'number' && Number.isFinite(n))
+  )
+}
+
+// Everything past the basics is newer than some saved canvases, so it's all
+// optional here. Older shapes: `flipX`/`flipY` (before `mirrored`), no
+// `opacity`, no `erase`.
+type StoredLayerItem = Omit<LayerItem, 'mirrored' | 'opacity'> & {
+  mirrored?: boolean
+  opacity?: number
+  flipX?: boolean
+  flipY?: boolean
+}
 
 function isLayerItem(value: unknown): value is StoredLayerItem {
   if (typeof value !== 'object' || value === null) return false
@@ -41,11 +60,33 @@ function isLayerItem(value: unknown): value is StoredLayerItem {
     typeof v.y === 'number' &&
     typeof v.scale === 'number' &&
     typeof v.rotation === 'number' &&
+    (v.mirrored === undefined || typeof v.mirrored === 'boolean') &&
+    (v.opacity === undefined || typeof v.opacity === 'number') &&
     (v.flipX === undefined || typeof v.flipX === 'boolean') &&
     (v.flipY === undefined || typeof v.flipY === 'boolean') &&
     (v.crop === undefined || isCropRect(v.crop)) &&
+    (v.erase === undefined || (Array.isArray(v.erase) && v.erase.every(isEraseStroke))) &&
     (v.pixabayId === undefined || typeof v.pixabayId === 'number')
   )
+}
+
+// brings any stored shape up to the current one
+function migrate(stored: StoredLayerItem): LayerItem {
+  const { flipX, flipY, mirrored, opacity, ...rest } = stored
+  let isMirrored = mirrored ?? flipX ?? false
+  let rotation = rest.rotation
+  // an old vertical flip is exactly a mirror plus a half turn — same picture
+  if (mirrored === undefined && flipY) {
+    isMirrored = !isMirrored
+    rotation += 180
+  }
+  return {
+    ...rest,
+    scale: Math.abs(rest.scale),
+    rotation,
+    mirrored: isMirrored,
+    opacity: Math.min(1, Math.max(MIN_OPACITY, opacity ?? 1)),
+  }
 }
 
 // Anything stored may be from an older build or hand-edited, so it's
@@ -61,7 +102,7 @@ export function loadCanvasItems(key: string, which: CanvasStorageArea = 'session
     return parsed
       .filter(isLayerItem)
       .filter((i) => !i.src.startsWith('blob:'))
-      .map((i) => ({ ...i, scale: Math.abs(i.scale), flipX: i.flipX ?? false, flipY: i.flipY ?? false }))
+      .map(migrate)
   } catch {
     return undefined
   }

@@ -260,6 +260,115 @@ h2,
   color: var(--danger-text);
 }
 
+/* the row plus the More popover, which floats above it — outside the
+   scrolling row (whose overflow would clip it), and absolutely placed so it
+   never changes the toolbar's height or the stage's size */
+.toolbar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.toolbar-more {
+  position: absolute;
+  right: 6px;
+  bottom: calc(100% + 6px);
+  width: min(300px, calc(100vw - 12px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+  z-index: 12;
+}
+
+.toolbar-more-row {
+  display: flex;
+  gap: 6px;
+}
+
+.opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.opacity-value {
+  width: 38px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* a thumb-sized slider: the whole 44px-tall row takes the touch, and the
+   thumb is big enough to grab without looking */
+.opacity-slider {
+  flex: 1;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: none;
+}
+
+.opacity-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.opacity-slider::-moz-range-track {
+  height: 8px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px;
+  height: 30px;
+  margin-top: -11px;
+  border: 3px solid var(--chrome-bg);
+  border-radius: var(--radius);
+  background: var(--selection);
+}
+
+.opacity-slider::-moz-range-thumb {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--chrome-bg);
+  border-radius: var(--radius);
+  background: var(--selection);
+}
+
+/* erase mode's S / M / L — the dot is the brush, roughly to scale. Round
+   whatever the theme's corners: it depicts the brush, which is round */
+.brush-dot {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.brush-dot-S {
+  width: 6px;
+  height: 6px;
+}
+
+.brush-dot-M {
+  width: 11px;
+  height: 11px;
+}
+
+.brush-dot-L {
+  width: 18px;
+  height: 18px;
+}
+
 /* ---------- long-press depth readout ---------- */
 
 /* sits above the finger, which would otherwise cover it */
