@@ -10,6 +10,7 @@ import {
   cropCenterOffset,
   isFullCrop,
   MAX_ERASE_STROKES,
+  MIN_SCALE,
   type CropRect,
   type EraseStroke,
   type LayerItem,
@@ -47,8 +48,6 @@ const OUTSIDE_DIM_OPACITY = 0.62
 // far enough past the frame to cover any visible part of the stage
 const OUTSIDE = 20000
 
-const MIN_SCALE = 0.15
-const MAX_SCALE = 5
 
 // long-press a layer to change its depth: hold still this long…
 const LONG_PRESS_MS = 400
@@ -445,7 +444,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     // the sign of each scale is the layer's mirroring — scale the size, keep the sign
     const signX = node.scaleX() < 0 ? -1 : 1
     const signY = node.scaleY() < 0 ? -1 : 1
-    const scale = clamp(Math.abs(node.scaleX()) * (dist / pinch.current.dist), MIN_SCALE, MAX_SCALE)
+    const scale = Math.max(MIN_SCALE, Math.abs(node.scaleX()) * (dist / pinch.current.dist))
     node.scaleX(scale * signX)
     node.scaleY(scale * signY)
     node.rotation(node.rotation() + (angle - pinch.current.angle))

@@ -1,4 +1,4 @@
-import { MIN_OPACITY, type CropRect, type LayerItem } from '../components/layerItem'
+import { MIN_OPACITY, MIN_SCALE, type CropRect, type LayerItem } from '../components/layerItem'
 
 // session: a BUILD round's canvas, which only needs to survive a reload.
 // local: the sandbox, which should survive closing the tab.
@@ -59,6 +59,7 @@ function isLayerItem(value: unknown): value is StoredLayerItem {
     typeof v.x === 'number' &&
     typeof v.y === 'number' &&
     typeof v.scale === 'number' &&
+    Number.isFinite(v.scale) &&
     typeof v.rotation === 'number' &&
     (v.mirrored === undefined || typeof v.mirrored === 'boolean') &&
     (v.opacity === undefined || typeof v.opacity === 'number') &&
@@ -82,7 +83,9 @@ function migrate(stored: StoredLayerItem): LayerItem {
   }
   return {
     ...rest,
-    scale: Math.abs(rest.scale),
+    // any size restores as saved — only a zero/negative from old or
+    // hand-edited data is lifted to the floor
+    scale: Math.max(MIN_SCALE, Math.abs(rest.scale)),
     rotation,
     mirrored: isMirrored,
     opacity: Math.min(1, Math.max(MIN_OPACITY, opacity ?? 1)),

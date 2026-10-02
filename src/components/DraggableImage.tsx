@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, memo } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
-import { FULL_CROP, baseSize, type LayerItem } from './layerItem'
+import { FULL_CROP, MIN_SCALE, baseSize, type LayerItem } from './layerItem'
 import { CANVAS_UNITS_PER_THEME_PX, paperFor } from './paper'
 import { renderErased } from './erase'
 import { loadImage } from './imageCache'
@@ -158,7 +158,7 @@ const DraggableImage = memo(function DraggableImage({
   // Konva scales shadow sizes by the node's absolute scale; divide out the
   // layer's own scale so the shadow is the theme's size whatever the layer's,
   // and undo a mirror's sign so the shadow still falls downward
-  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(item.scale, 0.01)
+  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(item.scale, MIN_SCALE)
 
   const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
     const source = paper?.source ?? img

@@ -44,6 +44,11 @@ export type EraseStroke = {
 }
 
 export const MIN_OPACITY = 0.1
+// Scale has a floor and no ceiling: a background can fill the canvas, a prop
+// can be blown up as far as the joke needs. The floor exists because at 0 a
+// layer has no hit area and can never be grabbed again; at 0.01 it's all but
+// invisible yet still selectable from the layer strip.
+export const MIN_SCALE = 0.01
 export const MAX_ERASE_STROKES = 200
 
 export type CropRect = { x: number; y: number; width: number; height: number }
