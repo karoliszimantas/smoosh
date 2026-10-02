@@ -9,7 +9,7 @@ import ReportDialog from './ReportDialog'
 // single manifest fetch shared for the lifetime of the page
 const assetSource = new LocalAssetSource()
 
-// Four players typing at once is what blows the shared Pixabay rate limit —
+// Several players typing at once is what blows the shared Pixabay rate limit —
 // manual search only fires once typing pauses.
 const SEARCH_DEBOUNCE_MS = 500
 const MIN_MANUAL_CHARS = 2

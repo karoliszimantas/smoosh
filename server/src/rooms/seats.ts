@@ -10,7 +10,7 @@ function uniqueName(room: Room, requestedName: string): string {
     const candidate = `${requestedName} (${suffix})`
     if (!taken.has(candidate.toLowerCase())) return candidate
   }
-  // effectively unreachable at MAX_PLAYERS=4, but keeps the function total
+  // effectively unreachable at MAX_PLAYERS=8, but keeps the function total
   return `${requestedName} (${crypto.randomUUID().slice(0, 4)})`
 }
 

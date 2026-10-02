@@ -132,7 +132,7 @@ export async function search(query: string, page: number): Promise<SearchOutcome
   if (!apiKey) return { kind: 'not_configured' }
 
   // identical searches already on their way to Pixabay share one request
-  // (and one token) — four players opening the same prompt tab at once is
+  // (and one token) — several players opening the same prompt tab at once is
   // the common case, not the exception
   const fallback = (outcome: Exclude<SearchOutcome, { kind: 'ok' }>): SearchOutcome =>
     cached ? { kind: 'ok', response: cached.response, stale: true } : outcome

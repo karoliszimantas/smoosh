@@ -8,7 +8,7 @@ export const GUESS_PHASE_SEC = 20
 export const REVEAL_PHASE_SEC = 8
 export const SCORES_PHASE_SEC = 6
 
-export const MAX_PLAYERS = 4
+export const MAX_PLAYERS = 8
 export const MIN_PLAYERS_TO_START = 3
 export const DISPLAY_NAME_MAX_LEN = 12
 export const LIE_TEXT_MAX_LEN = 80
