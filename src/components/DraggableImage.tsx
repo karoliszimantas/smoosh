@@ -87,6 +87,45 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return promise
 }
 
+// a cut-out is mostly transparent, but Konva hit-tests its whole rectangle —
+// so a rotated layer's invisible corners would grab touches meant for the
+// layer beside it. The hit mask paints only the opaque pixels, in the
+// shape's hit colour, so taps on the transparent parts fall through.
+const HIT_MASK_MAX_PX = 256
+const HIT_ALPHA_THRESHOLD = 32
+
+function buildHitMask(image: HTMLImageElement, colorKey: string): HTMLCanvasElement | null {
+  const scale = Math.min(1, HIT_MASK_MAX_PX / Math.max(image.width, image.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(image.width * scale))
+  canvas.height = Math.max(1, Math.round(image.height * scale))
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+  let data: ImageData
+  try {
+    data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  } catch {
+    // tainted (cross-origin without CORS) — fall back to the rectangle
+    return null
+  }
+
+  const r = parseInt(colorKey.slice(1, 3), 16)
+  const g = parseInt(colorKey.slice(3, 5), 16)
+  const b = parseInt(colorKey.slice(5, 7), 16)
+  const px = data.data
+  for (let i = 0; i < px.length; i += 4) {
+    const opaque = px[i + 3]! > HIT_ALPHA_THRESHOLD
+    px[i] = r
+    px[i + 1] = g
+    px[i + 2] = b
+    px[i + 3] = opaque ? 255 : 0
+  }
+  ctx.putImageData(data, 0, 0)
+  return canvas
+}
+
 const DraggableImage = memo(function DraggableImage({
   item,
   isSelected,
@@ -102,6 +141,7 @@ const DraggableImage = memo(function DraggableImage({
   const [dims, setDims] = useState({ w: 120, h: 120 })
   const ref = useRef<Konva.Image>(null)
   const blockedDrag = useRef(false)
+  const hitMask = useRef<{ image: HTMLImageElement; colorKey: string; mask: HTMLCanvasElement | null } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -147,6 +187,27 @@ const DraggableImage = memo(function DraggableImage({
     onChange(item.id, { x: node.x(), y: node.y() })
   }
 
+  const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
+    const cached = hitMask.current
+    if (!cached || cached.image !== img || cached.colorKey !== shape.colorKey) {
+      hitMask.current = { image: img!, colorKey: shape.colorKey, mask: buildHitMask(img!, shape.colorKey) }
+    }
+    const mask = hitMask.current!.mask
+    if (!mask) {
+      ctx.beginPath()
+      ctx.rect(0, 0, shape.width(), shape.height())
+      ctx.closePath()
+      ctx.fillStrokeShape(shape)
+      return
+    }
+    // smoothing would blend edge pixels into colours that match no shape
+    const native = ctx._context
+    const smoothing = native.imageSmoothingEnabled
+    native.imageSmoothingEnabled = false
+    native.drawImage(mask, 0, 0, shape.width(), shape.height())
+    native.imageSmoothingEnabled = smoothing
+  }
+
   if (!img) return null
 
   return (
@@ -164,6 +225,7 @@ const DraggableImage = memo(function DraggableImage({
       offsetX={dims.w / 2}
       offsetY={dims.h / 2}
       draggable
+      hitFunc={hitFunc}
       stroke={isSelected ? '#4ade80' : undefined}
       strokeWidth={isSelected ? 3 : 0}
       // the stage is scaled to fit the frame — keep the outline 3 screen px
