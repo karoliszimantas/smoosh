@@ -5,7 +5,6 @@ import type { ReactNode, Ref } from 'react'
 const ICONS = {
   add: 'M12 5v14M5 12h14',
   done: 'M5 12l5 5 9-10',
-  close: 'M15 18l-6-6 6-6',
   front: 'M12 19V5M5 12l7-7 7 7',
   back: 'M12 5v14M5 12l7 7 7-7',
   mirror: 'M12 3v18M9 7L3 17h6zM15 7l6 10h-6z',
@@ -74,16 +73,17 @@ function ToolButton({
 
 export type ToolbarMode = 'idle' | 'layer' | 'crop'
 
-// Contextual: only the controls for what's selected, in one row that
-// scrolls sideways if a narrow phone can't fit it — never a second row,
-// which would come out of the canvas
+// Contextual: the controls for what's selected, in one row that scrolls
+// sideways if a narrow phone can't fit it — never a second row, which would
+// come out of the canvas. Its height is fixed in CSS, so switching states
+// never resizes the stage (which would make every layer appear to jump).
+// Add stays first and primary whenever it's shown; Done stays last.
 export default function Toolbar({
   mode,
   addButtonRef,
   onAdd,
   onDone,
   doneLabel = 'Done',
-  onDeselect,
   canMoveFront,
   canMoveBack,
   onFront,
@@ -104,7 +104,6 @@ export default function Toolbar({
   onAdd: () => void
   onDone: () => void
   doneLabel?: string
-  onDeselect: () => void
   canMoveFront: boolean
   canMoveBack: boolean
   onFront: () => void
@@ -133,7 +132,7 @@ export default function Toolbar({
   } else if (mode === 'layer') {
     buttons = (
       <>
-        <ToolButton icon="close" onClick={onDeselect} ariaLabel="Close layer tools" />
+        <ToolButton icon="add" label="Add" onClick={onAdd} variant="primary" buttonRef={addButtonRef} />
         <ToolButton
           icon="front"
           label="Front"
@@ -153,6 +152,7 @@ export default function Toolbar({
         <ToolButton icon="crop" label="Crop" onClick={onCrop} />
         <ToolButton icon="delete" label="Delete" onClick={onDelete} variant="danger" />
         {onReport && <ToolButton icon="report" onClick={onReport} ariaLabel="Report this image" />}
+        <ToolButton icon="done" label={doneLabel} onClick={onDone} />
       </>
     )
   } else {

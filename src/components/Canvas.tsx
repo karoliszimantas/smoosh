@@ -47,7 +47,7 @@ const LONG_PRESS_MS = 400
 // …moving further than this first makes it an ordinary drag instead
 const LONG_PRESS_SLOP_PX = 10
 // then every this-many pixels of vertical finger travel is one layer
-const DEPTH_STEP_PX = 36
+const DEPTH_STEP_PX = 40
 // room the depth readout needs above the finger, and half its width
 const DEPTH_BADGE_CLEARANCE = 140
 const DEPTH_BADGE_HALF_WIDTH = 60
@@ -302,7 +302,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         return
       }
       const steps = Math.round((startY - e.clientY) / DEPTH_STEP_PX)
-      to = clamp(from + steps, 0, itemsRef.current.length - 1)
+      const next = clamp(from + steps, 0, itemsRef.current.length - 1)
+      // a tick per step, so depth can be felt without looking
+      if (next !== to && 'vibrate' in navigator) navigator.vibrate(8)
+      to = next
       setDepth({ id, to, ...badgeAt(e.clientX, e.clientY) })
     }
 
@@ -426,8 +429,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   )
   const mirrorSelected = useCallback(() => toggleFlip('flipX'), [toggleFlip])
   const flipSelected = useCallback(() => toggleFlip('flipY'), [toggleFlip])
-
-  const deselect = useCallback(() => setSelectedId(null), [])
 
   const startCrop = useCallback(() => {
     const item = items.find((i) => i.id === selectedId)
@@ -562,6 +563,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
                 item={item}
                 isSelected={item.id === selectedId}
                 hidden={item.id === croppingItem?.id}
+                // the layer being reordered stands out from the rest
+                dimmed={depth !== null && item.id !== depth.id}
                 isGestureOwner={isGestureOwner}
                 onChange={updateItem}
               />
@@ -617,7 +620,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         onAdd={openSheet}
         onDone={exportImage}
         doneLabel={doneLabel}
-        onDeselect={deselect}
         canMoveFront={canMoveFront}
         canMoveBack={canMoveBack}
         onFront={moveSelectedForward}

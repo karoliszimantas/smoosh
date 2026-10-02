@@ -130,6 +130,7 @@ const DraggableImage = memo(function DraggableImage({
   item,
   isSelected,
   hidden,
+  dimmed,
   isGestureOwner,
   onChange,
 }: {
@@ -137,6 +138,7 @@ const DraggableImage = memo(function DraggableImage({
   isSelected: boolean
   // crop mode draws its own copy of the layer; this one steps aside
   hidden: boolean
+  dimmed: boolean
   isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
 }) {
@@ -246,6 +248,7 @@ const DraggableImage = memo(function DraggableImage({
         height: crop.height * img.height,
       }}
       visible={!hidden}
+      opacity={dimmed ? 0.4 : 1}
       draggable
       hitFunc={hitFunc}
       stroke={isSelected ? '#4ade80' : undefined}
