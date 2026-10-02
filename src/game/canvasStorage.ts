@@ -1,4 +1,4 @@
-import type { LayerItem } from '../components/layerItem'
+import type { CropRect, LayerItem } from '../components/layerItem'
 
 // session: a BUILD round's canvas, which only needs to survive a reload.
 // local: the sandbox, which should survive closing the tab.
@@ -14,7 +14,22 @@ export function canvasStorageKey(roomCode: string, round: number, playerId: stri
   return `smoosh_canvas_${roomCode}_${round}_${playerId}`
 }
 
-function isLayerItem(value: unknown): value is LayerItem {
+function isCropRect(value: unknown): value is CropRect {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  const { x, y, width, height } = v
+  if (typeof x !== 'number' || typeof y !== 'number' || typeof width !== 'number' || typeof height !== 'number') {
+    return false
+  }
+  const eps = 1e-6
+  return x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1 + eps && y + height <= 1 + eps
+}
+
+// flips and crop are newer than the rest — a canvas saved before they
+// existed still restores, as unflipped and uncropped
+type StoredLayerItem = Omit<LayerItem, 'flipX' | 'flipY'> & { flipX?: boolean; flipY?: boolean }
+
+function isLayerItem(value: unknown): value is StoredLayerItem {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
   return (
@@ -26,6 +41,9 @@ function isLayerItem(value: unknown): value is LayerItem {
     typeof v.y === 'number' &&
     typeof v.scale === 'number' &&
     typeof v.rotation === 'number' &&
+    (v.flipX === undefined || typeof v.flipX === 'boolean') &&
+    (v.flipY === undefined || typeof v.flipY === 'boolean') &&
+    (v.crop === undefined || isCropRect(v.crop)) &&
     (v.pixabayId === undefined || typeof v.pixabayId === 'number')
   )
 }
@@ -40,7 +58,10 @@ export function loadCanvasItems(key: string, which: CanvasStorageArea = 'session
     if (!raw) return undefined
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return undefined
-    return parsed.filter(isLayerItem).filter((i) => !i.src.startsWith('blob:'))
+    return parsed
+      .filter(isLayerItem)
+      .filter((i) => !i.src.startsWith('blob:'))
+      .map((i) => ({ ...i, scale: Math.abs(i.scale), flipX: i.flipX ?? false, flipY: i.flipY ?? false }))
   } catch {
     return undefined
   }

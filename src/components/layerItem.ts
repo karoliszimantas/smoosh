@@ -14,10 +14,51 @@ export type LayerItem = {
   label: string
   x: number
   y: number
+  // always positive — mirroring lives in flipX/flipY, so a pinch that
+  // rewrites the scale can never un-mirror a layer
   scale: number
   rotation: number
+  flipX: boolean
+  flipY: boolean
+  // the visible part of the image, as fractions of the full (uncropped)
+  // image — absent means uncropped. Fractions rather than pixels so it holds
+  // when the source is swapped for a differently-sized copy (a local cut
+  // replaced by its shared upload). The image itself is never altered.
+  crop?: CropRect
   // set for anything that came from Pixabay, so the layer can be reported
   pixabayId?: number
+}
+
+export type CropRect = { x: number; y: number; width: number; height: number }
+
+export const FULL_CROP: CropRect = { x: 0, y: 0, width: 1, height: 1 }
+
+export function isFullCrop(c: CropRect): boolean {
+  const eps = 1e-3
+  return c.x < eps && c.y < eps && c.width > 1 - eps && c.height > 1 - eps
+}
+
+// a full (uncropped) layer's size in canvas units at scale 1: new layers
+// start at 30% of the frame on their longest side
+export function baseSize(image: { width: number; height: number }): { w: number; h: number } {
+  const maxSide = CANVAS_SIZE * 0.3
+  const ratio = image.width / image.height
+  return ratio > 1 ? { w: maxSide, h: maxSide / ratio } : { w: maxSide * ratio, h: maxSide }
+}
+
+// A layer's position is the centre of its visible (cropped) part, so it
+// scales and rotates around what the player sees. This is where that centre
+// sits relative to the full image's centre, in canvas units, after the
+// layer's scale, flips and rotation.
+export function cropCenterOffset(
+  crop: CropRect,
+  base: { w: number; h: number },
+  item: Pick<LayerItem, 'scale' | 'rotation' | 'flipX' | 'flipY'>,
+): { x: number; y: number } {
+  const lx = (crop.x + crop.width / 2 - 0.5) * base.w * item.scale * (item.flipX ? -1 : 1)
+  const ly = (crop.y + crop.height / 2 - 0.5) * base.h * item.scale * (item.flipY ? -1 : 1)
+  const r = (item.rotation * Math.PI) / 180
+  return { x: lx * Math.cos(r) - ly * Math.sin(r), y: lx * Math.sin(r) + ly * Math.cos(r) }
 }
 
 // what the asset sheet hands the canvas to place — a curated asset, a shared

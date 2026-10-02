@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, memo } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
-import { CANVAS_SIZE, type LayerItem } from './layerItem'
+import { FULL_CROP, baseSize, type LayerItem } from './layerItem'
 
 // pipeline assets cap at 800px on their longest side (see tools/cut.ts), so
 // this never fires for local assets today — kept for when a remote/search
@@ -129,11 +129,14 @@ function buildHitMask(image: HTMLImageElement, colorKey: string): HTMLCanvasElem
 const DraggableImage = memo(function DraggableImage({
   item,
   isSelected,
+  hidden,
   isGestureOwner,
   onChange,
 }: {
   item: LayerItem
   isSelected: boolean
+  // crop mode draws its own copy of the layer; this one steps aside
+  hidden: boolean
   isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
 }) {
@@ -152,13 +155,7 @@ const DraggableImage = memo(function DraggableImage({
     loadImage(item.src)
       .then((small) => {
         if (cancelled) return
-        // new layers start at 30% of the frame, in canvas units
-        const maxSide = CANVAS_SIZE * 0.3
-        const ratio = small.width / small.height
-        setDims({
-          w: ratio > 1 ? maxSide : maxSide * ratio,
-          h: ratio > 1 ? maxSide / ratio : maxSide,
-        })
+        setDims(baseSize(small))
         setImg(small)
       })
       .catch((err: unknown) => console.error('failed to load', item.src, err))
@@ -187,6 +184,11 @@ const DraggableImage = memo(function DraggableImage({
     onChange(item.id, { x: node.x(), y: node.y() })
   }
 
+  const crop = item.crop ?? FULL_CROP
+  // the visible part, in canvas units at scale 1
+  const width = dims.w * crop.width
+  const height = dims.h * crop.height
+
   const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
     const cached = hitMask.current
     if (!cached || cached.image !== img || cached.colorKey !== shape.colorKey) {
@@ -204,7 +206,17 @@ const DraggableImage = memo(function DraggableImage({
     const native = ctx._context
     const smoothing = native.imageSmoothingEnabled
     native.imageSmoothingEnabled = false
-    native.drawImage(mask, 0, 0, shape.width(), shape.height())
+    native.drawImage(
+      mask,
+      crop.x * mask.width,
+      crop.y * mask.height,
+      crop.width * mask.width,
+      crop.height * mask.height,
+      0,
+      0,
+      shape.width(),
+      shape.height(),
+    )
     native.imageSmoothingEnabled = smoothing
   }
 
@@ -217,13 +229,23 @@ const DraggableImage = memo(function DraggableImage({
       image={img}
       x={item.x}
       y={item.y}
-      scaleX={item.scale}
-      scaleY={item.scale}
+      scaleX={item.scale * (item.flipX ? -1 : 1)}
+      scaleY={item.scale * (item.flipY ? -1 : 1)}
       rotation={item.rotation}
-      width={dims.w}
-      height={dims.h}
-      offsetX={dims.w / 2}
-      offsetY={dims.h / 2}
+      width={width}
+      height={height}
+      offsetX={width / 2}
+      offsetY={height / 2}
+      // Konva's own crop: drawn from the untouched image, so it's
+      // non-destructive and can always be widened again. Always a full
+      // object — Konva's setter can't take undefined when a crop is reset
+      crop={{
+        x: crop.x * img.width,
+        y: crop.y * img.height,
+        width: crop.width * img.width,
+        height: crop.height * img.height,
+      }}
+      visible={!hidden}
       draggable
       hitFunc={hitFunc}
       stroke={isSelected ? '#4ade80' : undefined}

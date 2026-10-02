@@ -3,12 +3,22 @@ import { Stage, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
 import type { ImageVariant } from '../assets'
 import { generateId } from '../id'
-import { CANVAS_SIZE, type LayerItem, type Placement } from './layerItem'
+import {
+  CANVAS_SIZE,
+  FULL_CROP,
+  baseSize,
+  cropCenterOffset,
+  isFullCrop,
+  type CropRect,
+  type LayerItem,
+  type Placement,
+} from './layerItem'
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
 import PromptBar from './PromptBar'
-import Toolbar from './Toolbar'
+import Toolbar, { type ToolbarMode } from './Toolbar'
 import LayerStrip from './LayerStrip'
 import DraggableImage from './DraggableImage'
+import CropOverlay from './CropOverlay'
 
 Konva.hitOnDragEnabled = true
 
@@ -32,6 +42,16 @@ const OUTSIDE = 20000
 const MIN_SCALE = 0.15
 const MAX_SCALE = 5
 
+// long-press a layer to change its depth: hold still this long…
+const LONG_PRESS_MS = 400
+// …moving further than this first makes it an ordinary drag instead
+const LONG_PRESS_SLOP_PX = 10
+// then every this-many pixels of vertical finger travel is one layer
+const DEPTH_STEP_PX = 36
+// room the depth readout needs above the finger, and half its width
+const DEPTH_BADGE_CLEARANCE = 140
+const DEPTH_BADGE_HALF_WIDTH = 60
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 const touchDistance = (p1: Touch, p2: Touch) =>
@@ -39,6 +59,25 @@ const touchDistance = (p1: Touch, p2: Touch) =>
 
 const touchAngle = (p1: Touch, p2: Touch) =>
   (Math.atan2(p2.clientY - p1.clientY, p2.clientX - p1.clientX) * 180) / Math.PI
+
+// the items array with one layer moved to a new index — z-order lives only
+// in array order (0 = back)
+function moveToIndex(items: LayerItem[], id: string, to: number): LayerItem[] {
+  const from = items.findIndex((i) => i.id === id)
+  const item = items[from]
+  if (!item || from === to) return items
+  const next = items.slice()
+  next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
+}
+
+// crop mode works on a draft; nothing changes on the layer until Apply
+type Cropping = { id: string; image: HTMLImageElement; draft: CropRect }
+
+// a long-press reorder in progress: the layer, where it'll land, and where
+// to show the depth readout (container pixels, at the finger)
+type DepthDrag = { id: string; to: number; x: number; y: number; below: boolean }
 
 export type CanvasHandle = {
   exportImage: () => Promise<Blob | null>
@@ -82,6 +121,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const [sheetOpen, setSheetOpen] = useState(false)
   const [reportTarget, setReportTarget] = useState<number | null>(null)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
+  const [cropping, setCropping] = useState<Cropping | null>(null)
+  const [depth, setDepth] = useState<DepthDrag | null>(null)
 
   // where the square frame sits on screen, and the stage scale that maps
   // CANVAS_SIZE canvas units onto it — centered, as large as fits
@@ -104,6 +145,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // alone; extra fingers landing on other images never retarget or move them
   const gestureOwner = useRef<string | null>(null)
   const pinch = useRef<{ dist: number; angle: number } | null>(null)
+  // the pending/active long-press, if any — its cleanup removes its window
+  // listeners and timer
+  const press = useRef<{ active: boolean; cleanup: () => void } | null>(null)
+  // read by the long-press timer, which fires outside any render
+  const itemsRef = useRef(items)
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   // measure the canvas container itself, not the window — it changes size
   // independently (address bar show/hide, the layer strip appearing, rotation)
@@ -150,6 +199,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         y: CANVAS_SIZE / 2 + jitter(),
         scale: 1,
         rotation: 0,
+        flipX: false,
+        flipY: false,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
       },
     ])
@@ -172,18 +223,118 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   }, [])
 
-  const selectItem = useCallback((id: string) => setSelectedId(id), [])
+  // crop mode owns the selection until Apply/Cancel
+  const selectItem = useCallback(
+    (id: string) => {
+      if (!cropping) setSelectedId(id)
+    },
+    [cropping],
+  )
 
   const isGestureOwner = useCallback((id: string) => gestureOwner.current === id, [])
 
   const handlePointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // only the first contact of a gesture picks its target
     if ('touches' in e.evt && e.evt.touches.length > 1) return
+    // crop handles live on the stage too; they mustn't change the selection
+    if (cropping) return
     const id = e.target.getClassName() === 'Image' ? e.target.id() : null
     gestureOwner.current = id
     // selecting must not reorder — the items array is the single source of
     // truth for z-order; Konva's own child order is never touched
     setSelectedId(id)
+    const point = 'touches' in e.evt ? e.evt.touches[0] : e.evt
+    if (id && point) startPress(id, point.clientX, point.clientY)
+  }
+
+  const cancelPress = () => {
+    press.current?.cleanup()
+    press.current = null
+  }
+
+  useEffect(() => cancelPress, [])
+
+  // Long-press a layer, then slide up (toward the front) or down (toward
+  // the back); release to commit. Tracked with window pointer events so it
+  // follows the finger wherever it goes. Before the timer fires this is
+  // just an ordinary drag — moving past the slop, or a second finger
+  // landing (a pinch), cancels it.
+  const startPress = (id: string, startX: number, startY: number) => {
+    cancelPress()
+    const node = stageRef.current?.findOne<Konva.Image>(`#${id}`)
+    if (!node) return
+    const startPos = node.position()
+    let last = { x: startX, y: startY }
+    let from = -1
+    let to = -1
+
+    // the readout sits above the finger (which would hide it), unless that
+    // would push it out of the canvas — then below; and never off the sides
+    const badgeAt = (clientX: number, clientY: number) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      const x = clientX - (rect?.left ?? 0)
+      const y = clientY - (rect?.top ?? 0)
+      const width = rect?.width ?? 0
+      return { x: clamp(x, DEPTH_BADGE_HALF_WIDTH, width - DEPTH_BADGE_HALF_WIDTH), y, below: y < DEPTH_BADGE_CLEARANCE }
+    }
+
+    const activate = () => {
+      from = itemsRef.current.findIndex((i) => i.id === id)
+      if (from === -1 || itemsRef.current.length < 2) {
+        cancelPress()
+        return
+      }
+      to = from
+      state.active = true
+      // undo the few pixels the drag moved while the finger settled, and
+      // end it — from here the finger picks depth, not position
+      node.position(startPos)
+      node.stopDrag()
+      if ('vibrate' in navigator) navigator.vibrate(12)
+      setDepth({ id, to, ...badgeAt(last.x, last.y) })
+    }
+
+    const onMove = (e: PointerEvent) => {
+      if (!e.isPrimary) return
+      last = { x: e.clientX, y: e.clientY }
+      if (!state.active) {
+        if (Math.hypot(e.clientX - startX, e.clientY - startY) > LONG_PRESS_SLOP_PX) cancelPress()
+        return
+      }
+      const steps = Math.round((startY - e.clientY) / DEPTH_STEP_PX)
+      to = clamp(from + steps, 0, itemsRef.current.length - 1)
+      setDepth({ id, to, ...badgeAt(e.clientX, e.clientY) })
+    }
+
+    const onDown = (e: PointerEvent) => {
+      // a second finger before the long-press fires: it's a pinch
+      if (!e.isPrimary && !state.active) cancelPress()
+    }
+
+    const onUp = (e: PointerEvent) => {
+      if (!e.isPrimary) return
+      if (state.active) setItems((prev) => moveToIndex(prev, id, to))
+      cancelPress()
+    }
+
+    const timer = window.setTimeout(activate, LONG_PRESS_MS)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+
+    const state = {
+      active: false,
+      cleanup: () => {
+        window.clearTimeout(timer)
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerdown', onDown)
+        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointercancel', onUp)
+        setDepth(null)
+      },
+    }
+    press.current = state
   }
 
   const ownerNode = () => {
@@ -195,6 +346,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const touch0 = e.evt.touches[0]
     const touch1 = e.evt.touches[1]
     if (e.evt.touches.length !== 2 || !touch0 || !touch1) return
+    if (press.current?.active) return
     const node = ownerNode()
     if (!node) return
 
@@ -208,9 +360,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       return
     }
 
-    const scale = clamp(node.scaleX() * (dist / pinch.current.dist), MIN_SCALE, MAX_SCALE)
-    node.scaleX(scale)
-    node.scaleY(scale)
+    // the sign of each scale is the layer's mirroring — scale the size, keep the sign
+    const signX = node.scaleX() < 0 ? -1 : 1
+    const signY = node.scaleY() < 0 ? -1 : 1
+    const scale = clamp(Math.abs(node.scaleX()) * (dist / pinch.current.dist), MIN_SCALE, MAX_SCALE)
+    node.scaleX(scale * signX)
+    node.scaleY(scale * signY)
     node.rotation(node.rotation() + (angle - pinch.current.angle))
     pinch.current = { dist, angle }
   }
@@ -221,11 +376,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       pinch.current = null
       const node = ownerNode()
       if (node) {
-        updateItem(node.id(), { scale: node.scaleX(), rotation: node.rotation() })
+        updateItem(node.id(), { scale: Math.abs(node.scaleX()), rotation: node.rotation() })
         // one finger is still down after the pinch — Konva's own drag was
         // stopped mid-gesture, so restart it from here or the layer freezes
-        // until re-touched, then jumps
-        if (remaining === 1) node.startDrag()
+        // until re-touched, then jumps. Pin it to the finger still down: a
+        // bare startDrag() anchors to the touchend's changed pointer — the
+        // finger just lifted — so the layer leapt by the gap between fingers
+        const stillDown = e.evt.touches[0]
+        if (remaining === 1 && stillDown) node.startDrag({ pointerId: stillDown.identifier, evt: e.evt })
       }
     }
     if (remaining === 0) gestureOwner.current = null
@@ -238,8 +396,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   // z-order lives only in the items array's index (0 = back). The toolbar
   // moves the selected layer one step at a time — swapping it with its
-  // neighbour — so it can land between two others; dragging a thumbnail in
-  // LayerStrip is the way to jump it straight to an exact position.
+  // neighbour — so it can land between two others; long-pressing the layer
+  // on the canvas is the way to jump it straight to an exact position.
   const moveSelected = useCallback(
     (step: 1 | -1) => {
       setItems((prev) => {
@@ -260,7 +418,52 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
   const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
 
-  const reorderLayers = useCallback((next: LayerItem[]) => setItems(next), [])
+  const toggleFlip = useCallback(
+    (axis: 'flipX' | 'flipY') => {
+      setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, [axis]: !i[axis] } : i)))
+    },
+    [selectedId],
+  )
+  const mirrorSelected = useCallback(() => toggleFlip('flipX'), [toggleFlip])
+  const flipSelected = useCallback(() => toggleFlip('flipY'), [toggleFlip])
+
+  const deselect = useCallback(() => setSelectedId(null), [])
+
+  const startCrop = useCallback(() => {
+    const item = items.find((i) => i.id === selectedId)
+    const image = item ? stageRef.current?.findOne<Konva.Image>(`#${item.id}`)?.image() : undefined
+    // not decoded yet — nothing to crop
+    if (!item || !(image instanceof HTMLImageElement)) return
+    setCropping({ id: item.id, image, draft: item.crop ?? FULL_CROP })
+  }, [items, selectedId])
+
+  const setCropDraft = useCallback(
+    (draft: CropRect) => setCropping((prev) => (prev ? { ...prev, draft } : prev)),
+    [],
+  )
+  const resetCrop = useCallback(() => setCropDraft(FULL_CROP), [setCropDraft])
+  const cancelCrop = useCallback(() => setCropping(null), [])
+
+  // the layer's position is its visible part's centre, so a new crop moves
+  // that centre — shift it so the image itself stays exactly where it was
+  const applyCrop = useCallback(() => {
+    if (!cropping) return
+    const { id, image, draft } = cropping
+    const nextCrop = isFullCrop(draft) ? undefined : draft
+    const base = baseSize(image)
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i
+        const was = cropCenterOffset(i.crop ?? FULL_CROP, base, i)
+        const now = cropCenterOffset(nextCrop ?? FULL_CROP, base, i)
+        const next: LayerItem = { ...i, x: i.x - was.x + now.x, y: i.y - was.y + now.y }
+        if (nextCrop) next.crop = nextCrop
+        else delete next.crop
+        return next
+      }),
+    )
+    setCropping(null)
+  }, [cropping])
 
   const openSheet = useCallback(() => setSheetOpen(true), [])
   const closeSheet = useCallback(() => {
@@ -275,6 +478,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
     const selectedNode = selectedId ? stage.findOne<Konva.Image>(`#${selectedId}`) : null
     const frameDecor = frameDecorRef.current
+    // a round can end mid-crop: export the layer as last applied, without
+    // the crop mode's dimming and handles
+    const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
+    const croppingNode = cropping ? stage.findOne<Konva.Image>(`#${cropping.id}`) : null
 
     try {
       // hide the selection outline and the frame's border/dimming for the
@@ -282,6 +489,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       // race that could bake them in
       selectedNode?.strokeWidth(0)
       frameDecor?.visible(false)
+      cropOverlay?.visible(false)
+      croppingNode?.visible(true)
       stage.batchDraw()
 
       // only the frame is the picture; anything parked outside it is cut off
@@ -306,17 +515,24 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     } finally {
       selectedNode?.strokeWidth(3)
       frameDecor?.visible(true)
+      cropOverlay?.visible(true)
+      croppingNode?.visible(false)
       stage.batchDraw()
     }
-  }, [selectedId, onSubmit, frame])
+  }, [selectedId, onSubmit, frame, cropping])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
   const selectedIndex = items.findIndex((i) => i.id === selectedId)
+  const selectedItem = items[selectedIndex]
   const isSelected = selectedIndex !== -1
   const canMoveFront = isSelected && selectedIndex !== items.length - 1
   const canMoveBack = isSelected && selectedIndex !== 0
-  const selectedPixabayId = items[selectedIndex]?.pixabayId
+  const selectedPixabayId = selectedItem?.pixabayId
+  const croppingItem = cropping ? items.find((i) => i.id === cropping.id) : undefined
+  const toolbarMode: ToolbarMode = croppingItem ? 'crop' : isSelected ? 'layer' : 'idle'
+  // during a long-press reorder the stack previews the new order live
+  const shownItems = depth ? moveToIndex(items, depth.id, depth.to) : items
 
   return (
     <div className="app">
@@ -339,12 +555,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           <Layer listening={false}>
             <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={FRAME_FILL} />
           </Layer>
-          <Layer>
-            {items.map((item) => (
+          <Layer listening={!cropping}>
+            {shownItems.map((item) => (
               <DraggableImage
                 key={item.id}
                 item={item}
                 isSelected={item.id === selectedId}
+                hidden={item.id === croppingItem?.id}
                 isGestureOwner={isGestureOwner}
                 onChange={updateItem}
               />
@@ -367,23 +584,54 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               strokeScaleEnabled={false}
             />
           </Layer>
+          {cropping && croppingItem && (
+            <CropOverlay
+              item={croppingItem}
+              image={cropping.image}
+              draft={cropping.draft}
+              stageScale={frame.scale}
+              onDraftChange={setCropDraft}
+            />
+          )}
         </Stage>
+        {depth && (
+          <div className={`depth-badge${depth.below ? ' below' : ''}`} style={{ left: depth.x, top: depth.y }} aria-live="polite">
+            <span className="depth-badge-hint" aria-hidden="true">
+              ▲ front
+            </span>
+            <span className="depth-badge-count">
+              {depth.to + 1} / {items.length}
+            </span>
+            <span className="depth-badge-hint" aria-hidden="true">
+              back ▼
+            </span>
+          </div>
+        )}
       </div>
 
-      <LayerStrip items={items} selectedId={selectedId} onSelect={selectItem} onReorder={reorderLayers} />
+      <LayerStrip items={shownItems} selectedId={selectedId} onSelect={selectItem} />
 
       <Toolbar
+        mode={toolbarMode}
         addButtonRef={addButtonRef}
         onAdd={openSheet}
         onDone={exportImage}
         doneLabel={doneLabel}
-        isSelected={isSelected}
+        onDeselect={deselect}
         canMoveFront={canMoveFront}
         canMoveBack={canMoveBack}
         onFront={moveSelectedForward}
         onBack={moveSelectedBackward}
+        flipX={selectedItem?.flipX ?? false}
+        flipY={selectedItem?.flipY ?? false}
+        onMirror={mirrorSelected}
+        onFlip={flipSelected}
+        onCrop={startCrop}
         onDelete={deleteSelected}
         onReport={selectedPixabayId !== undefined ? () => setReportTarget(selectedPixabayId) : undefined}
+        onCropReset={resetCrop}
+        onCropCancel={cancelCrop}
+        onCropApply={applyCrop}
       />
 
       <Suspense fallback={null}>
