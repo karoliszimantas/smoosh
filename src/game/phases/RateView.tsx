@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { MIN_RATING, MAX_RATING } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
+import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
 
 const STARS = Array.from({ length: MAX_RATING - MIN_RATING + 1 }, (_, i) => MIN_RATING + i)
 
 // gallery: everyone but the author rates the picture 1-5. Who made it stays
 // hidden until the result, so a rating is about the picture, not the player.
 export default function RateView({ snapshot, emit }: PhaseProps) {
+  const { Picture } = useGameServices()
   const phase = snapshot.phase
 
   const [picked, setPicked] = useState<number | null>(null)
@@ -39,7 +39,7 @@ export default function RateView({ snapshot, emit }: PhaseProps) {
         Picture {phase.pictureIndex + 1} of {phase.pictureCount}
         {phase.prompt ? <> &middot; “{phase.prompt}”</> : <> &middot; Freestyle</>}
       </p>
-      <img className="picture-display" src={`${SERVER_URL}${phase.imagePath}`} alt="" />
+      <Picture imagePath={phase.imagePath} />
 
       {isAuthor ? (
         <p className="phase-status">This one’s yours — everyone is rating it…</p>
