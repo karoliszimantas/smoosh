@@ -14,7 +14,7 @@ import {
   type Held,
 } from './transformMath'
 
-// Two precision controls beside the canvas, for the selected layer: a
+// Two precision controls over the canvas's edges, for the selected layer: a
 // rotation jog on the left, zoom on the right. Pinch is quick and coarse;
 // these are for small corrections and for getting something back upright.
 //
@@ -44,6 +44,17 @@ const TAP_SLOP_PX = 8
 // the readout lingers this long after the finger lifts
 const READOUT_LINGER_MS = 900
 
+// Landing on a detent is shown, not just felt: the track, the handle and the
+// readout flash once (.snap in index.css), and the readout stays ringed for
+// as long as the value sits on it. Vibration, where there is any, is extra.
+function snapTo(slider: HTMLElement | null) {
+  haptic()
+  if (!slider) return
+  slider.classList.remove('snap')
+  void slider.offsetWidth // restart the flash
+  slider.classList.add('snap')
+}
+
 function useReadout(ref: RefObject<HTMLSpanElement | null>) {
   const timer = useRef<number | null>(null)
   useEffect(
@@ -53,13 +64,14 @@ function useReadout(ref: RefObject<HTMLSpanElement | null>) {
     [],
   )
   return {
-    show(text: string) {
+    show(text: string, atDetent: boolean) {
       const el = ref.current
       if (!el) return
       if (timer.current !== null) window.clearTimeout(timer.current)
       timer.current = null
       el.textContent = text
       el.classList.add('visible')
+      el.classList.toggle('at-detent', atDetent)
     },
     hideSoon() {
       if (timer.current !== null) window.clearTimeout(timer.current)
@@ -89,6 +101,7 @@ function useDoubleTap() {
 
 const formatAngle = (deg: number) => `${normalizeAngle(Math.round(deg * 10) / 10).toFixed(1)}°`
 const formatScale = (scale: number) => `${scale < 0.1 ? scale.toFixed(3) : scale.toFixed(2)}×`
+const onQuarterTurn = (deg: number) => deg % 90 === 0
 
 // ---------- rotation: a jog, because rotation wraps
 
@@ -105,6 +118,7 @@ function RotationJog({
   onGestureStart,
   onGestureEnd,
 }: Omit<Props, 'scale'>) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLDivElement>(null)
   const readoutRef = useRef<HTMLSpanElement>(null)
   const readout = useReadout(readoutRef)
@@ -143,12 +157,12 @@ function RotationJog({
     const delta = jogSpeed(d.displacement) * dt
     if (delta !== 0) {
       const step = stepDetent(d.angle, delta, d.held, detentEvery(90), ROTATION_ESCAPE_DEG)
-      if (step.snapped) haptic()
+      if (step.snapped) snapTo(rootRef.current)
       d.held = step.held
       if (step.value !== d.angle) {
         d.angle = step.value
         onPreview({ rotation: d.angle })
-        readout.show(formatAngle(d.angle))
+        readout.show(formatAngle(d.angle), d.held !== null)
       }
     }
     d.raf = requestAnimationFrame(frame)
@@ -159,16 +173,16 @@ function RotationJog({
     e.currentTarget.setPointerCapture(e.pointerId)
     if (taps.isSecond(e)) {
       taps.reset()
-      haptic()
+      snapTo(rootRef.current)
       onPreview({ rotation: 0 })
       onCommit({ rotation: 0 })
-      readout.show(formatAngle(0))
+      readout.show(formatAngle(0), true)
       readout.hideSoon()
       return
     }
     handleRef.current?.classList.add('active')
     onGestureStart()
-    readout.show(formatAngle(rotation))
+    readout.show(formatAngle(rotation), onQuarterTurn(rotation))
     drag.current = {
       pointerId: e.pointerId,
       startY: e.clientY,
@@ -216,13 +230,14 @@ function RotationJog({
     const next = rotation + step * (e.shiftKey ? 10 : 1)
     onPreview({ rotation: next })
     onCommit({ rotation: next })
-    readout.show(formatAngle(next))
+    readout.show(formatAngle(next), onQuarterTurn(next))
     readout.hideSoon()
   }
 
   return (
     <div
       className="layer-slider layer-slider-left"
+      ref={rootRef}
       style={{ top, height }}
       role="slider"
       tabIndex={0}
@@ -261,6 +276,7 @@ function ZoomSlider({
   onGestureStart,
   onGestureEnd,
 }: Omit<Props, 'rotation'>) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLDivElement>(null)
   const readoutRef = useRef<HTMLSpanElement>(null)
   const readout = useReadout(readoutRef)
@@ -286,17 +302,17 @@ function ZoomSlider({
     e.currentTarget.setPointerCapture(e.pointerId)
     if (taps.isSecond(e)) {
       taps.reset()
-      haptic()
+      snapTo(rootRef.current)
       onPreview({ scale: 1 })
       onCommit({ scale: 1 })
       placeHandle(1)
-      readout.show(formatScale(1))
+      readout.show(formatScale(1), true)
       readout.hideSoon()
       return
     }
     handleRef.current?.classList.add('active')
     onGestureStart()
-    readout.show(formatScale(scale))
+    readout.show(formatScale(scale), scale === 1)
     drag.current = {
       pointerId: e.pointerId,
       lastY: e.clientY,
@@ -316,13 +332,13 @@ function ZoomSlider({
     d.lastY = e.clientY
     if (Math.abs(e.clientY - d.start.y) > TAP_SLOP_PX) d.moved = true
     const step = stepDetent(d.logScale, zoomDelta(dy, travel), d.held, detentAt(0), ZOOM_ESCAPE)
-    if (step.snapped) haptic()
+    if (step.snapped) snapTo(rootRef.current)
     d.held = step.held
     d.logScale = Math.max(Math.log(MIN_SCALE), step.value)
     const s = Math.exp(d.logScale)
     onPreview({ scale: s })
     placeHandle(s)
-    readout.show(formatScale(s))
+    readout.show(formatScale(s), d.logScale === 0)
   }
 
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -345,13 +361,14 @@ function ZoomSlider({
     const next = Math.max(MIN_SCALE, scale * (1 + step * (e.shiftKey ? 0.25 : 0.05)))
     onPreview({ scale: next })
     onCommit({ scale: next })
-    readout.show(formatScale(next))
+    readout.show(formatScale(next), next === 1)
     readout.hideSoon()
   }
 
   return (
     <div
       className="layer-slider layer-slider-right"
+      ref={rootRef}
       style={{ top, height }}
       role="slider"
       tabIndex={0}

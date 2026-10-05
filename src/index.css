@@ -76,12 +76,13 @@ h2,
 }
 
 /* ---------- rotate / zoom sliders ----------
-   Beside the canvas, in the gutter the frame leaves for them (SLIDER_GUTTER
-   in Canvas.tsx). The element is the hit area — generous, and kept 22px
-   clear of the screen edge, which is iOS's back-swipe zone; the visible
-   track is a hairline in the middle of it. Quiet on purpose: they sit beside
-   the picture and mustn't compete with it. No z-index — the toolbar's
-   popover comes later in the page and must stay on top of them. */
+   Floating over the frame's left and right edges, only while a layer is
+   selected — the frame never makes room for them. The element is the hit
+   area — generous, and kept 22px clear of the screen edge, which is iOS's
+   back-swipe zone; what shows is a hairline track and a small see-through
+   handle, light with a dark rim so they read over any picture. At rest they
+   are faint; in use, solid. No z-index — the toolbar's popover comes later
+   in the page and must stay on top of them. */
 .layer-slider {
   position: absolute;
   width: 40px;
@@ -89,6 +90,13 @@ h2,
   -webkit-user-select: none;
   user-select: none;
   outline: none;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.layer-slider:has(.layer-slider-handle.active),
+.layer-slider:focus-visible {
+  opacity: 1;
 }
 
 .layer-slider-left {
@@ -104,33 +112,32 @@ h2,
   top: 22px;
   bottom: 22px;
   left: 50%;
-  width: 3px;
+  width: 2px;
   transform: translateX(-50%);
-  border-radius: 2px;
-  background: var(--chrome-border);
-  opacity: 0.7;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
 }
 
 .layer-slider:focus-visible .layer-slider-track {
   background: var(--selection);
-  opacity: 1;
 }
 
 .layer-slider-handle {
   position: absolute;
   left: 50%;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   transform: translate(-50%, -50%);
-  border: 1.5px solid var(--chrome-border);
+  border: 1.5px solid rgb(0 0 0 / 0.35);
   border-radius: 50%;
-  background: var(--surface);
-  color: var(--text-muted);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  background: rgb(255 255 255 / 0.7);
+  color: rgb(0 0 0 / 0.65);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   pointer-events: none;
 }
@@ -143,7 +150,8 @@ h2,
 
 .layer-slider-handle.active {
   border-color: var(--selection);
-  color: var(--text);
+  background: rgb(255 255 255 / 0.9);
+  color: rgb(0 0 0 / 0.85);
 }
 
 .layer-slider-handle.jog.active {
@@ -154,20 +162,21 @@ h2,
 .layer-slider-tick {
   position: absolute;
   left: 50%;
-  width: 11px;
+  width: 10px;
   height: 2px;
   transform: translate(-50%, -50%);
-  background: var(--chrome-border);
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
 }
 
 .layer-slider-end {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  color: var(--text-muted);
+  color: #fff;
+  text-shadow: 0 0 2px rgb(0 0 0 / 0.8);
   font-size: 13px;
   line-height: 1;
-  opacity: 0.8;
 }
 
 .layer-slider-end.top {
@@ -201,12 +210,108 @@ h2,
   transition: none;
 }
 
+/* sitting exactly on a detent: ringed for as long as it stays there */
+.layer-slider-readout.at-detent {
+  box-shadow: 0 0 0 2px var(--selection);
+}
+
 .layer-slider-left .layer-slider-readout {
   left: calc(100% + 4px);
 }
 
 .layer-slider-right .layer-slider-readout {
   right: calc(100% + 4px);
+}
+
+/* Landing on a detent (snapTo in LayerSliders.tsx): the slider lights up
+   at once and the track, the 1× mark, the handle and the readout flash in
+   the accent colour. Seen, not felt — vibration is only a bonus. */
+.layer-slider.snap {
+  animation: slider-snap-solid 0.45s ease-out;
+}
+
+.layer-slider.snap .layer-slider-track {
+  animation: slider-snap-track 0.45s ease-out;
+}
+
+.layer-slider.snap .layer-slider-tick {
+  animation: slider-snap-tick 0.45s ease-out;
+}
+
+.layer-slider.snap .layer-slider-handle::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--selection);
+  border-radius: 50%;
+  opacity: 0;
+  animation: slider-snap-ring 0.45s ease-out;
+}
+
+.layer-slider.snap .layer-slider-readout {
+  animation: slider-snap-readout 0.3s ease-out;
+}
+
+@keyframes slider-snap-solid {
+  from {
+    opacity: 1;
+  }
+}
+
+@keyframes slider-snap-track {
+  from {
+    width: 6px;
+    background: var(--selection);
+    box-shadow: 0 0 10px 2px var(--selection);
+  }
+}
+
+@keyframes slider-snap-tick {
+  from {
+    width: 28px;
+    height: 4px;
+    background: var(--selection);
+  }
+}
+
+@keyframes slider-snap-ring {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes slider-snap-readout {
+  from {
+    transform: translateY(-50%) scale(1.2);
+    background: var(--selection);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* still flashes, without anything growing */
+  .layer-slider.snap .layer-slider-handle::after {
+    animation-name: slider-snap-fade;
+  }
+  .layer-slider.snap .layer-slider-readout {
+    animation-name: slider-snap-fade-readout;
+  }
+}
+
+@keyframes slider-snap-fade {
+  from {
+    opacity: 1;
+  }
+}
+
+@keyframes slider-snap-fade-readout {
+  from {
+    background: var(--selection);
+  }
 }
 
 /* ---------- prompt bar ---------- */

@@ -11,6 +11,7 @@ import {
   type RoomSnapshot,
 } from '@smoosh/protocol'
 import type { AckArg, ConnectionEvent, EmitPayload, GameTransport } from '../game/services'
+import { generateId } from '../id'
 import { FIXTURE_PLAYERS, YOU_ID, samplePicture, soloPicturePath } from './fixtures'
 
 // A whole game on this device: you plus three bots, no server. It follows
@@ -288,8 +289,8 @@ export class SoloGame {
     const lies = shuffle(BOT_LIES)
     bots.forEach((bot, i) => this.lies.set(bot.id, lies[i % lies.length] ?? 'something else'))
     this.options = shuffle([
-      { id: crypto.randomUUID(), text: this.prompts.get(p.authorId) ?? '', authorId: null },
-      ...[...this.lies].map(([authorId, text]) => ({ id: crypto.randomUUID(), text, authorId })),
+      { id: generateId(), text: this.prompts.get(p.authorId) ?? '', authorId: null },
+      ...[...this.lies].map(([authorId, text]) => ({ id: generateId(), text, authorId })),
     ])
     this.phase = {
       ...p,

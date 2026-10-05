@@ -43,12 +43,11 @@ const ReportDialog = lazy(() => import('./ReportDialog'))
 // fitted into the stage with this much room around it, so layers can still
 // be parked just outside it.
 const FRAME_PADDING = 12
-// …and at least this much either side, for the rotate and zoom sliders. They
-// sit clear of the screen edge (iOS's back-swipe zone is ~20px and would take
-// a slider's drag for navigation), so the frame gives way rather than the
-// sliders covering the picture. Matches .layer-slider in index.css.
-const SLIDER_GUTTER = 46
-// the sliders span this much of the frame's height, centred on it
+// The rotate and zoom sliders float over the frame's edges rather than
+// taking room beside it: they show only while a layer is selected, so the
+// frame never gives way to them and never changes size. They sit clear of
+// the screen edge (see .layer-slider in index.css), and span this much of
+// the frame's height, centred on it.
 const SLIDER_SPAN = 0.72
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
@@ -156,7 +155,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // where the square frame sits on screen, and the stage scale that maps
   // CANVAS_SIZE canvas units onto it — centered, as large as fits
   const frame = useMemo(() => {
-    const size = Math.max(1, Math.min(stageSize.w - SLIDER_GUTTER * 2, stageSize.h - FRAME_PADDING * 2))
+    const size = Math.max(1, Math.min(stageSize.w, stageSize.h) - FRAME_PADDING * 2)
     return {
       size,
       x: (stageSize.w - size) / 2,
