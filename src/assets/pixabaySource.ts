@@ -1,5 +1,5 @@
 import type { Asset, AssetSource, Category, ImageVariant, PixabayHit, SearchPage } from './types'
-import { getSessionId } from '../game/useGameConnection'
+import { getSessionId } from '../game/session'
 import { labelFromTags } from './search'
 
 // The second AssetSource: Pixabay search, proxied through our server (which

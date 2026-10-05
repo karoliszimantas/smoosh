@@ -51,7 +51,10 @@ function modeSummary(settings: GameSettings): string {
 
 export default function LobbyView({ snapshot, emit }: PhaseProps) {
   const { settings, players, you, roomCode } = snapshot
-  const canStart = you.isHost && players.length >= MIN_PLAYERS_TO_START
+  // only players here when the game starts are dealt in
+  const presentCount = players.filter((p) => p.presence === 'present').length
+  const awayCount = players.length - presentCount
+  const canStart = you.isHost && presentCount >= MIN_PLAYERS_TO_START
   const estimateMin = Math.max(1, Math.round(estimateDurationSec(settings, players.length) / 60))
 
   const updateSettings = (patch: Partial<GameSettings>) => {
@@ -68,13 +71,14 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
 
       <ul className="player-list">
         {players.map((p) => (
-          <li key={p.id} className={p.connected ? '' : 'disconnected'}>
+          <li key={p.id} className={p.presence === 'away' ? 'away' : ''}>
             {p.name}
             {p.isHost ? ' (host)' : ''}
-            {!p.connected ? ' (disconnected)' : ''}
+            {p.presence === 'away' && <span className="away-marker">away</span>}
           </li>
         ))}
       </ul>
+      {awayCount > 0 && <p className="lobby-away-note">Anyone away when the game starts sits it out.</p>}
 
       {you.isHost ? (
         <>
@@ -157,7 +161,8 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
         <>
           <p className="lobby-mode-readonly">{modeSummary(settings)}</p>
           <p className="lobby-settings-readonly">
-            {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to answer
+            {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to
+            answer
           </p>
         </>
       )}

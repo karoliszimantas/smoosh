@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { PhaseProps } from '../types'
+import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
-
 export default function LieView({ snapshot, emit }: PhaseProps) {
+  const { Picture } = useGameServices()
   const phase = snapshot.phase
 
   const [text, setText] = useState('')
@@ -30,7 +30,7 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
   return (
     <div className="lie-view">
       <DeadlineTimer deadline={phase.deadline} />
-      <img className="picture-display" src={`${SERVER_URL}${phase.imagePath}`} alt="" />
+      <Picture imagePath={phase.imagePath} />
 
       {isAuthor ? (
         <p className="phase-status">Everyone else is writing fake prompts for your picture…</p>

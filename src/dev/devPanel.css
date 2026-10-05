@@ -1,0 +1,141 @@
+/* dev panel — deliberately not themed: it must look like a tool, never like
+   part of the game, in every theme */
+
+.devp-tab,
+.devp {
+  --devp-bg: #111;
+  --devp-fg: #f2f2f2;
+  --devp-muted: #9a9a9a;
+  --devp-line: #3a3a3a;
+  --devp-on: #ffd23f;
+  --devp-on-fg: #111;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--devp-fg);
+}
+
+/* collapsed: a small pill in the top-right corner — the one spot every
+   screen leaves empty (theme switch top left, timer top centre, toolbar at
+   the bottom, canvas below the prompt bar) */
+.devp-tab {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  /* left of the game menu */
+  right: 56px;
+  z-index: 1000;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--devp-line);
+  border-radius: 8px;
+  background: var(--devp-bg);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.devp-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--devp-on);
+  color: var(--devp-on-fg);
+}
+
+.devp {
+  position: fixed;
+  right: 8px;
+  z-index: 1000;
+  width: min(320px, calc(100vw - 16px));
+  max-height: 55dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--devp-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--devp-bg) 94%, transparent);
+  font-size: 13px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.4);
+}
+
+.devp-top {
+  top: calc(8px + env(safe-area-inset-top));
+}
+
+.devp-bottom {
+  bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+.devp-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--devp-line);
+  background: var(--devp-bg);
+}
+
+.devp-where {
+  flex: 1;
+  overflow: hidden;
+  color: var(--devp-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.devp-section {
+  padding: 8px;
+  border-bottom: 1px solid var(--devp-line);
+}
+
+.devp-section h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--devp-muted);
+}
+
+.devp-label,
+.devp-note {
+  margin: 6px 0 4px;
+  color: var(--devp-muted);
+  font-size: 12px;
+}
+
+.devp-row,
+.devp-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+/* big enough to hit with a thumb */
+.devp button {
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--devp-line);
+  border-radius: 6px;
+  background: #222;
+  color: var(--devp-fg);
+  font: inherit;
+}
+
+.devp button:disabled {
+  opacity: 0.35;
+}
+
+.devp button.on {
+  border-color: var(--devp-on);
+  background: var(--devp-on);
+  color: var(--devp-on-fg);
+  font-weight: 700;
+}
+
+.devp button.devp-primary {
+  border-color: var(--devp-on);
+  color: var(--devp-on);
+  font-weight: 700;
+}

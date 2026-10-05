@@ -1,8 +1,8 @@
 import type { PhaseProps } from '../types'
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
+import { useGameServices } from '../services'
 
 export default function RateResultView({ snapshot }: PhaseProps) {
+  const { Picture } = useGameServices()
   const phase = snapshot.phase
   if (phase.phase !== 'rateResult') return null
 
@@ -12,7 +12,7 @@ export default function RateResultView({ snapshot }: PhaseProps) {
 
   return (
     <div className="rate-view">
-      <img className="picture-display" src={`${SERVER_URL}${phase.imagePath}`} alt="" />
+      <Picture imagePath={phase.imagePath} />
       <p className="rate-author">by {isYou ? 'you' : (author?.name ?? '?')}</p>
 
       {phase.average === null ? (

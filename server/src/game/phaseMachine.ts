@@ -1,6 +1,12 @@
-import { REVEAL_PHASE_SEC, SCORES_PHASE_SEC, RATE_RESULT_PHASE_SEC } from '@smoosh/protocol'
-import type { Room, PictureOption } from '../rooms/Room.ts'
-import { connectedSeats, findSeatByPlayerId } from '../rooms/Room.ts'
+import {
+  BUILD_GRACE_SEC,
+  REVEAL_PHASE_SEC,
+  MISSING_PHASE_SEC,
+  SCORES_PHASE_SEC,
+  RATE_RESULT_PHASE_SEC,
+} from '@smoosh/protocol'
+import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
+import { presentSeats, findSeatByPlayerId } from '../rooms/Room.ts'
 import { submissionPath } from '../submissions/store.ts'
 import { assignPrompts } from './promptAssignment.ts'
 import { scorePicture, scoreRatings } from './scoring.ts'
@@ -9,12 +15,16 @@ export type PhaseMachineDeps = {
   promptPool: readonly string[]
   hasSubmission: (roomCode: string, round: number, playerId: string) => boolean
   onSnapshot: (room: Room) => void
+  // [0, 1) — injectable so tests can replay a game from a seed
+  random?: () => number
+  // console by default; tests pass a quiet one
+  log?: Pick<Console, 'info' | 'warn' | 'error'>
 }
 
-function shuffle<T>(items: readonly T[]): T[] {
+function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
   const copy = [...items]
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(random() * (i + 1))
     const a = copy[i]
     const b = copy[j]
     if (a === undefined || b === undefined) continue
@@ -27,15 +37,48 @@ function shuffle<T>(items: readonly T[]): T[] {
 function clearRoomTimer(room: Room): void {
   if (room.timer) clearTimeout(room.timer)
   room.timer = null
+  room.phaseEnd = null
 }
 
 function schedulePhaseEnd(room: Room, durationMs: number, onEnd: () => void): void {
   clearRoomTimer(room)
-  room.timer = setTimeout(onEnd, durationMs)
+  room.phaseEnd = { at: Date.now() + durationMs, onEnd }
+  // nobody is here: a phase that starts now starts with its clock stopped
+  if (room.pausedAt !== null) room.pausedAt = Date.now()
+  else room.timer = setTimeout(onEnd, durationMs)
+}
+
+// Nobody is present: stop the clock, so a room whose every phone dropped at
+// once (a whole flat's wifi) doesn't play itself out to the final scores.
+export function pausePhaseClock(room: Room): void {
+  if (room.pausedAt !== null) return
+  room.pausedAt = Date.now()
+  if (room.timer) clearTimeout(room.timer)
+  room.timer = null
+}
+
+// someone is back: the clock picks up where it stopped, deadline and all
+export function resumePhaseClock(room: Room): void {
+  if (room.pausedAt === null) return
+  const pausedFor = Date.now() - room.pausedAt
+  room.pausedAt = null
+  const end = room.phaseEnd
+  if (!end) return
+  end.at += pausedFor
+  if ('deadline' in room.phase && typeof room.phase.deadline === 'number') {
+    room.phase = { ...room.phase, deadline: room.phase.deadline + pausedFor }
+  }
+  room.timer = setTimeout(end.onEnd, Math.max(0, end.at - Date.now()))
 }
 
 function deadlineIn(sec: number): number {
   return Date.now() + sec * 1000
+}
+
+function currentSlot(room: Room, caller: string): PictureSlot {
+  const slot = room.pictureQueue[room.pictureIndex]
+  if (!slot) throw new Error(`internal error: ${caller} called with no current picture`)
+  return slot
 }
 
 // the only phases that can early-advance via a player action; reveal and
@@ -100,35 +143,84 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
     room.promptByPlayer = new Map(seatPlayerIds.map((id) => [id, shared]))
   }
 
-  room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId))
+  // Everyone seated, here or not: BUILD only ends early once every picture
+  // is in. An away player isn't done — they may be back with one before the
+  // deadline, and the room has nothing to move on to meanwhile anyway.
+  room.pendingActors = new Set([...room.seats.values()].filter((s) => s.presence !== 'left').map((s) => s.playerId))
   const deadline = deadlineIn(room.settings.buildTimeSec)
-  room.phase = { phase: 'build', round: room.round, totalRounds: room.settings.rounds, deadline }
-  schedulePhaseEnd(room, room.settings.buildTimeSec * 1000, () => advanceCurrentPhase(room, deps))
+  room.phase = { phase: 'build', round: room.round, totalRounds: room.settings.rounds, deadline, collecting: false }
+  schedulePhaseEnd(room, room.settings.buildTimeSec * 1000, () => closeBuild(room, deps))
+  deps.onSnapshot(room)
+}
+
+// the BUILD deadline. A phone that hasn't submitted auto-submits when its own
+// timer runs out, so its upload lands just after this — wait a few seconds
+// for those (ending sooner if they all arrive) rather than cutting them off
+function closeBuild(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'build') return
+  room.phase = { ...room.phase, collecting: true }
+  schedulePhaseEnd(room, BUILD_GRACE_SEC * 1000, () => endBuild(room, deps))
   deps.onSnapshot(room)
 }
 
 function endBuild(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
-  room.pictureQueue = [...room.seats.values()]
-    .filter((seat) => deps.hasSubmission(room.code, room.round, seat.playerId))
-    .map((seat) => seat.playerId)
+  // every player gets a slot, picture or not, so nobody can be skipped
+  // silently: a missing picture comes up as a placeholder everyone sees.
+  // Except someone who chose to leave — their absence is no news, unless
+  // they'd already sent a picture in.
+  room.pictureQueue = shuffle([...room.seats.values()], deps.random)
+    .map((seat) => ({
+      authorId: seat.playerId,
+      hasPicture: deps.hasSubmission(room.code, room.round, seat.playerId),
+      left: seat.presence === 'left',
+    }))
+    .filter((slot) => slot.hasPicture || !slot.left)
+    .map(({ authorId, hasPicture }) => ({ authorId, hasPicture }))
   room.pictureIndex = -1
+  room.shownThisRound = []
 
-  if (room.pictureQueue.length === 0) {
+  // nobody submitted anything — a row of placeholders would tell no one
+  // anything new
+  if (!room.pictureQueue.some((slot) => slot.hasPicture)) {
     endRoundOrGame(room, deps)
     return
   }
-  if (room.settings.mode === 'gallery') startRate(room, deps)
-  else startLie(room, deps)
+  nextPicture(room, deps)
 }
 
-export function startLie(room: Room, deps: PhaseMachineDeps): void {
+// on to the next slot in the order, or the round's end after the last one
+function nextPicture(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   room.pictureIndex += 1
-  const authorId = room.pictureQueue[room.pictureIndex]
-  if (authorId === undefined) throw new Error('internal error: startLie called with no current picture')
+  const slot = room.pictureQueue[room.pictureIndex]
+  if (!slot) {
+    endRoundOrGame(room, deps)
+    return
+  }
+  if (!slot.hasPicture) startMissing(room, deps, slot.authorId)
+  else if (room.settings.mode === 'gallery') startRate(room, deps, slot.authorId)
+  else startLie(room, deps, slot.authorId)
+}
 
-  room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
+function startMissing(room: Room, deps: PhaseMachineDeps, authorId: string): void {
+  room.pendingActors = new Set()
+  room.phase = {
+    phase: 'missing',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    pictureIndex: room.pictureIndex,
+    pictureCount: room.pictureQueue.length,
+    authorId,
+    deadline: deadlineIn(MISSING_PHASE_SEC),
+  }
+  schedulePhaseEnd(room, MISSING_PHASE_SEC * 1000, () => nextPicture(room, deps))
+  deps.onSnapshot(room)
+}
+
+function startLie(room: Room, deps: PhaseMachineDeps, authorId: string): void {
+  room.shownThisRound.push(authorId)
+  room.pendingActors = new Set(presentSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
   const deadline = deadlineIn(room.settings.answerTimeSec)
   room.phase = {
     phase: 'lie',
@@ -147,8 +239,7 @@ export function startLie(room: Room, deps: PhaseMachineDeps): void {
 function startGuess(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   const pictureIndex = room.pictureIndex
-  const authorId = room.pictureQueue[pictureIndex]
-  if (authorId === undefined) throw new Error('internal error: startGuess called with no current picture')
+  const { authorId } = currentSlot(room, 'startGuess')
   const truth = room.promptByPlayer.get(authorId)
   if (truth === undefined) throw new Error('internal error: no prompt recorded for picture author')
 
@@ -159,10 +250,10 @@ function startGuess(room: Room, deps: PhaseMachineDeps): void {
     authorId: lieAuthorId,
   }))
   const truthOption: PictureOption = { id: crypto.randomUUID(), text: truth, authorId: null }
-  const options = shuffle([truthOption, ...lieOptions])
+  const options = shuffle([truthOption, ...lieOptions], deps.random)
   room.optionsByPictureIndex.set(pictureIndex, options)
 
-  room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
+  room.pendingActors = new Set(presentSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
   const deadline = deadlineIn(room.settings.answerTimeSec)
   room.phase = {
     phase: 'guess',
@@ -182,8 +273,7 @@ function startGuess(room: Room, deps: PhaseMachineDeps): void {
 function startReveal(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   const pictureIndex = room.pictureIndex
-  const authorId = room.pictureQueue[pictureIndex]
-  if (authorId === undefined) throw new Error('internal error: startReveal called with no current picture')
+  const { authorId } = currentSlot(room, 'startReveal')
   const options = room.optionsByPictureIndex.get(pictureIndex) ?? []
   const truthOption = options.find((o) => o.authorId === null)
   if (!truthOption) throw new Error('internal error: no truth option recorded for picture')
@@ -229,17 +319,8 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
     deadline: deadlineIn(REVEAL_PHASE_SEC),
   }
   room.pendingActors = new Set()
-  schedulePhaseEnd(room, REVEAL_PHASE_SEC * 1000, () => afterReveal(room, deps))
+  schedulePhaseEnd(room, REVEAL_PHASE_SEC * 1000, () => nextPicture(room, deps))
   deps.onSnapshot(room)
-}
-
-function afterReveal(room: Room, deps: PhaseMachineDeps): void {
-  clearRoomTimer(room)
-  if (room.pictureIndex + 1 < room.pictureQueue.length) {
-    startLie(room, deps)
-  } else {
-    endRoundOrGame(room, deps)
-  }
 }
 
 // ---------- gallery: rate each picture, then show how it did
@@ -250,13 +331,9 @@ function sharedPrompt(room: Room, authorId: string): string {
   return room.promptByPlayer.get(authorId) ?? ''
 }
 
-export function startRate(room: Room, deps: PhaseMachineDeps): void {
-  clearRoomTimer(room)
-  room.pictureIndex += 1
-  const authorId = room.pictureQueue[room.pictureIndex]
-  if (authorId === undefined) throw new Error('internal error: startRate called with no current picture')
-
-  room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
+function startRate(room: Room, deps: PhaseMachineDeps, authorId: string): void {
+  room.shownThisRound.push(authorId)
+  room.pendingActors = new Set(presentSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
   room.phase = {
     phase: 'rate',
     round: room.round,
@@ -280,8 +357,7 @@ export function startRate(room: Room, deps: PhaseMachineDeps): void {
 function startRateResult(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   const pictureIndex = room.pictureIndex
-  const authorId = room.pictureQueue[pictureIndex]
-  if (authorId === undefined) throw new Error('internal error: startRateResult called with no current picture')
+  const { authorId } = currentSlot(room, 'startRateResult')
 
   const stars = [...(room.ratingsByPictureIndex.get(pictureIndex)?.values() ?? [])]
   const summary = scoreRatings(stars)
@@ -303,21 +379,63 @@ function startRateResult(room: Room, deps: PhaseMachineDeps): void {
     deadline: deadlineIn(RATE_RESULT_PHASE_SEC),
   }
   room.pendingActors = new Set()
-  schedulePhaseEnd(room, RATE_RESULT_PHASE_SEC * 1000, () => afterRateResult(room, deps))
+  schedulePhaseEnd(room, RATE_RESULT_PHASE_SEC * 1000, () => nextPicture(room, deps))
   deps.onSnapshot(room)
 }
 
-function afterRateResult(room: Room, deps: PhaseMachineDeps): void {
-  clearRoomTimer(room)
-  if (room.pictureIndex + 1 < room.pictureQueue.length) {
-    startRate(room, deps)
-  } else {
-    endRoundOrGame(room, deps)
+// ---------- end of round: report what happened, and check nobody was lost
+
+export type RoundAudit = {
+  players: number
+  submitted: string[] // players whose picture the server holds for the round
+  shown: string[] // authors whose picture was presented, in order
+  placeholders: string[] // players shown as "picture missing"
+}
+
+export function auditRound(room: Room, deps: PhaseMachineDeps): RoundAudit {
+  return {
+    players: room.seats.size,
+    submitted: [...room.seats.values()]
+      .map((s) => s.playerId)
+      .filter((id) => deps.hasSubmission(room.code, room.round, id)),
+    shown: [...room.shownThisRound],
+    placeholders: room.pictureQueue.filter((slot) => !slot.hasPicture).map((slot) => slot.authorId),
+  }
+}
+
+// null when every submitted picture was shown exactly once and nothing else was
+export function roundAuditProblem(audit: RoundAudit): string | null {
+  const problems: string[] = []
+  const shown = new Set(audit.shown)
+  if (shown.size !== audit.shown.length) problems.push('a picture was shown more than once')
+  const notShown = audit.submitted.filter((id) => !shown.has(id))
+  if (notShown.length > 0) problems.push(`submitted but never shown: ${notShown.join(', ')}`)
+  const submitted = new Set(audit.submitted)
+  const notSubmitted = audit.shown.filter((id) => !submitted.has(id))
+  if (notSubmitted.length > 0) problems.push(`shown without a submission: ${notSubmitted.join(', ')}`)
+  return problems.length > 0 ? problems.join('; ') : null
+}
+
+function reportRound(room: Room, deps: PhaseMachineDeps): void {
+  const log = deps.log ?? console
+  const audit = auditRound(room, deps)
+  log.info(
+    `[round] ${room.code} round ${room.round}: ${audit.players} players, ${audit.submitted.length} submitted, ` +
+      `${audit.shown.length} shown, ${audit.placeholders.length} missing`,
+  )
+  if (process.env.NODE_ENV === 'production') return
+  const problem = roundAuditProblem(audit)
+  if (problem) {
+    log.error(`[round] !!! INVARIANT BROKEN in ${room.code} round ${room.round}: ${problem}`, {
+      submitted: audit.submitted,
+      shown: audit.shown,
+    })
   }
 }
 
 function endRoundOrGame(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
+  reportRound(room, deps)
   const isFinalRound = room.round >= room.settings.rounds
   const scoreboard = [...room.seats.values()].map((s) => ({ playerId: s.playerId, total: s.score }))
   room.phase = {
@@ -333,6 +451,65 @@ function endRoundOrGame(room: Room, deps: PhaseMachineDeps): void {
     schedulePhaseEnd(room, SCORES_PHASE_SEC * 1000, () => startBuild(room, deps))
   }
   deps.onSnapshot(room)
+}
+
+// too_late: that round's BUILD (grace window included) has closed and its
+// pictures are already being shown. wrong_phase: some other round entirely.
+export type SubmissionRejection = 'too_late' | 'wrong_phase'
+export type SubmissionResult = { ok: true } | { ok: false; reason: SubmissionRejection }
+
+export function submissionRejection(room: Room, round: number): SubmissionRejection | null {
+  if (room.phase.phase === 'build' && room.phase.round === round) return null
+  return round === room.round ? 'too_late' : 'wrong_phase'
+}
+
+// a BUILD upload has arrived (the HTTP layer has already checked who sent
+// it). `save` stores the picture; it only runs if the upload is accepted —
+// a rejected one is reported back, never dropped quietly.
+export function acceptSubmission(
+  room: Room,
+  deps: PhaseMachineDeps,
+  playerId: string,
+  round: number,
+  save: () => void,
+): SubmissionResult {
+  const rejection = submissionRejection(room, round)
+  if (rejection) {
+    const log = deps.log ?? console
+    log.warn(`[build] ${room.code} round ${round}: rejected upload from ${playerId} (${rejection})`)
+    return { ok: false, reason: rejection }
+  }
+  save()
+  dropPendingActor(room, deps, playerId)
+  deps.onSnapshot(room)
+  return { ok: true }
+}
+
+// a player reconnecting mid-phase who hasn't acted yet is waited for again —
+// the disconnect dropped them from pendingActors, and without this their
+// answer would be refused as ALREADY_ACTED
+export function restorePendingActor(room: Room, deps: PhaseMachineDeps, playerId: string): void {
+  const phase = room.phase
+  let acted: boolean
+  switch (phase.phase) {
+    case 'build':
+      acted = deps.hasSubmission(room.code, room.round, playerId)
+      break
+    case 'lie':
+      acted = phase.authorId === playerId || (room.liesByPictureIndex.get(phase.pictureIndex)?.has(playerId) ?? false)
+      break
+    case 'guess':
+      acted =
+        phase.authorId === playerId || (room.guessesByPictureIndex.get(phase.pictureIndex)?.has(playerId) ?? false)
+      break
+    case 'rate':
+      acted =
+        phase.authorId === playerId || (room.ratingsByPictureIndex.get(phase.pictureIndex)?.has(playerId) ?? false)
+      break
+    default:
+      return
+  }
+  if (!acted) room.pendingActors.add(playerId)
 }
 
 // --- action recording (validation lives in the handlers; these just store) ---

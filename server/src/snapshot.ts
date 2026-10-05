@@ -43,7 +43,7 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
     id: s.playerId,
     name: s.name,
     isHost: s.isHost,
-    connected: s.connected,
+    presence: s.presence,
     score: s.score,
   }))
 
@@ -54,6 +54,7 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
     settings: room.settings,
     players,
     phase: room.phase,
+    waitingOn: [...room.pendingActors],
     you: {
       playerId: seat.playerId,
       isHost: seat.isHost,

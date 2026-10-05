@@ -1,11 +1,23 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { getRoom, touchRoom } from './rooms/Room.ts'
+import { UPLOAD_MESSAGES } from '@smoosh/protocol'
+import { getRoom, findSeatBySession, touchRoom } from './rooms/Room.ts'
 import { putSubmission, getSubmission } from './submissions/store.ts'
-import { dropPendingActor, type PhaseMachineDeps } from './game/phaseMachine.ts'
+import {
+  acceptSubmission,
+  submissionRejection,
+  type PhaseMachineDeps,
+  type SubmissionRejection,
+} from './game/phaseMachine.ts'
 import { handleMediaRequest } from './media/routes.ts'
 import { handlePromptsRequest, PROMPT_CORS_HEADERS } from './prompts/routes.ts'
 
 const MAX_UPLOAD_BYTES = 1_000_000
+
+// shown to the player as-is, so it says what happened to their picture
+const REJECTION_MESSAGES: Record<SubmissionRejection, string> = {
+  too_late: UPLOAD_MESSAGES.too_late,
+  wrong_phase: UPLOAD_MESSAGES.wrong_phase,
+}
 
 type UploadTarget = { roomCode: string; round: number; playerId: string }
 
@@ -89,31 +101,35 @@ function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTar
   const { roomCode, round, playerId } = target
 
   if (req.headers['content-type'] !== 'image/webp') {
-    send(res, 415, 'expected Content-Type: image/webp')
+    send(res, 415, UPLOAD_MESSAGES.wrong_type)
     return
   }
 
   const declaredLength = Number(req.headers['content-length'] ?? 0)
   if (declaredLength > MAX_UPLOAD_BYTES) {
-    send(res, 413, 'file too large (max 1MB)')
+    send(res, 413, UPLOAD_MESSAGES.too_large)
     return
   }
 
   const room = getRoom(roomCode)
   if (!room) {
-    send(res, 404, 'room not found')
+    send(res, 404, UPLOAD_MESSAGES.room_not_found)
     return
   }
 
   const sessionId = req.headers['x-session-id']
-  const seat = typeof sessionId === 'string' ? room.seats.get(sessionId) : undefined
+  const seat = typeof sessionId === 'string' ? findSeatBySession(room, sessionId) : undefined
   if (!seat || seat.playerId !== playerId) {
-    send(res, 403, 'session does not own this player')
+    send(res, 403, UPLOAD_MESSAGES.not_owner)
     return
   }
 
-  if (room.phase.phase !== 'build' || room.phase.round !== round) {
-    send(res, 409, 'not currently accepting submissions for this round')
+  // cheap early check before reading the body; acceptSubmission re-checks
+  // once it has arrived, since the round can close mid-upload
+  const early = submissionRejection(room, round)
+  if (early) {
+    console.warn(`[build] ${roomCode} round ${round}: rejected upload from ${playerId} (${early})`)
+    send(res, 409, REJECTION_MESSAGES[early])
     return
   }
 
@@ -124,7 +140,7 @@ function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTar
     if (res.headersSent) return
     total += chunk.length
     if (total > MAX_UPLOAD_BYTES) {
-      send(res, 413, 'file too large (max 1MB)')
+      send(res, 413, UPLOAD_MESSAGES.too_large)
       req.destroy()
       return
     }
@@ -133,12 +149,16 @@ function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTar
 
   req.on('end', () => {
     if (res.headersSent) return
-    putSubmission(roomCode, round, playerId, Buffer.concat(chunks))
+    const result = acceptSubmission(room, deps, playerId, round, () =>
+      putSubmission(roomCode, round, playerId, Buffer.concat(chunks)),
+    )
+    if (!result.ok) {
+      send(res, 409, REJECTION_MESSAGES[result.reason])
+      return
+    }
     touchRoom(room)
-    dropPendingActor(room, deps, playerId)
-    deps.onSnapshot(room)
     send(res, 200, 'ok')
   })
 
-  req.on('error', () => send(res, 400, 'upload failed'))
+  req.on('error', () => send(res, 400, UPLOAD_MESSAGES.failed))
 }

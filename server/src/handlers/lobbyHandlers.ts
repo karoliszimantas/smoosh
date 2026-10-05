@@ -1,27 +1,63 @@
 import {
   CreateRoomSchema,
   JoinRoomSchema,
+  LeaveRoomSchema,
   UpdateSettingsSchema,
   GameError,
   MIN_PLAYERS_TO_START,
   settingsProblem,
   promptsNeeded,
 } from '@smoosh/protocol'
-import { createAndRegisterRoom, getRoom, touchRoom } from '../rooms/Room.ts'
-import { resolveSeat, ensureHost } from '../rooms/seats.ts'
-import { startBuild, type PhaseMachineDeps } from '../game/phaseMachine.ts'
+import {
+  allRooms,
+  createAndRegisterRoom,
+  getRoom,
+  findSeatBySession,
+  presentSeats,
+  touchRoom,
+  type Room,
+  type Seat,
+} from '../rooms/Room.ts'
+import { resolveSeat } from '../rooms/seats.ts'
+import { dealIn, enterLobby, seatArrived, seatAway, seatLeft, type PresenceDeps } from '../rooms/presence.ts'
+import { startBuild } from '../game/phaseMachine.ts'
 import { deleteRoomSubmissions } from '../submissions/store.ts'
 import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
-export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
+export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps: PresenceDeps): void {
+  // Taking a seat in a room is leaving any other: a player is in one game
+  // at a time. Found by session, not socket — the old room may be from a
+  // socket long gone (a closed tab).
+  function leaveOtherRooms(nextCode: string | null): void {
+    for (const room of allRooms()) {
+      if (room.code === nextCode) continue
+      const seat = findSeatBySession(room, socket.data.sessionId)
+      if (!seat || seat.presence === 'left') continue
+      seatLeft(room, deps, seat)
+      deps.onSnapshot(room)
+    }
+  }
+
+  function attach(room: Room, seat: Seat): void {
+    // the same player open somewhere else (another tab, another browser
+    // window): this one takes the seat, the old one is told and let go
+    const previous = seat.socketId
+    if (previous && previous !== socket.id) {
+      io.to(previous).emit('room:event', { type: 'replaced' })
+      io.in(previous).disconnectSockets(true)
+    }
+    socket.data.roomCode = room.code
+    seatArrived(room, deps, seat, socket.id)
+    touchRoom(room)
+  }
+
   socket.on('room:create', (payload, cb) => {
     try {
       const { name } = CreateRoomSchema.parse(payload)
+      leaveOtherRooms(null)
       const room = createAndRegisterRoom()
       const seat = resolveSeat(room, socket.data.sessionId, name, true)
-      seat.socketId = socket.id
-      socket.data.roomCode = room.code
-      touchRoom(room)
+      attach(room, seat)
       cb(ok({ roomCode: room.code }))
       deps.onSnapshot(room)
     } catch (err) {
@@ -29,19 +65,46 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
     }
   })
 
+  // a first join, and every way of coming back: reload, reopened tab,
+  // reconnect, the page returning from the background, the room code typed
+  // in again after leaving
   socket.on('room:join', (payload, cb) => {
     try {
       const { roomCode, name } = JoinRoomSchema.parse(payload)
       const room = getRoom(roomCode)
       if (!room) throw new GameError('ROOM_NOT_FOUND', `no room with code ${roomCode}`)
 
-      const isLobby = room.phase.phase === 'lobby'
-      const seat = resolveSeat(room, socket.data.sessionId, name, isLobby)
-      seat.connected = true
-      seat.socketId = socket.id
-      socket.data.roomCode = room.code
-      ensureHost(room)
+      const seat = resolveSeat(room, socket.data.sessionId, name, room.phase.phase === 'lobby')
+      leaveOtherRooms(room.code)
+      attach(room, seat)
+      cb(ok(undefined))
+      deps.onSnapshot(room)
+    } catch (err) {
+      cb(fail(err))
+    }
+  })
+
+  socket.on('room:leave', (payload, cb) => {
+    try {
+      const { roomCode } = LeaveRoomSchema.parse(payload)
+      const room = (roomCode ? getRoom(roomCode) : undefined) ?? requireRoom(socket)
+      const seat = requireSeat(room, socket)
+      socket.data.roomCode = undefined
+      seatLeft(room, deps, seat)
       touchRoom(room)
+      cb(ok(undefined))
+      deps.onSnapshot(room)
+    } catch (err) {
+      cb(fail(err))
+    }
+  })
+
+  socket.on('presence:away', (_payload, cb) => {
+    try {
+      const room = requireRoom(socket)
+      const seat = requireSeat(room, socket)
+      // only the socket holding the seat speaks for it
+      if (seat.socketId === socket.id) seatAway(room, deps, seat)
       cb(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
@@ -75,7 +138,8 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
       if (!seat.isHost) throw new GameError('NOT_HOST', 'only the host can start the game')
       if (room.phase.phase !== 'lobby') throw new GameError('ALREADY_STARTED', 'game already started')
 
-      const seatCount = room.seats.size
+      // only players here now are dealt in (dealIn, below)
+      const seatCount = presentSeats(room).length
       if (seatCount < MIN_PLAYERS_TO_START) {
         throw new GameError('NOT_ENOUGH_PLAYERS', `need at least ${MIN_PLAYERS_TO_START} players to start`)
       }
@@ -91,6 +155,7 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
         throw new GameError('INVALID_SETTINGS', 'not enough prompts left for this many rounds and players')
       }
 
+      dealIn(room, deps)
       touchRoom(room)
       cb(ok(undefined))
       startBuild(room, deps)
@@ -110,6 +175,7 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
 
       room.round = 0
       room.pictureQueue = []
+      room.shownThisRound = []
       room.pictureIndex = -1
       room.promptByPlayer = new Map()
       room.liesByPictureIndex.clear()
@@ -118,10 +184,17 @@ export function registerLobbyHandlers(_io: TypedServer, socket: TypedSocket, dep
       room.ratingsByPictureIndex.clear()
       room.usedPrompts.clear()
       room.pendingActors = new Set()
-      for (const s of room.seats.values()) s.score = 0
+      for (const s of room.seats.values()) {
+        s.score = 0
+        s.awayFrom = null
+        // a new game starts in the lobby, where there's no seat to keep for
+        // someone who chose to go
+        if (s.presence === 'left') room.seats.delete(s.playerId)
+      }
       room.phase = { phase: 'lobby' }
       deleteRoomSubmissions(room.code)
 
+      enterLobby(room, deps)
       touchRoom(room)
       cb(ok(undefined))
       deps.onSnapshot(room)

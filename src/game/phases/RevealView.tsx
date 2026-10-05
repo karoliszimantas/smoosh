@@ -1,8 +1,8 @@
 import type { PhaseProps } from '../types'
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
+import { useGameServices } from '../services'
 
 export default function RevealView({ snapshot }: PhaseProps) {
+  const { Picture } = useGameServices()
   const phase = snapshot.phase
   if (phase.phase !== 'reveal') return null
 
@@ -11,7 +11,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
 
   return (
     <div className="reveal-view">
-      <img className="picture-display" src={`${SERVER_URL}${phase.imagePath}`} alt="" />
+      <Picture imagePath={phase.imagePath} />
 
       <ul className="reveal-options">
         {phase.options.map((opt) => (

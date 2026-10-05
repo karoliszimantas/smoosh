@@ -8,7 +8,10 @@ export const PlayerSchema = z.object({
   id: PlayerIdSchema,
   name: z.string().min(1).max(12),
   isHost: z.boolean(),
-  connected: z.boolean(),
+  // present: here now. away: gone for now (closed tab, lost signal, phone
+  // in a pocket) — the seat is held. left: chose to leave.
+  presence: z.enum(['present', 'away', 'left']),
   score: z.number().int(),
 })
 export type Player = z.infer<typeof PlayerSchema>
+export type Presence = Player['presence']
