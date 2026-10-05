@@ -1,4 +1,10 @@
-import { ROUND_OPTIONS, BUILD_TIME_OPTIONS, MIN_PLAYERS_TO_START, estimateDurationSec } from '@smoosh/protocol'
+import {
+  ROUND_OPTIONS,
+  BUILD_TIME_OPTIONS,
+  ANSWER_TIME_OPTIONS,
+  MIN_PLAYERS_TO_START,
+  estimateDurationSec,
+} from '@smoosh/protocol'
 import type { GameMode, GameSettings } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import ThemeSwitcher from '../../themes/ThemeSwitcher'
@@ -130,13 +136,28 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
                 ))}
               </select>
             </label>
+            <label>
+              Answer time
+              <select
+                value={settings.answerTimeSec}
+                onChange={(e) =>
+                  updateSettings({ answerTimeSec: Number(e.target.value) as GameSettings['answerTimeSec'] })
+                }
+              >
+                {ANSWER_TIME_OPTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}s
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </>
       ) : (
         <>
           <p className="lobby-mode-readonly">{modeSummary(settings)}</p>
           <p className="lobby-settings-readonly">
-            {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build
+            {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to answer
           </p>
         </>
       )}

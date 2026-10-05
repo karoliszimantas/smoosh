@@ -28,7 +28,7 @@ function makeRoom(
   prompted = true,
 ): Room {
   const room = createRoom('TEST')
-  room.settings = { rounds, buildTimeSec, mode, prompted } as GameSettings
+  room.settings = { rounds, buildTimeSec, answerTimeSec: 120, mode, prompted } as GameSettings
   for (let i = 1; i <= playerCount; i++) {
     const seat = makeSeat(i)
     room.seats.set(seat.sessionId, seat)
@@ -276,7 +276,7 @@ describe('GALLERY mode', () => {
   it('a picture nobody rated scores nothing', () => {
     const { room } = buildToRate()
     vi.advanceTimersByTime(60_000) // -> rate
-    vi.advanceTimersByTime(15_000) // nobody rates
+    vi.advanceTimersByTime(120_000) // nobody rates
     const result = expectPhase(room, 'rateResult')
     expect(result.average).toBeNull()
     expect(result.points).toBe(0)
@@ -287,7 +287,7 @@ describe('GALLERY mode', () => {
     vi.advanceTimersByTime(60_000)
     for (let i = 0; i < 3; i++) {
       expect(expectPhase(room, 'rate').pictureIndex).toBe(i)
-      vi.advanceTimersByTime(15_000) // rate -> result
+      vi.advanceTimersByTime(120_000) // rate -> result
       expectPhase(room, 'rateResult')
       vi.advanceTimersByTime(6_000) // result -> next picture / scores
     }

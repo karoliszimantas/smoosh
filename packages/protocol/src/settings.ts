@@ -2,12 +2,12 @@ import { z } from 'zod'
 
 export const ROUND_OPTIONS = [3, 5, 10] as const
 export const BUILD_TIME_OPTIONS = [60, 90, 120, 300] as const
+// the time limit on every phase where players answer — writing a lie,
+// guessing, rating. A phase still ends early once everyone has answered.
+export const ANSWER_TIME_OPTIONS = [120, 180, 300] as const
 
-export const LIE_PHASE_SEC = 25
-export const GUESS_PHASE_SEC = 20
 export const REVEAL_PHASE_SEC = 8
 // Gallery: everyone but the author rates each picture, then sees how it did
-export const RATE_PHASE_SEC = 15
 export const RATE_RESULT_PHASE_SEC = 6
 export const SCORES_PHASE_SEC = 6
 
@@ -37,6 +37,7 @@ export type GameMode = z.infer<typeof GameModeSchema>
 export const GameSettingsSchema = z.object({
   rounds: z.union([z.literal(3), z.literal(5), z.literal(10)]),
   buildTimeSec: z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(300)]),
+  answerTimeSec: z.union([z.literal(120), z.literal(180), z.literal(300)]),
   mode: GameModeSchema,
   // only meaningful in gallery; guess always needs prompts (see
   // settingsProblem)
@@ -44,7 +45,13 @@ export const GameSettingsSchema = z.object({
 })
 export type GameSettings = z.infer<typeof GameSettingsSchema>
 
-export const DEFAULT_SETTINGS: GameSettings = { rounds: 5, buildTimeSec: 90, mode: 'guess', prompted: true }
+export const DEFAULT_SETTINGS: GameSettings = {
+  rounds: 5,
+  buildTimeSec: 90,
+  answerTimeSec: 120,
+  mode: 'guess',
+  prompted: true,
+}
 
 // combinations the schema alone can't rule out — null when the settings are
 // playable. Guess without prompts is meaningless: there'd be nothing secret
@@ -64,9 +71,12 @@ export function promptsNeeded(settings: GameSettings, playerCount: number): numb
 // one formula shared by the host's live estimate and any server echo, so
 // they can never drift apart
 export function estimateDurationSec(settings: GameSettings, playerCount: number): number {
+  // answer phases usually end early once everyone has answered, so this is
+  // the worst case
+  const answer = settings.answerTimeSec
   if (settings.mode === 'gallery') {
     // prompted and freestyle run the same phases, so the same estimate
-    return settings.rounds * (settings.buildTimeSec + playerCount * (RATE_PHASE_SEC + RATE_RESULT_PHASE_SEC))
+    return settings.rounds * (settings.buildTimeSec + playerCount * (answer + RATE_RESULT_PHASE_SEC))
   }
-  return settings.rounds * playerCount * (settings.buildTimeSec + LIE_PHASE_SEC + GUESS_PHASE_SEC + REVEAL_PHASE_SEC)
+  return settings.rounds * playerCount * (settings.buildTimeSec + answer + answer + REVEAL_PHASE_SEC)
 }

@@ -1,11 +1,4 @@
-import {
-  LIE_PHASE_SEC,
-  GUESS_PHASE_SEC,
-  REVEAL_PHASE_SEC,
-  SCORES_PHASE_SEC,
-  RATE_PHASE_SEC,
-  RATE_RESULT_PHASE_SEC,
-} from '@smoosh/protocol'
+import { REVEAL_PHASE_SEC, SCORES_PHASE_SEC, RATE_RESULT_PHASE_SEC } from '@smoosh/protocol'
 import type { Room, PictureOption } from '../rooms/Room.ts'
 import { connectedSeats, findSeatByPlayerId } from '../rooms/Room.ts'
 import { submissionPath } from '../submissions/store.ts'
@@ -136,7 +129,7 @@ export function startLie(room: Room, deps: PhaseMachineDeps): void {
   if (authorId === undefined) throw new Error('internal error: startLie called with no current picture')
 
   room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
-  const deadline = deadlineIn(LIE_PHASE_SEC)
+  const deadline = deadlineIn(room.settings.answerTimeSec)
   room.phase = {
     phase: 'lie',
     round: room.round,
@@ -147,7 +140,7 @@ export function startLie(room: Room, deps: PhaseMachineDeps): void {
     imagePath: submissionPath(room.code, room.round, authorId),
     deadline,
   }
-  schedulePhaseEnd(room, LIE_PHASE_SEC * 1000, () => advanceCurrentPhase(room, deps))
+  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
   deps.onSnapshot(room)
 }
 
@@ -170,7 +163,7 @@ function startGuess(room: Room, deps: PhaseMachineDeps): void {
   room.optionsByPictureIndex.set(pictureIndex, options)
 
   room.pendingActors = new Set(connectedSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
-  const deadline = deadlineIn(GUESS_PHASE_SEC)
+  const deadline = deadlineIn(room.settings.answerTimeSec)
   room.phase = {
     phase: 'guess',
     round: room.round,
@@ -182,7 +175,7 @@ function startGuess(room: Room, deps: PhaseMachineDeps): void {
     options: options.map((o) => ({ id: o.id, text: o.text })),
     deadline,
   }
-  schedulePhaseEnd(room, GUESS_PHASE_SEC * 1000, () => advanceCurrentPhase(room, deps))
+  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
   deps.onSnapshot(room)
 }
 
@@ -273,9 +266,9 @@ export function startRate(room: Room, deps: PhaseMachineDeps): void {
     authorId,
     imagePath: submissionPath(room.code, room.round, authorId),
     prompt: sharedPrompt(room, authorId),
-    deadline: deadlineIn(RATE_PHASE_SEC),
+    deadline: deadlineIn(room.settings.answerTimeSec),
   }
-  schedulePhaseEnd(room, RATE_PHASE_SEC * 1000, () => advanceCurrentPhase(room, deps))
+  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
   // nobody else connected to rate it — straight to the result
   if (room.pendingActors.size === 0) {
     startRateResult(room, deps)
