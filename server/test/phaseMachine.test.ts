@@ -1,7 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { GameSettings, PhaseState } from '@smoosh/protocol'
+import {
+  BUILD_GRACE_SEC,
+  MISSING_PHASE_SEC,
+  REVEAL_PHASE_SEC,
+  type GameSettings,
+  type PhaseState,
+} from '@smoosh/protocol'
 import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
-import { startBuild, dropPendingActor, recordRating, type PhaseMachineDeps } from '../src/game/phaseMachine.ts'
+import {
+  startBuild,
+  dropPendingActor,
+  recordRating,
+  recordGuess,
+  restorePendingActor,
+  optionsForPicture,
+  type PhaseMachineDeps,
+} from '../src/game/phaseMachine.ts'
 
 function makeSeat(n: number, connected = true): Seat {
   return {
@@ -9,10 +23,12 @@ function makeSeat(n: number, connected = true): Seat {
     playerId: `player-${n}`,
     name: `Player ${n}`,
     isHost: n === 1,
-    connected,
+    presence: connected ? 'present' : 'away',
     socketId: connected ? `socket-${n}` : null,
     score: 0,
     joinedAt: n,
+    presentSince: n,
+    awayFrom: null,
   }
 }
 
@@ -31,7 +47,7 @@ function makeRoom(
   room.settings = { rounds, buildTimeSec, answerTimeSec: 120, mode, prompted } as GameSettings
   for (let i = 1; i <= playerCount; i++) {
     const seat = makeSeat(i)
-    room.seats.set(seat.sessionId, seat)
+    room.seats.set(seat.playerId, seat)
   }
   return room
 }
@@ -53,6 +69,9 @@ function expectPhase<T extends PhaseState['phase']>(room: Room, phase: T): Extra
   }
   return room.phase as Extract<PhaseState, { phase: T }>
 }
+
+// a 60s BUILD closes after its deadline plus the grace window for late uploads
+const BUILD_END_MS = (60 + BUILD_GRACE_SEC) * 1000
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -85,11 +104,13 @@ describe('BUILD phase', () => {
     expect(room.phase.phase).not.toBe('build')
   })
 
-  it('advances at the deadline even with unsubmitted players remaining', () => {
+  it('at the deadline waits a grace window for late uploads, then advances with unsubmitted players remaining', () => {
     const room = makeRoom(3, 3, 60)
     const deps = makeDeps({ hasSubmission: () => false })
     startBuild(room, deps)
     vi.advanceTimersByTime(60_000)
+    expect(expectPhase(room, 'build').collecting).toBe(true)
+    vi.advanceTimersByTime(BUILD_GRACE_SEC * 1000)
     expect(room.phase.phase).not.toBe('build')
   })
 
@@ -111,7 +132,7 @@ describe('BUILD phase', () => {
     const room = makeRoom(3, 3, 60)
     const deps = makeDeps({ hasSubmission: () => false })
     startBuild(room, deps)
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     expect(room.phase.phase).toBe('scores')
   })
 })
@@ -121,7 +142,7 @@ describe('LIE and GUESS phases', () => {
     const room = makeRoom(playerCount, 3, 60)
     const deps = makeDeps({ hasSubmission: () => true }) // everyone submits
     startBuild(room, deps)
-    vi.advanceTimersByTime(60_000) // deadline reached, all submitted -> straight to lie
+    vi.advanceTimersByTime(BUILD_END_MS) // deadline reached, all submitted -> straight to lie
     return { room, deps }
   }
 
@@ -146,7 +167,7 @@ describe('REVEAL phase', () => {
     const room = makeRoom(3, 3, 60)
     const deps = makeDeps({ hasSubmission: () => true })
     startBuild(room, deps)
-    vi.advanceTimersByTime(60_000) // -> lie
+    vi.advanceTimersByTime(BUILD_END_MS) // -> lie
     expectPhase(room, 'lie')
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
     expectPhase(room, 'guess')
@@ -161,6 +182,88 @@ describe('REVEAL phase', () => {
   })
 })
 
+describe('disconnects and reconnects', () => {
+  function disconnect(room: Room, deps: PhaseMachineDeps, playerId: string): void {
+    const seat = [...room.seats.values()].find((s) => s.playerId === playerId)
+    if (seat) seat.presence = 'away'
+    dropPendingActor(room, deps, playerId)
+  }
+
+  it('a disconnect during reveal neither stalls nor skips it', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // everyone built -> lie
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> reveal
+    const { pictureIndex, authorId } = expectPhase(room, 'reveal')
+
+    for (const id of ['player-1', 'player-2', 'player-3'].filter((id) => id !== authorId)) disconnect(room, deps, id)
+    vi.advanceTimersByTime(REVEAL_PHASE_SEC * 1000 - 1)
+    expect(expectPhase(room, 'reveal').pictureIndex).toBe(pictureIndex)
+    vi.advanceTimersByTime(1)
+    expect(expectPhase(room, 'lie').pictureIndex).toBe(pictureIndex + 1)
+  })
+
+  it('a disconnect while a missing-picture placeholder is up neither stalls nor skips it', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: (_c, _r, id) => id !== 'player-2', random: () => 0.99 })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    // walk the order until player-2's placeholder comes up
+    while (room.phase.phase !== 'missing' && room.phase.phase !== 'scores') {
+      for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+      if (room.phase.phase === 'reveal') vi.advanceTimersByTime(REVEAL_PHASE_SEC * 1000)
+    }
+    const { pictureIndex, authorId } = expectPhase(room, 'missing')
+    expect(authorId).toBe('player-2')
+
+    disconnect(room, deps, 'player-1')
+    vi.advanceTimersByTime(MISSING_PHASE_SEC * 1000 - 1)
+    expect(expectPhase(room, 'missing').pictureIndex).toBe(pictureIndex)
+    vi.advanceTimersByTime(1)
+    expect(room.phase.phase === 'scores' || room.pictureIndex === pictureIndex + 1).toBe(true)
+  })
+
+  it('a guesser who drops and comes back mid-guess is waited for again and can still guess', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> lie
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    const { pictureIndex, authorId } = expectPhase(room, 'guess')
+    const [stays, flaky] = [...room.pendingActors]
+    if (!stays || !flaky) throw new Error('expected two guessers')
+
+    disconnect(room, deps, flaky)
+    expect(room.pendingActors.has(flaky)).toBe(false)
+
+    const seat = [...room.seats.values()].find((s) => s.playerId === flaky)
+    restorePendingActor(room, deps, flaky)
+    if (seat) seat.presence = 'present'
+    expect(room.pendingActors.has(flaky)).toBe(true)
+
+    // the one who stayed answering no longer ends the phase on their own
+    dropPendingActor(room, deps, stays)
+    expectPhase(room, 'guess')
+    const option = optionsForPicture(room, pictureIndex).find((o) => o.authorId !== flaky)
+    if (!option) throw new Error('expected an option')
+    recordGuess(room, pictureIndex, flaky, option.id)
+    dropPendingActor(room, deps, flaky)
+    expect(expectPhase(room, 'reveal').authorId).toBe(authorId)
+  })
+
+  it('a returning author is never made pending on their own picture', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> lie
+    const { authorId } = expectPhase(room, 'lie')
+    restorePendingActor(room, deps, authorId)
+    expect(room.pendingActors.has(authorId)).toBe(false)
+  })
+})
+
 describe('round and game progression', () => {
   it('advances rounds only after the last picture in the round reaches reveal, then loops to the next build', () => {
     const room = makeRoom(2, 2, 60) // 2 rounds, 2 players -> 2 pictures per round
@@ -168,7 +271,7 @@ describe('round and game progression', () => {
     startBuild(room, deps)
     expect(room.round).toBe(1)
 
-    vi.advanceTimersByTime(60_000) // build -> lie (picture 0)
+    vi.advanceTimersByTime(BUILD_END_MS) // build -> lie (picture 0)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> reveal
     expect(expectPhase(room, 'reveal').pictureIndex).toBe(0)
@@ -193,7 +296,7 @@ describe('round and game progression', () => {
     const room = makeRoom(2, 1, 60) // 1 round only
     const deps = makeDeps({ hasSubmission: () => true })
     startBuild(room, deps)
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
     vi.advanceTimersByTime(8_000)
@@ -236,7 +339,7 @@ describe('GALLERY mode', () => {
 
   it('goes build -> rate, with the author excluded from rating', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     const phase = expectPhase(room, 'rate')
     expect(phase.pictureIndex).toBe(0)
     expect(room.pendingActors.has(phase.authorId)).toBe(false)
@@ -245,17 +348,17 @@ describe('GALLERY mode', () => {
 
   it('carries the shared prompt into rate — empty in freestyle', () => {
     const prompted = buildToRate(true)
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     expect(expectPhase(prompted.room, 'rate').prompt).toBe([...prompted.room.promptByPlayer.values()][0])
 
     const freestyle = buildToRate(false)
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     expect(expectPhase(freestyle.room, 'rate').prompt).toBe('')
   })
 
   it('early-advances to the result once every rater has rated, and scores the author by the average', () => {
     const { room, deps } = buildToRate()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     const { authorId, pictureIndex } = expectPhase(room, 'rate')
     const [first, second] = [...room.pendingActors]
     if (!first || !second) throw new Error('expected two raters')
@@ -275,7 +378,7 @@ describe('GALLERY mode', () => {
 
   it('a picture nobody rated scores nothing', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(60_000) // -> rate
+    vi.advanceTimersByTime(BUILD_END_MS) // -> rate
     vi.advanceTimersByTime(120_000) // nobody rates
     const result = expectPhase(room, 'rateResult')
     expect(result.average).toBeNull()
@@ -284,7 +387,7 @@ describe('GALLERY mode', () => {
 
   it('rates every picture in turn, then shows scores and moves to the next round', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(BUILD_END_MS)
     for (let i = 0; i < 3; i++) {
       expect(expectPhase(room, 'rate').pictureIndex).toBe(i)
       vi.advanceTimersByTime(120_000) // rate -> result

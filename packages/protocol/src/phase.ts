@@ -28,6 +28,9 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     round: z.number().int().positive(),
     totalRounds: z.number().int().positive(),
     deadline: z.number(),
+    // the deadline has passed and the server is waiting a few seconds for
+    // the last uploads — a client that hasn't submitted should do so now
+    collecting: z.boolean(),
   }),
 
   PictureContextSchema.extend({
@@ -65,6 +68,13 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     // how many raters gave 1, 2, 3, 4, 5 stars
     counts: z.array(z.number().int().nonnegative()).length(5),
     points: z.number().int(),
+    deadline: z.number(),
+  }),
+
+  // a player's slot in the picture order whose picture never arrived — shown
+  // to everyone, so a missing picture is visible rather than silently skipped
+  PictureContextSchema.omit({ imagePath: true }).extend({
+    phase: z.literal('missing'),
     deadline: z.number(),
   }),
 

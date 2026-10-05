@@ -6,7 +6,13 @@ export const BUILD_TIME_OPTIONS = [60, 90, 120, 300] as const
 // guessing, rating. A phase still ends early once everyone has answered.
 export const ANSWER_TIME_OPTIONS = [120, 180, 300] as const
 
+// after the BUILD deadline the server keeps accepting uploads this long, so
+// a picture auto-submitted at the deadline still makes it in (the phone has
+// to export and upload it after its own timer runs out)
+export const BUILD_GRACE_SEC = 5
 export const REVEAL_PHASE_SEC = 8
+// how long a missing picture's placeholder is shown
+export const MISSING_PHASE_SEC = 4
 // Gallery: everyone but the author rates each picture, then sees how it did
 export const RATE_RESULT_PHASE_SEC = 6
 export const SCORES_PHASE_SEC = 6
