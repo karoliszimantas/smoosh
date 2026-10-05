@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react'
 import { useGameConnection } from './useGameConnection'
 import type { GameConnection } from './useGameConnection'
 import type { RoomSnapshot } from '@smoosh/protocol'
@@ -10,6 +11,14 @@ import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
 import RateView from './phases/RateView'
 import RateResultView from './phases/RateResultView'
+import MissingView from './phases/MissingView'
+import GameNotice from './GameNotice'
+import ReconnectBanner from './ReconnectBanner'
+import GameMenu from './GameMenu'
+import LeaveDialog from './LeaveDialog'
+import Toasts from './Toasts'
+import PresenceStrip from './PresenceStrip'
+import ReplacedView from './ReplacedView'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
 
 // everywhere but the lobby (which shows the full swatch row): one swatch in
@@ -22,28 +31,89 @@ function FloatingThemeSwitcher() {
   )
 }
 
+// Browser back (or the iOS edge swipe) in a game shouldn't quietly walk out
+// of it: an extra history entry absorbs the back, and the leave question is
+// asked instead.
+function useBackGuard(active: boolean, onBack: () => void): void {
+  useEffect(() => {
+    if (!active) return
+    history.pushState({ smooshGuard: true }, '')
+    const onPop = () => {
+      history.pushState({ smooshGuard: true }, '')
+      onBack()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [active, onBack])
+}
+
+// phases with players' names on screen and room at the bottom for them —
+// not BUILD (the toolbar lives there) or the lobby (it lists everyone)
+const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'rate', 'rateResult', 'scores'])
+
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
-  const { snapshot, connectionStatus, emit } = useGameConnection()
+  const game = useGameConnection()
+  const { snapshot, emit } = game
+  // something the player must see whatever phase it is now — e.g. their
+  // picture was refused after the round moved on
+  const [notice, setNotice] = useState<string | null>(null)
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const openLeave = useCallback(() => setConfirmLeave(true), [])
+  useBackGuard(snapshot !== null, openLeave)
+
+  if (game.replaced) return <ReplacedView onPlayHere={game.playHere} />
 
   if (!snapshot) {
     return (
       <>
         <FloatingThemeSwitcher />
-        <HomeView emit={emit} connectionStatus={connectionStatus} onSandbox={onSandbox} />
+        <HomeView
+          emit={emit}
+          connectionStatus={game.connectionStatus}
+          onSandbox={onSandbox}
+          notice={game.homeNotice}
+          lastRoomCode={game.lastRoomCode}
+        />
+        <Toasts toasts={game.toasts} onDone={game.dismissToast} />
       </>
     )
   }
 
+  const isLobby = snapshot.phase.phase === 'lobby'
   return (
     <>
-      {connectionStatus === 'reconnecting' && <div className="reconnect-banner">Reconnecting…</div>}
-      {snapshot.phase.phase !== 'lobby' && <FloatingThemeSwitcher />}
-      <PhaseView snapshot={snapshot} emit={emit} />
+      {game.showReconnecting && <ReconnectBanner />}
+      {notice && <GameNotice message={notice} onDismiss={() => setNotice(null)} />}
+      {!isLobby && <FloatingThemeSwitcher />}
+      <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />
+      <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+      {STRIP_PHASES.has(snapshot.phase.phase) && <PresenceStrip snapshot={snapshot} />}
+      <Toasts toasts={game.toasts} onDone={game.dismissToast} />
+      {confirmLeave && (
+        <LeaveDialog
+          roomCode={snapshot.roomCode}
+          isLobby={isLobby}
+          isHost={snapshot.you.isHost}
+          onStay={() => setConfirmLeave(false)}
+          onLeave={() => {
+            setConfirmLeave(false)
+            void game.leave()
+          }}
+        />
+      )}
     </>
   )
 }
 
-function PhaseView({ snapshot, emit }: { snapshot: RoomSnapshot; emit: GameConnection['emit'] }) {
+function PhaseView({
+  snapshot,
+  emit,
+  onNotice,
+}: {
+  snapshot: RoomSnapshot
+  emit: GameConnection['emit']
+  onNotice: (message: string) => void
+}) {
   const phase = snapshot.phase
 
   switch (phase.phase) {
@@ -52,7 +122,7 @@ function PhaseView({ snapshot, emit }: { snapshot: RoomSnapshot; emit: GameConne
     case 'build':
       // keyed by round so BuildView remounts fresh (canvas/timeout state)
       // each round instead of carrying over stale state from the last one
-      return <BuildView key={`build-${phase.round}`} snapshot={snapshot} emit={emit} />
+      return <BuildView key={`build-${phase.round}`} snapshot={snapshot} emit={emit} onNotice={onNotice} />
     case 'lie':
       return <LieView key={`lie-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'guess':
@@ -63,6 +133,8 @@ function PhaseView({ snapshot, emit }: { snapshot: RoomSnapshot; emit: GameConne
       return <RateView key={`rate-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'rateResult':
       return <RateResultView key={`rateResult-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
+    case 'missing':
+      return <MissingView key={`missing-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'scores':
       return <ScoresView key={`scores-${phase.round}`} snapshot={snapshot} emit={emit} />
   }

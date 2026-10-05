@@ -1,7 +1,8 @@
 import { MIN_OPACITY, MIN_SCALE, type CropRect, type LayerItem } from '../components/layerItem'
 
-// session: a BUILD round's canvas, which only needs to survive a reload.
-// local: the sandbox, which should survive closing the tab.
+// session: the default, for a canvas that only needs to survive a reload.
+// local: the sandbox and a BUILD round's canvas, which should survive the
+// tab being closed (and, for BUILD, coming back to the game).
 export type CanvasStorageArea = 'session' | 'local'
 
 function area(which: CanvasStorageArea): Storage {
@@ -122,6 +123,22 @@ export function saveCanvasItems(key: string, items: LayerItem[], which: CanvasSt
 export function clearCanvasItems(key: string, which: CanvasStorageArea = 'session'): void {
   try {
     area(which).removeItem(key)
+  } catch {
+    // best effort
+  }
+}
+
+// Game canvases live in localStorage (so a closed tab doesn't lose a
+// half-built picture), which never clears itself: drop every saved game
+// canvas except those for `keepRoomCode` — on joining a room, and with null
+// on leaving one for good.
+export function pruneGameCanvases(keepRoomCode: string | null): void {
+  try {
+    const keep = keepRoomCode === null ? null : `smoosh_canvas_${keepRoomCode}_`
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('smoosh_canvas_') && (keep === null || !key.startsWith(keep))) localStorage.removeItem(key)
+    }
   } catch {
     // best effort
   }

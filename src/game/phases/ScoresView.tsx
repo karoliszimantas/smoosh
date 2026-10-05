@@ -5,6 +5,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
   if (phase.phase !== 'scores') return null
 
   const nameById = new Map(snapshot.players.map((p) => [p.id, p.name]))
+  const presenceById = new Map(snapshot.players.map((p) => [p.id, p.presence]))
   const ranked = [...phase.scoreboard].sort((a, b) => b.total - a.total)
   const winner = phase.isFinalRound ? ranked[0] : undefined
 
@@ -16,8 +17,10 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
 
       <ol className="scoreboard">
         {ranked.map((entry) => (
-          <li key={entry.playerId}>
+          <li key={entry.playerId} className={presenceById.get(entry.playerId) === 'away' ? 'away' : ''}>
             {nameById.get(entry.playerId) ?? '?'} — {entry.total}
+            {presenceById.get(entry.playerId) === 'away' && <span className="away-marker">away</span>}
+            {presenceById.get(entry.playerId) === 'left' && <span className="away-marker">left</span>}
           </li>
         ))}
       </ol>
