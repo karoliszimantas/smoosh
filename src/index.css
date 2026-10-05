@@ -75,6 +75,140 @@ h2,
   position: relative;
 }
 
+/* ---------- rotate / zoom sliders ----------
+   Beside the canvas, in the gutter the frame leaves for them (SLIDER_GUTTER
+   in Canvas.tsx). The element is the hit area — generous, and kept 22px
+   clear of the screen edge, which is iOS's back-swipe zone; the visible
+   track is a hairline in the middle of it. Quiet on purpose: they sit beside
+   the picture and mustn't compete with it. No z-index — the toolbar's
+   popover comes later in the page and must stay on top of them. */
+.layer-slider {
+  position: absolute;
+  width: 40px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+
+.layer-slider-left {
+  left: 22px;
+}
+
+.layer-slider-right {
+  right: 22px;
+}
+
+.layer-slider-track {
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--chrome-border);
+  opacity: 0.7;
+}
+
+.layer-slider:focus-visible .layer-slider-track {
+  background: var(--selection);
+  opacity: 1;
+}
+
+.layer-slider-handle {
+  position: absolute;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--chrome-border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* the jog rests in the middle and springs back there when let go */
+.layer-slider-handle.jog {
+  top: 50%;
+  transition: transform 0.18s ease-out;
+}
+
+.layer-slider-handle.active {
+  border-color: var(--selection);
+  color: var(--text);
+}
+
+.layer-slider-handle.jog.active {
+  transition: none;
+}
+
+/* 1× on the zoom track */
+.layer-slider-tick {
+  position: absolute;
+  left: 50%;
+  width: 11px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  background: var(--chrome-border);
+}
+
+.layer-slider-end {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.layer-slider-end.top {
+  top: 2px;
+}
+
+.layer-slider-end.bottom {
+  bottom: 2px;
+}
+
+/* the exact value, beside the slider while it's in use, then gone */
+.layer-slider-readout {
+  position: absolute;
+  top: 50%;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.layer-slider-readout.visible {
+  opacity: 1;
+  transition: none;
+}
+
+.layer-slider-left .layer-slider-readout {
+  left: calc(100% + 4px);
+}
+
+.layer-slider-right .layer-slider-readout {
+  right: calc(100% + 4px);
+}
+
 /* ---------- prompt bar ---------- */
 
 .prompt-bar {

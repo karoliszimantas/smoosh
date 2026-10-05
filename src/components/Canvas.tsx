@@ -26,6 +26,8 @@ import LayerStrip from './LayerStrip'
 import DraggableImage from './DraggableImage'
 import CropOverlay from './CropOverlay'
 import CanvasFrame from './CanvasFrame'
+import LayerSliders from './LayerSliders'
+import { pivotAround, turnBetween, type Point } from './transformMath'
 import { useTheme } from '../themes/useTheme'
 
 Konva.hitOnDragEnabled = true
@@ -41,6 +43,13 @@ const ReportDialog = lazy(() => import('./ReportDialog'))
 // fitted into the stage with this much room around it, so layers can still
 // be parked just outside it.
 const FRAME_PADDING = 12
+// …and at least this much either side, for the rotate and zoom sliders. They
+// sit clear of the screen edge (iOS's back-swipe zone is ~20px and would take
+// a slider's drag for navigation), so the frame gives way rather than the
+// sliders covering the picture. Matches .layer-slider in index.css.
+const SLIDER_GUTTER = 46
+// the sliders span this much of the frame's height, centred on it
+const SLIDER_SPAN = 0.72
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
 // how much of the page colour covers whatever hangs outside the frame
@@ -147,7 +156,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // where the square frame sits on screen, and the stage scale that maps
   // CANVAS_SIZE canvas units onto it — centered, as large as fits
   const frame = useMemo(() => {
-    const size = Math.max(1, Math.min(stageSize.w, stageSize.h) - FRAME_PADDING * 2)
+    const size = Math.max(1, Math.min(stageSize.w - SLIDER_GUTTER * 2, stageSize.h - FRAME_PADDING * 2))
     return {
       size,
       x: (stageSize.w - size) / 2,
@@ -158,13 +167,16 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const stageRef = useRef<Konva.Stage>(null)
   const frameDecorRef = useRef<Konva.Layer>(null)
+  const itemsLayerRef = useRef<Konva.Layer>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLButtonElement>(null)
   // the image the current gesture started on (first finger / mouse press).
   // every action in that gesture — drag, pinch-scale, rotate — applies to it
   // alone; extra fingers landing on other images never retarget or move them
   const gestureOwner = useRef<string | null>(null)
-  const pinch = useRef<{ dist: number; angle: number } | null>(null)
+  // the last two-finger reading: finger spread, finger angle, and the point
+  // between them in canvas units — the pivot the layer turns and scales around
+  const pinch = useRef<{ dist: number; angle: number; mid: Point } | null>(null)
   // the pending/active long-press, if any — its cleanup removes its window
   // listeners and timer
   const press = useRef<{
@@ -288,9 +300,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const isGestureOwner = useCallback((id: string) => gestureOwner.current === id, [])
 
+  // Fingers are counted with targetTouches — only those that started on the
+  // canvas. `touches` is every finger on the screen: a thumb resting on a
+  // slider would make a one-finger drag a "pinch", and leave the gesture
+  // never ending (so the next touch never picked a new target).
   const handlePointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // only the first contact of a gesture picks its target
-    if ('touches' in e.evt && e.evt.touches.length > 1) return
+    if ('touches' in e.evt && e.evt.targetTouches.length > 1) return
     // crop handles and the eraser live on the stage too; they mustn't change
     // the selection
     if (editing) return
@@ -299,7 +315,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     // selecting must not reorder — the items array is the single source of
     // truth for z-order; Konva's own child order is never touched
     setSelectedId(id)
-    const point = 'touches' in e.evt ? e.evt.touches[0] : e.evt
+    const point = 'touches' in e.evt ? e.evt.targetTouches[0] : e.evt
     if (id && point) startPress(id, point.clientX, point.clientY)
   }
 
@@ -419,51 +435,113 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     return id ? stageRef.current?.findOne<Konva.Image>(`#${id}`) : undefined
   }
 
+  // While one layer is being turned or scaled, every frame redraws the whole
+  // layer stack — and the theme's blurred shadows are by far the costliest
+  // part of that. So for the length of the gesture the other layers draw
+  // from a snapshot (shadow baked in, at the resolution they're shown at),
+  // and only the moving one is drawn live. Everything stays touchable — a
+  // thumb on a slider mustn't stop another finger dragging a layer.
+  const freezeOthers = useCallback((activeId: string) => {
+    const layer = itemsLayerRef.current
+    if (!layer) return
+    for (const node of layer.find<Konva.Image>('Image')) {
+      if (node.id() === activeId || !node.visible()) continue
+      const onScreen = Math.abs(node.getAbsoluteScale().x) * Konva.pixelRatio
+      const side = Math.max(1, node.width(), node.height())
+      node.cache({ pixelRatio: Math.max(0.1, Math.min(onScreen, 2048 / side)) })
+    }
+  }, [])
+  const thawAll = useCallback(() => {
+    const layer = itemsLayerRef.current
+    if (!layer) return
+    for (const node of layer.find<Konva.Image>('Image')) node.clearCache()
+    layer.batchDraw()
+  }, [])
+
+  // A layer's shadow is sized for its scale (DraggableImage divides the
+  // scale out, so it's the same on screen at any size). While a gesture
+  // rescales the node directly that sizing goes stale — the shadow would
+  // swell with the layer, then snap back on release — so it's kept in step.
+  const rescaleNode = (node: Konva.Image, scale: number) => {
+    const k = Math.abs(node.scaleX()) / scale
+    node.scaleX(scale * (node.scaleX() < 0 ? -1 : 1))
+    node.scaleY(scale)
+    node.shadowBlur(node.shadowBlur() * k)
+    node.shadowOffsetX(node.shadowOffsetX() * k)
+    node.shadowOffsetY(node.shadowOffsetY() * k)
+  }
+
+  // the point between two fingers, in the layer's canvas units
+  const fingerMidpoint = (node: Konva.Node, t0: Touch, t1: Touch): Point | null => {
+    const stage = stageRef.current
+    const parent = node.getParent()
+    if (!stage || !parent) return null
+    const rect = stage.container().getBoundingClientRect()
+    return parent
+      .getAbsoluteTransform()
+      .copy()
+      .invert()
+      .point({ x: (t0.clientX + t1.clientX) / 2 - rect.left, y: (t0.clientY + t1.clientY) / 2 - rect.top })
+  }
+
   const handleTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
-    const touch0 = e.evt.touches[0]
-    const touch1 = e.evt.touches[1]
-    if (e.evt.touches.length === 1 && touch0) {
+    const touches = e.evt.targetTouches
+    const touch0 = touches[0]
+    const touch1 = touches[1]
+    if (touches.length === 1 && touch0) {
       press.current?.handOff(touch0.clientX, touch0.clientY)
       return
     }
-    if (e.evt.touches.length !== 2 || !touch0 || !touch1) return
+    if (touches.length !== 2 || !touch0 || !touch1) return
     if (press.current?.active) return
     const node = ownerNode()
-    if (!node) return
+    // a pinch only ever acts on the selected layer
+    if (!node || node.id() !== selectedId) return
 
     e.evt.preventDefault()
     const dist = touchDistance(touch0, touch1)
     const angle = touchAngle(touch0, touch1)
+    const mid = fingerMidpoint(node, touch0, touch1)
+    if (!mid) return
 
     if (!pinch.current) {
       node.stopDrag()
-      pinch.current = { dist, angle }
+      freezeOthers(node.id())
+      pinch.current = { dist, angle, mid }
       return
     }
 
-    // the sign of each scale is the layer's mirroring — scale the size, keep the sign
-    const signX = node.scaleX() < 0 ? -1 : 1
-    const signY = node.scaleY() < 0 ? -1 : 1
-    const scale = Math.max(MIN_SCALE, Math.abs(node.scaleX()) * (dist / pinch.current.dist))
-    node.scaleX(scale * signX)
-    node.scaleY(scale * signY)
-    node.rotation(node.rotation() + (angle - pinch.current.angle))
-    pinch.current = { dist, angle }
+    const was = Math.abs(node.scaleX())
+    const scale = Math.max(MIN_SCALE, was * (dist / pinch.current.dist))
+    const turn = turnBetween(pinch.current.angle, angle)
+    // turn and scale around the point between the fingers (which may itself
+    // have moved): the layer spins and shifts like a photo turned on a table
+    node.position(pivotAround(node.position(), pinch.current.mid, mid, scale / was, turn))
+    // keeps the mirroring sign, and the shadow's on-screen size
+    rescaleNode(node, scale)
+    node.rotation(node.rotation() + turn)
+    pinch.current = { dist, angle, mid }
   }
 
   const handleTouchEnd = (e: Konva.KonvaEventObject<TouchEvent>) => {
-    const remaining = e.evt.touches.length
+    const remaining = e.evt.targetTouches.length
     if (pinch.current && remaining < 2) {
       pinch.current = null
+      thawAll()
       const node = ownerNode()
       if (node) {
-        updateItem(node.id(), { scale: Math.abs(node.scaleX()), rotation: node.rotation() })
+        updateItem(node.id(), {
+          x: node.x(),
+          y: node.y(),
+          scale: Math.abs(node.scaleX()),
+          rotation: node.rotation(),
+        })
         // one finger is still down after the pinch — Konva's own drag was
         // stopped mid-gesture, so restart it from here or the layer freezes
         // until re-touched, then jumps. Pin it to the finger still down: a
         // bare startDrag() anchors to the touchend's changed pointer — the
         // finger just lifted — so the layer leapt by the gap between fingers
-        const stillDown = e.evt.touches[0]
+        const stillDown = e.evt.targetTouches[0]
         if (remaining === 1 && stillDown) node.startDrag({ pointerId: stillDown.identifier, evt: e.evt })
       }
     }
@@ -516,6 +594,26 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const commitOpacity = useCallback(
     (opacity: number) => {
       if (selectedId) updateItem(selectedId, { opacity })
+    },
+    [selectedId, updateItem],
+  )
+
+  // The rotate and zoom sliders: same split — the node while a finger is on
+  // one, state once on release. Both pivot on the layer's centre, which is
+  // its position, so only rotation/scale change.
+  const previewTransform = useCallback(
+    (patch: { rotation?: number; scale?: number }) => {
+      const node = selectedId ? stageRef.current?.findOne<Konva.Image>(`#${selectedId}`) : undefined
+      if (!node) return
+      if (patch.rotation !== undefined) node.rotation(patch.rotation)
+      if (patch.scale !== undefined) rescaleNode(node, patch.scale)
+      node.getLayer()?.batchDraw()
+    },
+    [selectedId],
+  )
+  const commitTransform = useCallback(
+    (patch: { rotation?: number; scale?: number }) => {
+      if (selectedId) updateItem(selectedId, patch)
     },
     [selectedId, updateItem],
   )
@@ -712,7 +810,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             )}
             <CanvasFrame frame={theme.canvasFrame} />
           </Layer>
-          <Layer listening={!editing}>
+          <Layer listening={!editing} ref={itemsLayerRef}>
             {shownItems.map((item) => (
               <DraggableImage
                 key={item.id}
@@ -762,6 +860,20 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             />
           )}
         </Stage>
+        {/* hidden with nothing selected, so what they act on is never a question */}
+        {selectedItem && !editing && !depth && (
+          <LayerSliders
+            key={selectedItem.id}
+            rotation={selectedItem.rotation}
+            scale={selectedItem.scale}
+            top={frame.y + (frame.size * (1 - SLIDER_SPAN)) / 2}
+            height={frame.size * SLIDER_SPAN}
+            onPreview={previewTransform}
+            onCommit={commitTransform}
+            onGestureStart={() => freezeOthers(selectedItem.id)}
+            onGestureEnd={thawAll}
+          />
+        )}
         {depth && (
           <div className={`depth-badge${depth.below ? ' below' : ''}`} style={{ left: depth.x, top: depth.y }} aria-live="polite">
             <span className="depth-badge-hint" aria-hidden="true">
