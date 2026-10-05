@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io'
 import { GameError, type AckResult, type ClientToServerEvents, type ServerToClientEvents } from '@smoosh/protocol'
-import { getRoom, type Room, type Seat } from '../rooms/Room.ts'
+import { getRoom, findSeatBySession, type Room, type Seat } from '../rooms/Room.ts'
 
 export type SocketData = { sessionId: string; roomCode?: string }
 export type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, object, SocketData>
@@ -24,7 +24,7 @@ export function requireRoom(socket: TypedSocket): Room {
 }
 
 export function requireSeat(room: Room, socket: TypedSocket): Seat {
-  const seat = room.seats.get(socket.data.sessionId)
+  const seat = findSeatBySession(room, socket.data.sessionId)
   if (!seat) throw new GameError('ROOM_NOT_FOUND', 'you do not have a seat in this room')
   return seat
 }

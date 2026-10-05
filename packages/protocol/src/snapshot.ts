@@ -28,5 +28,8 @@ export const RoomSnapshotSchema = z.object({
     // during gallery RATE, the stars this player gave the current picture
     ownRating: z.number().int().nullable(),
   }),
+  // who the current phase is still waiting on — in BUILD, whoever hasn't
+  // sent a picture in yet, away players included
+  waitingOn: z.array(PlayerIdSchema),
 })
 export type RoomSnapshot = z.infer<typeof RoomSnapshotSchema>
