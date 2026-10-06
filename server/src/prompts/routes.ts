@@ -9,18 +9,24 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
+import { MAX_IMPORT_ROWS } from '@smoosh/protocol'
 import { TokenBucket } from '../media/tokenBucket.ts'
 import { getPromptStore as getStore } from './shared.ts'
 import {
   MAX_AUTHOR_LENGTH,
   MAX_PROMPTS,
   PromptError,
+  normalizeText,
   PromptModeSchema,
   PromptTextSchema,
 } from './store.ts'
 
 const MAX_BODY_BYTES = 128_000
 const WRITES_PER_MINUTE = 30
+// imports have their own allowance: a few in a row (fix a file, try again),
+// then one every couple of minutes — and they don't use up single writes
+const IMPORT_BURST = 5
+const IMPORT_REFILL_MS = 2 * 60_000
 const MAX_WRITERS_TRACKED = 10_000
 
 export { setPromptStoreForTests } from './shared.ts'
@@ -62,21 +68,25 @@ function authorOf(req: IncomingMessage): string | null {
   return name.length >= 1 && name.length <= MAX_AUTHOR_LENGTH ? name : null
 }
 
-const writeBuckets = new Map<string, TokenBucket>()
 function clientKey(req: IncomingMessage): string {
   const forwarded = header(req, 'x-forwarded-for').split(',')[0]?.trim()
   return forwarded || req.socket.remoteAddress || 'unknown'
 }
-function takeWriteToken(req: IncomingMessage): boolean {
-  const key = clientKey(req)
-  let bucket = writeBuckets.get(key)
-  if (!bucket) {
-    if (writeBuckets.size >= MAX_WRITERS_TRACKED) writeBuckets.clear()
-    bucket = new TokenBucket(WRITES_PER_MINUTE, WRITES_PER_MINUTE / 60_000)
-    writeBuckets.set(key, bucket)
+function tokenTaker(capacity: number, refillPerMs: number) {
+  const buckets = new Map<string, TokenBucket>()
+  return (req: IncomingMessage): boolean => {
+    const key = clientKey(req)
+    let bucket = buckets.get(key)
+    if (!bucket) {
+      if (buckets.size >= MAX_WRITERS_TRACKED) buckets.clear()
+      bucket = new TokenBucket(capacity, refillPerMs)
+      buckets.set(key, bucket)
+    }
+    return bucket.tryTake()
   }
-  return bucket.tryTake()
 }
+const takeWriteToken = tokenTaker(WRITES_PER_MINUTE, WRITES_PER_MINUTE / 60_000)
+const takeImportToken = tokenTaker(IMPORT_BURST, 1 / IMPORT_REFILL_MS)
 
 function readJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -115,6 +125,18 @@ const EditSchema = z
   .object({ text: PromptTextSchema.optional(), mode: PromptModeSchema.optional(), archived: z.boolean().optional() })
   .refine((v) => v.text !== undefined || v.mode !== undefined || v.archived !== undefined, 'Nothing to change.')
 const VoteSchema = z.object({ vote: z.union([z.literal(1), z.literal(-1)]) })
+const AuthorSchema = z
+  .string()
+  .transform((s) => s.trim().replace(/\s+/g, ' '))
+  .pipe(z.string().min(1, 'Every row needs an author.').max(MAX_AUTHOR_LENGTH, `Author names are at most ${MAX_AUTHOR_LENGTH} characters.`))
+// the text is only normalised here: the store checks it against the rules,
+// row by row, so a refusal can say which row
+const ImportSchema = z.object({
+  rows: z
+    .array(z.object({ text: z.string().max(1000).transform(normalizeText), mode: PromptModeSchema, author: AuthorSchema }))
+    .min(1, 'Nothing to import.')
+    .max(MAX_IMPORT_ROWS, `At most ${MAX_IMPORT_ROWS} prompts in one import — split it into smaller batches.`),
+})
 const BulkSchema = z.object({
   ids: z.array(z.string().min(1).max(64)).min(1).max(MAX_PROMPTS),
   action: z.enum(['archive', 'restore', 'delete']),
@@ -144,6 +166,16 @@ async function handle(req: IncomingMessage, res: ServerResponse, parts: string[]
   const author = authorOf(req)
   if (!author) {
     sendError(res, 400, 'no_name', 'Tell us your name first.')
+    return
+  }
+  if (method === 'POST' && id === 'import' && action === undefined) {
+    if (!takeImportToken(req)) {
+      sendError(res, 429, 'slow_down', "That's a lot of imports at once — wait a couple of minutes and try again.")
+      return
+    }
+    const body = parse(ImportSchema, await readJson(req))
+    const added = await s.import(body.rows)
+    sendJson(res, 200, { prompts: await s.list(), added })
     return
   }
   if (!takeWriteToken(req)) {

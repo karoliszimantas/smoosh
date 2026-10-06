@@ -80,6 +80,11 @@ export const promptApi = {
   remove: (id: string) => pool('DELETE', `/${encodeURIComponent(id)}`),
   vote: (id: string, vote: 1 | -1) => pool('POST', `/${encodeURIComponent(id)}/vote`, { vote }),
   bulk: (ids: string[], action: 'archive' | 'restore' | 'delete') => pool('POST', '/bulk', { ids, action }),
+  // one request for the lot — the server adds all of them or none
+  import: async (rows: { text: string; mode: PromptMode; author: string }[]) => {
+    const res = await call('POST', '/import', { rows })
+    return (await res.json()) as { prompts: Prompt[]; added: string[] }
+  },
   // fire and forget — a lost count never matters more than the UI
   built: (id: string) => {
     void call('POST', `/${encodeURIComponent(id)}/built`).catch(() => {})

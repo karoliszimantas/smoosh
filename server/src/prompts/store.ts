@@ -3,9 +3,18 @@
 // thousand prompts, that is the correct and simple choice.
 
 import { z } from 'zod'
+import {
+  GALLERY_MAX_CHARS,
+  MAX_PROMPT_AUTHOR_LENGTH,
+  PROMPT_MIN_CHARS,
+  PROMPT_MODES,
+  normalizePromptText,
+  promptKey,
+  promptProblem,
+  type PromptMode,
+} from '@smoosh/protocol'
 
-export const PROMPT_MODES = ['guess', 'gallery', 'both'] as const
-export type PromptMode = (typeof PROMPT_MODES)[number]
+export { PROMPT_MODES, type PromptMode }
 
 export type StoredPrompt = {
   id: string
@@ -20,18 +29,30 @@ export type StoredPrompt = {
 }
 
 export const MAX_PROMPTS = 2000
-export const MAX_AUTHOR_LENGTH = 24
+export const MAX_AUTHOR_LENGTH = MAX_PROMPT_AUTHOR_LENGTH
 
-// trimmed, inner whitespace collapsed — what's stored, and what duplicates
-// are compared on (case-insensitively)
-export function normalizeText(text: string): string {
-  return text.trim().replace(/\s+/g, ' ')
-}
+export const normalizeText = normalizePromptText
 
+// the outer bounds for any mode; the mode's own limits are checked with it
+// (checkText), since an edit may change either
 export const PromptTextSchema = z
   .string()
   .transform(normalizeText)
-  .pipe(z.string().min(3, 'A prompt needs at least 3 characters').max(120, 'Keep it under 120 characters'))
+  .pipe(
+    z
+      .string()
+      .min(PROMPT_MIN_CHARS, `A prompt needs at least ${PROMPT_MIN_CHARS} characters`)
+      .max(GALLERY_MAX_CHARS, `Keep it under ${GALLERY_MAX_CHARS} characters`),
+  )
+
+function checkText(text: string, mode: PromptMode): void {
+  const problem = promptProblem(text, mode)
+  if (problem) throw new PromptError(400, 'invalid', `${problem.message}.`)
+}
+
+// one row of an import, as the server received it — checked again here,
+// whatever the page's preview said
+export type ImportRow = { text: string; mode: PromptMode; author: string }
 export const PromptModeSchema = z.enum(PROMPT_MODES)
 
 const StoredPromptSchema = z.object({
@@ -75,6 +96,8 @@ export interface PoolBackend {
 }
 
 export type BulkAction = 'archive' | 'restore' | 'delete'
+
+const quoted = (text: string) => `“${text.length > 40 ? `${text.slice(0, 40)}…` : text}”`
 
 export class PromptStore {
   private pool: StoredPrompt[] = []
@@ -155,8 +178,8 @@ export class PromptStore {
   }
 
   private static assertUnique(pool: StoredPrompt[], text: string, exceptId?: string): void {
-    const key = text.toLowerCase()
-    const clash = pool.find((p) => p.id !== exceptId && p.text.toLowerCase() === key)
+    const key = promptKey(text)
+    const clash = pool.find((p) => p.id !== exceptId && promptKey(p.text) === key)
     if (clash) {
       throw new PromptError(
         409,
@@ -171,6 +194,7 @@ export class PromptStore {
       if (pool.length >= MAX_PROMPTS) {
         throw new PromptError(409, 'full', `The list is full (${MAX_PROMPTS}). Delete some archived prompts first.`)
       }
+      checkText(text, mode)
       PromptStore.assertUnique(pool, text)
       const prompt: StoredPrompt = {
         id: this.newId(),
@@ -190,6 +214,8 @@ export class PromptStore {
   edit(id: string, patch: { text?: string; mode?: PromptMode; archived?: boolean }): Promise<StoredPrompt> {
     return this.mutate((pool) => {
       const p = PromptStore.find(pool, id)
+      // a prompt that predates a rule keeps working until someone edits it
+      if (patch.text !== undefined || patch.mode !== undefined) checkText(patch.text ?? p.text, patch.mode ?? p.mode)
       if (patch.text !== undefined) {
         PromptStore.assertUnique(pool, patch.text, id)
         p.text = patch.text
@@ -207,6 +233,50 @@ export class PromptStore {
       const p = PromptStore.find(pool, id)
       if (!p.archived) throw new PromptError(409, 'not_archived', 'Archive it first — only archived prompts can be deleted.')
       pool.splice(pool.indexOf(p), 1)
+    })
+  }
+
+  // All of them or none: every row is checked against the rules, the pool and
+  // the rest of the import before anything is added, and the pool is only
+  // replaced once the whole lot is saved. Answers with the new prompts' ids.
+  import(rows: readonly ImportRow[]): Promise<string[]> {
+    return this.mutate((pool) => {
+      if (pool.length + rows.length > MAX_PROMPTS) {
+        throw new PromptError(
+          409,
+          'full',
+          `That would take the list past ${MAX_PROMPTS} — there's room for ${Math.max(0, MAX_PROMPTS - pool.length)} more.`,
+        )
+      }
+      const seen = new Map(pool.map((p) => [promptKey(p.text), p]))
+      const added: string[] = []
+      rows.forEach((row, i) => {
+        const at = `Row ${i + 1}, ${quoted(row.text)}`
+        const problem = promptProblem(row.text, row.mode)
+        if (problem) throw new PromptError(400, 'invalid', `${at}: ${problem.message}. Nothing was imported.`)
+        const clash = seen.get(promptKey(row.text))
+        if (clash) {
+          throw new PromptError(
+            409,
+            'duplicate',
+            `${at} is already in the list — ${clash.author} wrote it. Nothing was imported.`,
+          )
+        }
+        const prompt: StoredPrompt = {
+          id: this.newId(),
+          text: row.text,
+          mode: row.mode,
+          author: row.author,
+          createdAt: this.now().toISOString(),
+          archived: false,
+          votes: {},
+          buildCount: 0,
+        }
+        pool.push(prompt)
+        seen.set(promptKey(row.text), prompt)
+        added.push(prompt.id)
+      })
+      return added
     })
   }
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { getCode, getName, setCode, setName } from './access'
 import { PROMPT_MODES, PromptApiError, promptApi, score, voterKey, type Prompt, type PromptMode } from './api'
 import { promptsAsTs } from './exportTs'
+import { downloadCsv, promptsAsCsv } from './exportCsv'
+import ImportPanel from './ImportPanel'
 import PromptTestView from './PromptTestView'
 
 // Past this many, the list grows by a page at a time, so a phone stays quick
@@ -71,6 +73,9 @@ export default function PromptsView() {
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
   const [editing, setEditing] = useState<{ id: string; text: string; mode: PromptMode } | null>(null)
   const [exported, setExported] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  // the last import's prompts, marked in the list until the next one
+  const [justAdded, setJustAdded] = useState<ReadonlySet<string>>(() => new Set())
 
   const [building, setBuilding] = useState<Prompt | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -127,10 +132,11 @@ export default function PromptsView() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [ready, refresh])
 
-  // back from the sandbox: exactly where the list was
+  // back from the sandbox or the import panel: exactly where the list was
+  // (or, after an import, at the top where the new prompts are)
   useLayoutEffect(() => {
-    if (!building && scrollRef.current) scrollRef.current.scrollTop = savedScroll.current
-  }, [building])
+    if (!building && !importing && scrollRef.current) scrollRef.current.scrollTop = savedScroll.current
+  }, [building, importing])
 
   const counts = useMemo(() => {
     const all = prompts ?? []
@@ -228,6 +234,34 @@ export default function PromptsView() {
     )
   }
 
+  // what's on screen, as a spreadsheet — the archived view exports archived
+  const exportCsv = () => {
+    const day = new Date().toISOString().slice(0, 10)
+    downloadCsv(promptsAsCsv(visible), `smoosh-prompts-${status}-${day}.csv`)
+  }
+
+  // after an import: the list shows everything, newest first, so the new
+  // prompts are right there at the top, marked
+  const finishImport = ({ prompts: next, added }: { prompts: Prompt[]; added: string[] }) => {
+    setPrompts(next)
+    setJustAdded(new Set(added))
+    setStatus('active')
+    setModeFilter('all')
+    setAuthorFilter('all')
+    setNeverBuilt(false)
+    setSearch('')
+    setSort('newest')
+    setShown(Math.max(PAGE_SIZE, added.length))
+    setImporting(false)
+    setNotice(`Imported ${added.length} prompt${added.length === 1 ? '' : 's'} — marked below.`)
+    savedScroll.current = 0
+  }
+
+  const openImport = () => {
+    savedScroll.current = scrollRef.current?.scrollTop ?? 0
+    setImporting(true)
+  }
+
   if (!ready) {
     return (
       <div className="prompts-view">
@@ -245,7 +279,17 @@ export default function PromptsView() {
   return (
     <>
       {building && <PromptTestView prompt={building.text} onDone={finishBuild} />}
-      <div className="prompts-view" ref={scrollRef} hidden={building !== null}>
+      {importing && prompts && (
+        <ImportPanel
+          pool={prompts}
+          me={getName()}
+          onImported={finishImport}
+          onAuthFail={(err) => fail(err)}
+          onRefresh={refresh}
+          onClose={() => setImporting(false)}
+        />
+      )}
+      <div className="prompts-view" ref={scrollRef} hidden={building !== null || importing}>
         <form className="prompts-add" onSubmit={add}>
           <input
             ref={inputRef}
@@ -270,9 +314,17 @@ export default function PromptsView() {
           <span>
             {counts.active} active · {counts.archived} archived
           </span>
-          <button onClick={copyAsTs} disabled={!prompts}>
-            Copy as TS
-          </button>
+          <span className="prompts-summary-actions">
+            <button onClick={openImport} disabled={!prompts}>
+              Import prompts
+            </button>
+            <button onClick={exportCsv} disabled={visible.length === 0}>
+              Export CSV
+            </button>
+            <button onClick={copyAsTs} disabled={!prompts}>
+              Copy as TS
+            </button>
+          </span>
         </div>
         {notice && (
           <p className="prompts-notice" onClick={() => setNotice(null)}>
@@ -372,7 +424,10 @@ export default function PromptsView() {
             const myVote = p.votes[me]
             const isEditing = editing?.id === p.id
             return (
-              <li key={p.id} className={`prompt-row${p.archived ? ' archived' : ''}`}>
+              <li
+                key={p.id}
+                className={`prompt-row${p.archived ? ' archived' : ''}${justAdded.has(p.id) ? ' just-added' : ''}`}
+              >
                 {selecting && (
                   <input
                     type="checkbox"
