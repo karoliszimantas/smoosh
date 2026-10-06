@@ -9,8 +9,8 @@ import LieView from './phases/LieView'
 import GuessView from './phases/GuessView'
 import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
-import RateView from './phases/RateView'
-import RateResultView from './phases/RateResultView'
+import VoteView from './phases/VoteView'
+import AwardsView from './phases/AwardsView'
 import MissingView from './phases/MissingView'
 import GameNotice from './GameNotice'
 import ReconnectBanner from './ReconnectBanner'
@@ -48,8 +48,9 @@ function useBackGuard(active: boolean, onBack: () => void): void {
 }
 
 // phases with players' names on screen and room at the bottom for them —
-// not BUILD (the toolbar lives there) or the lobby (it lists everyone)
-const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'rate', 'rateResult', 'scores'])
+// not BUILD (the toolbar lives there), the lobby (it lists everyone) or the
+// awards (the room's attention belongs on the wall)
+const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'vote', 'scores'])
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const game = useGameConnection()
@@ -129,10 +130,10 @@ function PhaseView({
       return <GuessView key={`guess-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'reveal':
       return <RevealView key={`reveal-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
-    case 'rate':
-      return <RateView key={`rate-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
-    case 'rateResult':
-      return <RateResultView key={`rateResult-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
+    case 'vote':
+      return <VoteView key={`vote-${phase.round}`} snapshot={snapshot} emit={emit} />
+    case 'awards':
+      return <AwardsView key={`awards-${phase.round}`} snapshot={snapshot} emit={emit} />
     case 'missing':
       return <MissingView key={`missing-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'scores':

@@ -181,7 +181,10 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       room.liesByPictureIndex.clear()
       room.guessesByPictureIndex.clear()
       room.optionsByPictureIndex.clear()
-      room.ratingsByPictureIndex.clear()
+      room.votes.clear()
+      room.exhibition = []
+      room.roundPoints.clear()
+      room.gamePoints.clear()
       room.usedPrompts.clear()
       room.pendingActors = new Set()
       for (const s of room.seats.values()) {

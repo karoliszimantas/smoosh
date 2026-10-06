@@ -68,4 +68,25 @@ export const newsprint: Theme = {
   warning: '#E9B949',
   warningText: '#111111',
   accent: '#D62828',
+
+  // the arts page: ruled boxes, ink rosettes, a red one for the winner
+  gallery: {
+    wall: '#DAD5C7',
+    wallText: '#111111',
+    placardBg: '#F2EFE6',
+    placardText: '#111111',
+    placardMuted: '#5E5B54',
+    placardBorder: '1px solid #111111',
+    placardArtistFont: "'Oswald', 'Arial Narrow', sans-serif",
+    placardTitleFont: "Georgia, 'Times New Roman', serif",
+    frame: '0 0 0 1px #111111, 0 0 0 5px #F2EFE6, 0 0 0 6px #111111',
+    winnerFrame: '0 0 0 2px #111111, 0 0 0 9px #F2EFE6, 0 0 0 12px #111111',
+    ribbons: {
+      best: { face: '#D62828', edge: '#111111', ink: '#F2EFE6' },
+      second: { face: '#111111', edge: '#5E5B54', ink: '#F2EFE6' },
+      divisive: { face: '#5E5B54', edge: '#111111', ink: '#F2EFE6' },
+      everybodysSecond: { face: '#E9B949', edge: '#111111', ink: '#111111' },
+      honourable: { face: '#F2EFE6', edge: '#111111', ink: '#111111' },
+    },
+  },
 }

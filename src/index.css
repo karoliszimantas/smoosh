@@ -60,7 +60,6 @@ button:nth-child(4n) {
 h1,
 h2,
 .scores-winner,
-.rate-average,
 .lobby-mode-readonly {
   font-family: var(--font-display);
   text-transform: var(--display-transform);
@@ -1615,107 +1614,6 @@ h2,
   font-weight: 600;
 }
 
-/* ---------- gallery: rate / result ---------- */
-
-.rate-view {
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px;
-  overflow-y: auto;
-  text-align: center;
-}
-
-.rate-context {
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 90vw;
-}
-
-.rate-stars {
-  display: flex;
-  gap: 6px;
-}
-
-.rate-star {
-  width: 56px;
-  height: 56px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--chrome-border);
-  font-size: 32px;
-  line-height: 1;
-}
-
-.rate-star.filled {
-  color: var(--accent);
-}
-
-.rate-star:disabled {
-  cursor: default;
-}
-
-.rate-author {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.rate-average {
-  font-size: 40px;
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.rate-breakdown {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: min(260px, 80vw);
-}
-
-.rate-breakdown li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.rate-breakdown-label {
-  width: 24px;
-  text-align: right;
-}
-
-.rate-breakdown-bar {
-  flex: 1;
-  height: 8px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.rate-breakdown-bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-
-.rate-breakdown-count {
-  width: 16px;
-  font-variant-numeric: tabular-nums;
-}
-
-.rate-points {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent);
-}
-
 /* ---------- scores view ---------- */
 
 .scores-winner {
@@ -1729,15 +1627,58 @@ h2,
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 200px;
+  width: min(100%, 360px);
 }
 
 .scoreboard li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   padding: 8px 14px;
   border-radius: var(--radius);
   background: var(--surface);
   font-size: 14px;
+  text-align: left;
 }
+
+.score-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.score-total,
+.score-breakdown {
+  font-variant-numeric: tabular-nums;
+}
+
+.score-round {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* where the points came from: three columns that add up to the figure
+   above them */
+.score-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  font-size: 13px;
+}
+
+.score-breakdown small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.score-breakdown .zero {
+  opacity: 0.5;
+}
+
 
 .scores-view button {
   min-height: 44px;
@@ -2264,8 +2205,9 @@ button.theme-swatch.active {
 .guess-view,
 .reveal-view,
 .missing-view,
-.rate-view,
-.scores-view {
+.vote-view,
+.scores-view,
+.exhibition-view {
   padding-bottom: calc(48px + env(safe-area-inset-bottom));
 }
 
@@ -2447,4 +2389,550 @@ button.theme-swatch.active {
 
 .prompts-import-bar button {
   width: 100%;
+}
+
+/* ---------- gallery: judging, the awards, the exhibition ----------
+   Played as an art prize, straight: pictures hang on the theme's wall in
+   its frames, each over a typeset museum label; prize-winners wear a
+   fairground rosette. Every colour and face comes from the theme. */
+
+.vote-view,
+.awards-view,
+.exhibition-view {
+  height: 100dvh;
+  overflow-y: auto;
+  background: var(--gallery-wall);
+  color: var(--gallery-wall-text);
+}
+
+.gallery-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.gallery-kicker {
+  font-family: var(--placard-artist-font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.gallery-head h2.gallery-brief {
+  font-family: var(--placard-title-font);
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.gallery-instructions {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* --- a framed picture and its label --- */
+
+.exhibit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+}
+
+.exhibit-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  line-height: 0;
+  box-shadow: var(--frame);
+}
+
+/* the winner's frame is heavier and reaches further out: the picture gives
+   way to it rather than the frame running into its neighbours */
+.exhibit.winner .exhibit-frame {
+  width: calc(100% - 28px);
+  box-shadow: var(--frame-winner);
+}
+
+/* the submission itself, without the reveal's letterbox band */
+.exhibit-frame .picture-display {
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: 1;
+  object-fit: contain;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+}
+
+/* the museum wall label: small, typeset, deadpan */
+.placard {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(100%, 230px);
+  padding: 7px 10px 8px;
+  background: var(--placard-bg);
+  color: var(--placard-text);
+  border: var(--placard-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  text-align: left;
+  line-height: 1.25;
+}
+
+.placard-artist {
+  font-family: var(--placard-artist-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.placard-title {
+  font-family: var(--placard-title-font);
+  font-style: italic;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.placard-medium,
+.placard-note,
+.placard-votes {
+  font-family: var(--placard-title-font);
+  font-size: 12px;
+  color: var(--placard-muted);
+}
+
+.placard-note {
+  color: var(--placard-text);
+  font-variant: small-caps;
+  letter-spacing: 0.5px;
+}
+
+.placard-votes {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--placard-muted) 45%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- the rosette, pinned over the frame's corner --- */
+
+.rosette {
+  position: absolute;
+  z-index: 1;
+  top: -24px;
+  left: -20px;
+  width: 64px;
+  transform: rotate(-14deg);
+  transform-origin: 50% 35%;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+.rosette-large {
+  top: -38px;
+  left: -32px;
+  width: 104px;
+}
+
+.rosette-small {
+  top: -18px;
+  left: -16px;
+  width: 48px;
+}
+
+.rosette-best {
+  --face: var(--ribbon-best-face);
+  --edge: var(--ribbon-best-edge);
+  --ink: var(--ribbon-best-ink);
+}
+.rosette-second {
+  --face: var(--ribbon-second-face);
+  --edge: var(--ribbon-second-edge);
+  --ink: var(--ribbon-second-ink);
+}
+.rosette-divisive {
+  --face: var(--ribbon-divisive-face);
+  --edge: var(--ribbon-divisive-edge);
+  --ink: var(--ribbon-divisive-ink);
+}
+.rosette-everybodysSecond {
+  --face: var(--ribbon-everybodysSecond-face);
+  --edge: var(--ribbon-everybodysSecond-edge);
+  --ink: var(--ribbon-everybodysSecond-ink);
+}
+.rosette-honourable {
+  --face: var(--ribbon-honourable-face);
+  --edge: var(--ribbon-honourable-edge);
+  --ink: var(--ribbon-honourable-ink);
+}
+
+.rosette-tails path,
+.rosette-outer,
+.rosette-centre {
+  fill: var(--face);
+}
+
+.rosette-outer,
+.rosette-tails path {
+  stroke: rgba(0, 0, 0, 0.28);
+  stroke-width: 0.6;
+}
+
+.rosette-stripe,
+.rosette-inner {
+  fill: var(--edge);
+}
+
+.rosette-folds line {
+  stroke: rgba(0, 0, 0, 0.2);
+  stroke-width: 0.7;
+}
+
+.rosette-rule {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.2;
+}
+
+.rosette-text text {
+  fill: var(--ink);
+  font-family: var(--placard-artist-font);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* --- judging --- */
+
+.vote-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  /* the bottom keeps clear of the player strip */
+  padding: 16px 16px calc(48px + env(safe-area-inset-bottom));
+}
+
+.vote-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px 22px;
+  padding: 12px 10px;
+}
+
+.vote-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.vote-tile:disabled {
+  cursor: default;
+}
+
+.vote-tile.picked .exhibit-frame {
+  outline: 3px solid var(--selection);
+  outline-offset: 6px;
+}
+
+.vote-tile.yours .exhibit-frame {
+  opacity: 0.5;
+}
+
+.vote-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
+  padding: 3px 9px;
+  background: var(--placard-bg);
+  color: var(--placard-text);
+  border: var(--placard-border);
+  font-family: var(--placard-artist-font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.vote-tag.pick {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.vote-missing {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border: 1px dashed currentColor;
+  opacity: 0.6;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* the commit, in reach of the thumb, above the player strip */
+.vote-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -16px;
+  padding: 10px 16px 12px;
+  background: var(--gallery-wall);
+}
+
+.vote-submit {
+  width: 100%;
+  min-height: 50px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.vote-submit:disabled {
+  opacity: 0.45;
+}
+
+/* --- the awards --- */
+
+.awards-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* clear of the corner buttons (theme, menu) */
+  padding: 64px 20px calc(40px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.awards-view.on-wall {
+  justify-content: flex-start;
+}
+
+.awards-card,
+.awards-wall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 560px;
+  animation: awards-in 0.45s ease-out both;
+}
+
+.awards-wall {
+  gap: 6px;
+}
+
+h1.awards-title {
+  font-size: clamp(30px, 9vw, 46px);
+  line-height: 1.05;
+  color: var(--gallery-wall-text);
+}
+
+h2.awards-wall-title {
+  font-size: 26px;
+}
+
+.awards-subject {
+  font-family: var(--placard-title-font);
+  font-size: 16px;
+}
+
+.awards-subject em {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.awards-shared {
+  margin-top: -8px;
+  font-family: var(--placard-artist-font);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.awards-winners {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px 22px;
+  width: 100%;
+  padding: 18px 10px 0;
+}
+
+.awards-winners.count-1 {
+  grid-template-columns: minmax(0, min(76vw, 340px));
+  justify-content: center;
+}
+
+/* one winner, announced: the label reads from across the room */
+.awards-winners.count-1 .placard {
+  width: min(100%, 280px);
+  padding: 10px 14px 11px;
+}
+.awards-winners.count-1 .placard-artist {
+  font-size: 14px;
+}
+.awards-winners.count-1 .placard-title {
+  font-size: 18px;
+}
+.awards-winners.count-1 .placard-medium {
+  font-size: 13px;
+}
+
+/* the rosette is struck on a beat after the work appears */
+.awards-card .rosette {
+  animation: rosette-strike 0.38s cubic-bezier(0.2, 1.5, 0.4, 1) 0.55s both;
+}
+
+.award-best .exhibit-frame {
+  animation: gilt-in 0.7s ease-out both;
+}
+
+.awards-skip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@keyframes awards-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes rosette-strike {
+  from {
+    opacity: 0;
+    transform: rotate(-38deg) scale(1.9);
+  }
+}
+
+@keyframes gilt-in {
+  from {
+    box-shadow: var(--frame);
+  }
+}
+
+/* --- the wall, and the closing exhibition --- */
+
+.exhibition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 38px 22px;
+  width: 100%;
+  max-width: 560px;
+  padding: 22px 10px 8px;
+}
+
+.exhibition-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 64px 16px calc(60px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.prize-list {
+  width: min(100%, 340px);
+  padding: 14px 16px;
+  background: var(--placard-bg);
+  color: var(--placard-text);
+  border: var(--placard-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.prize-list h2 {
+  margin-bottom: 8px;
+  font-family: var(--placard-artist-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.prize-list ol {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--placard-title-font);
+  font-size: 15px;
+}
+
+.prize-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dotted color-mix(in srgb, var(--placard-muted) 55%, transparent);
+}
+
+.prize-grand {
+  margin-left: 8px;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--placard-muted);
+}
+
+.prize-points {
+  font-variant-numeric: tabular-nums;
+}
+
+.exhibition-view button {
+  min-height: 44px;
+  padding: 0 24px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* still announced one at a time — just nothing flies in */
+@media (prefers-reduced-motion: reduce) {
+  .awards-card,
+  .awards-wall,
+  .awards-card .rosette,
+  .award-best .exhibit-frame {
+    animation: none;
+  }
 }

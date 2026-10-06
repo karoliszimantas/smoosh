@@ -9,7 +9,7 @@ import { deleteRoom, type Room } from './rooms/Room.ts'
 import { registerLobbyHandlers } from './handlers/lobbyHandlers.ts'
 import { registerLieHandlers } from './handlers/lieHandlers.ts'
 import { registerGuessHandlers } from './handlers/guessHandlers.ts'
-import { registerRatingHandlers } from './handlers/ratingHandlers.ts'
+import { registerVoteHandlers } from './handlers/voteHandlers.ts'
 import { registerConnectionHandlers } from './handlers/connectionHandlers.ts'
 import type { TypedServer, SocketData } from './handlers/context.ts'
 
@@ -60,7 +60,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
     registerLobbyHandlers(io, socket, deps)
     registerLieHandlers(io, socket, deps)
     registerGuessHandlers(io, socket, deps)
-    registerRatingHandlers(io, socket, deps)
+    registerVoteHandlers(io, socket, deps)
     registerConnectionHandlers(io, socket, deps)
   })
 

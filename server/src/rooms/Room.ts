@@ -1,4 +1,4 @@
-import type { GameSettings, PhaseState, Presence } from '@smoosh/protocol'
+import type { GameSettings, PhaseState, PointsBreakdown, Presence } from '@smoosh/protocol'
 import { DEFAULT_SETTINGS } from '@smoosh/protocol'
 import { generateRoomCode } from './roomCode.ts'
 
@@ -57,7 +57,14 @@ export type Room = {
   liesByPictureIndex: Map<number, Map<string, string>> // pictureIndex -> authorId -> lie text
   guessesByPictureIndex: Map<number, Map<string, string>> // pictureIndex -> guesserId -> optionId
   optionsByPictureIndex: Map<number, PictureOption[]>
-  ratingsByPictureIndex: Map<number, Map<string, number>> // gallery: pictureIndex -> raterId -> stars
+  // gallery: this round's votes, voterId -> picks. Never sent to anyone but
+  // the voter themselves — only counts leave the server
+  votes: Map<string, { favourite: string; runnerUp: string | null }>
+  // gallery: every round's Best in Show so far, for the final exhibition
+  exhibition: { round: number; prompt: string; authorId: string; imagePath: string }[]
+  // guess: each player's points by source — this round, and the game so far
+  roundPoints: Map<string, PointsBreakdown>
+  gamePoints: Map<string, PointsBreakdown>
   lastActivityAt: number
 }
 
@@ -83,7 +90,10 @@ export function createRoom(code: string): Room {
     liesByPictureIndex: new Map(),
     guessesByPictureIndex: new Map(),
     optionsByPictureIndex: new Map(),
-    ratingsByPictureIndex: new Map(),
+    votes: new Map(),
+    exhibition: [],
+    roundPoints: new Map(),
+    gamePoints: new Map(),
     lastActivityAt: Date.now(),
   }
 }

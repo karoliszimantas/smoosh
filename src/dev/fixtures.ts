@@ -1,4 +1,12 @@
-import { DEFAULT_SETTINGS, type GameSettings, type PhaseState, type Player, type RoomSnapshot } from '@smoosh/protocol'
+import {
+  DEFAULT_SETTINGS,
+  announcements,
+  galleryResults,
+  type GameSettings,
+  type PhaseState,
+  type Player,
+  type RoomSnapshot,
+} from '@smoosh/protocol'
 
 // Fake game data, for the dev panel's "jump to phase", the solo walkthrough
 // and component tests. Pictures use `solo/<playerId>` paths, which only the
@@ -13,8 +21,8 @@ export const FIXTURE_PHASES: readonly FixturePhase[] = [
   'guess',
   'reveal',
   'missing',
-  'rate',
-  'rateResult',
+  'vote',
+  'awards',
   'scores',
 ]
 
@@ -60,7 +68,8 @@ export const FIXTURE_BASE: FixtureBase = {
 export function fixtureSnapshot(
   phase: FixturePhase,
   base: FixtureBase = FIXTURE_BASE,
-  opts: { authorId?: string } = {},
+  // exhibition: the scores are Gallery's final ones, hung as an exhibition
+  opts: { authorId?: string; exhibition?: boolean } = {},
 ): RoomSnapshot {
   const others = base.players.filter((p) => p.id !== base.youId)
   const authorId = opts.authorId ?? others[0]?.id ?? base.youId
@@ -123,35 +132,70 @@ export function fixtureSnapshot(
         deadline: now + 4_000,
       }
       break
-    case 'rate':
-      state = { ...picture, phase: 'rate', prompt: 'a cat riding a bicycle', deadline: now + 120_000 }
-      break
-    case 'rateResult':
+    case 'vote':
       state = {
-        ...picture,
-        phase: 'rateResult',
-        prompt: 'a cat riding a bicycle',
-        average: 3.7,
-        counts: [0, 1, 0, 1, 1],
-        points: 740,
-        deadline: now + 6_000,
+        phase: 'vote',
+        round,
+        totalRounds,
+        prompt: 'Cat Wearing Sunglasses',
+        pictures: base.players.map((p) => ({ authorId: p.id, imagePath: soloPicturePath(p.id) })),
+        deadline: now + 120_000,
       }
       break
+    case 'awards': {
+      // a spread that gives out four different awards with four players:
+      // #2 Best in Show, #3 Second Prize, #4 Everybody's Second, #1 a mention
+      const ids = base.players.map((p) => p.id)
+      const at = (i: number) => ids[i % ids.length] ?? base.youId
+      const results = galleryResults(ids, [
+        { voterId: at(0), favourite: at(1), runnerUp: at(2) },
+        { voterId: at(1), favourite: at(2), runnerUp: at(3) },
+        { voterId: at(2), favourite: at(1), runnerUp: at(3) },
+        { voterId: at(3), favourite: at(1), runnerUp: at(0) },
+      ])
+      const order = announcements(results)
+      state = {
+        phase: 'awards',
+        round,
+        totalRounds,
+        prompt: 'Cat Wearing Sunglasses',
+        pictures: results.map((r) => ({ ...r, imagePath: soloPicturePath(r.authorId) })),
+        announcements: order,
+        startsAt: now,
+        skipped: false,
+        deadline: now + 20_000,
+      }
+      break
+    }
     case 'scores':
       state = {
         phase: 'scores',
         round,
         totalRounds,
-        isFinalRound: false,
-        scoreboard: base.players.map((p) => ({ playerId: p.id, total: p.score })),
-        deadline: now + 6_000,
+        isFinalRound: opts.exhibition === true,
+        // made-up breakdowns that add up: a round's worth, and the game's
+        scoreboard: base.players.map((p, i) => {
+          const round = { picture: i === 2 ? 0 : 1400, guessing: 700 * (i % 3), lies: 175 * i }
+          const game = { picture: p.score, guessing: 0, lies: 0 }
+          const gallery = opts.exhibition === true
+          return { playerId: p.id, total: p.score, round: gallery ? null : round, game: gallery ? null : game }
+        }),
+        exhibition: opts.exhibition
+          ? others.slice(0, 3).map((p, i) => ({
+              round: i + 1,
+              prompt: ['Cat Wearing Sunglasses', 'Grandma at the Beach', ''][i] ?? '',
+              authorId: p.id,
+              imagePath: soloPicturePath(p.id),
+            }))
+          : [],
+        deadline: opts.exhibition ? null : now + 6_000,
       }
       break
   }
 
   return {
     roomCode: base.roomCode,
-    settings: base.settings,
+    settings: opts.exhibition || phase === 'vote' || phase === 'awards' ? { ...base.settings, mode: 'gallery' } : base.settings,
     players: base.players,
     phase: state,
     waitingOn: phase === 'build' ? others.map((p) => p.id) : [],
@@ -161,7 +205,7 @@ export function fixtureSnapshot(
       secretPrompt: phase === 'build' ? 'a cat riding a bicycle' : null,
       hasActedThisPhase: false,
       ownOptionId: phase === 'guess' ? yourLie.id : null,
-      ownRating: null,
+      ownVote: null,
     },
   }
 }

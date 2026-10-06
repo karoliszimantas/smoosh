@@ -10,7 +10,9 @@ import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
 import {
   startBuild,
   dropPendingActor,
-  recordRating,
+  recordVote,
+  skipAwards,
+  voteProblem,
   recordGuess,
   restorePendingActor,
   optionsForPicture,
@@ -314,6 +316,32 @@ describe('round and game progression', () => {
   })
 })
 
+describe('GUESS scoring in a game', () => {
+  it('the scoreboard breakdown sums to each total, round and game', () => {
+    const room = makeRoom(4, 2, 60, 'guess')
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    for (let t = 0; t < 2000 && !(room.phase.phase === 'scores' && room.phase.isFinalRound); t++) {
+      const phase = room.phase
+      if (phase.phase === 'guess') {
+        // everyone guesses the first option they're allowed
+        for (const id of [...room.pendingActors]) {
+          const pick = optionsForPicture(room, phase.pictureIndex).find((o) => o.authorId !== id)
+          if (pick) recordGuess(room, phase.pictureIndex, id, pick.id)
+          dropPendingActor(room, deps, id)
+        }
+      }
+      vi.advanceTimersByTime(1_000)
+    }
+    const scores = expectPhase(room, 'scores')
+    for (const e of scores.scoreboard) {
+      const g = e.game
+      if (!g) throw new Error('guess mode has a breakdown')
+      expect(g.picture + g.guessing + g.lies).toBe(e.total)
+    }
+  })
+})
+
 describe('GALLERY mode', () => {
   function buildToRate(prompted = true, playerCount = 3) {
     const room = makeRoom(playerCount, 2, 60, 'gallery', prompted)
@@ -337,69 +365,137 @@ describe('GALLERY mode', () => {
     expect(room.usedPrompts.size).toBe(0)
   })
 
-  it('goes build -> rate, with the author excluded from rating', () => {
+  it('goes build -> one vote on the whole round, everyone voting', () => {
     const { room } = buildToRate()
     vi.advanceTimersByTime(BUILD_END_MS)
-    const phase = expectPhase(room, 'rate')
-    expect(phase.pictureIndex).toBe(0)
-    expect(room.pendingActors.has(phase.authorId)).toBe(false)
-    expect(room.pendingActors.size).toBe(2)
+    const phase = expectPhase(room, 'vote')
+    expect(phase.pictures.map((p) => p.authorId).sort()).toEqual(['player-1', 'player-2', 'player-3'])
+    expect(phase.pictures.every((p) => p.imagePath !== null)).toBe(true)
+    expect(room.pendingActors.size).toBe(3)
   })
 
-  it('carries the shared prompt into rate — empty in freestyle', () => {
+  it('carries the shared prompt into the vote — empty in freestyle', () => {
     const prompted = buildToRate(true)
     vi.advanceTimersByTime(BUILD_END_MS)
-    expect(expectPhase(prompted.room, 'rate').prompt).toBe([...prompted.room.promptByPlayer.values()][0])
+    expect(expectPhase(prompted.room, 'vote').prompt).toBe([...prompted.room.promptByPlayer.values()][0])
 
     const freestyle = buildToRate(false)
     vi.advanceTimersByTime(BUILD_END_MS)
-    expect(expectPhase(freestyle.room, 'rate').prompt).toBe('')
+    expect(expectPhase(freestyle.room, 'vote').prompt).toBe('')
   })
 
-  it('early-advances to the result once every rater has rated, and scores the author by the average', () => {
-    const { room, deps } = buildToRate()
+  it('refuses a vote for your own picture, a repeat, an unknown picture, and a missing required runner-up', () => {
+    const { room } = buildToRate(true, 4)
     vi.advanceTimersByTime(BUILD_END_MS)
-    const { authorId, pictureIndex } = expectPhase(room, 'rate')
-    const [first, second] = [...room.pendingActors]
-    if (!first || !second) throw new Error('expected two raters')
-    recordRating(room, pictureIndex, first, 5)
-    dropPendingActor(room, deps, first)
-    expectPhase(room, 'rate')
-    recordRating(room, pictureIndex, second, 4)
-    dropPendingActor(room, deps, second)
-
-    const result = expectPhase(room, 'rateResult')
-    expect(result.average).toBe(4.5)
-    expect(result.counts).toEqual([0, 0, 0, 1, 1])
-    expect(result.points).toBe(900)
-    const author = [...room.seats.values()].find((s) => s.playerId === authorId)
-    expect(author?.score).toBe(900)
+    expectPhase(room, 'vote')
+    expect(voteProblem(room, 'player-1', 'player-1', 'player-2')).toMatch(/own/)
+    expect(voteProblem(room, 'player-1', 'player-2', 'player-1')).toMatch(/own/)
+    expect(voteProblem(room, 'player-1', 'player-2', 'player-2')).toMatch(/different/)
+    expect(voteProblem(room, 'player-1', 'player-9', 'player-2')).toMatch(/not up for a vote/)
+    // four players: three to choose from, so a runner-up is required
+    expect(voteProblem(room, 'player-1', 'player-2', null)).toMatch(/runner-up/)
+    expect(voteProblem(room, 'player-1', 'player-2', 'player-3')).toBeNull()
   })
 
-  it('a picture nobody rated scores nothing', () => {
-    const { room } = buildToRate()
-    vi.advanceTimersByTime(BUILD_END_MS) // -> rate
-    vi.advanceTimersByTime(120_000) // nobody rates
-    const result = expectPhase(room, 'rateResult')
-    expect(result.average).toBeNull()
-    expect(result.points).toBe(0)
-  })
-
-  it('rates every picture in turn, then shows scores and moves to the next round', () => {
-    const { room } = buildToRate()
+  it('three players: the runner-up is optional — two of two is not a judgement', () => {
+    const { room } = buildToRate(true, 3)
     vi.advanceTimersByTime(BUILD_END_MS)
-    for (let i = 0; i < 3; i++) {
-      expect(expectPhase(room, 'rate').pictureIndex).toBe(i)
-      vi.advanceTimersByTime(120_000) // rate -> result
-      expectPhase(room, 'rateResult')
-      vi.advanceTimersByTime(6_000) // result -> next picture / scores
+    expect(voteProblem(room, 'player-1', 'player-2', null)).toBeNull()
+    expect(voteProblem(room, 'player-1', 'player-2', 'player-3')).toBeNull()
+  })
+
+  it('3 players, optional runner-up: favourite 2 points, runner-up 1, early-advance once all voted', () => {
+    const { room, deps } = buildToRate(true, 3)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    recordVote(room, 'player-1', 'player-2', 'player-3')
+    dropPendingActor(room, deps, 'player-1')
+    recordVote(room, 'player-2', 'player-3', null) // no runner-up
+    dropPendingActor(room, deps, 'player-2')
+    expectPhase(room, 'vote')
+    recordVote(room, 'player-3', 'player-2', null)
+    dropPendingActor(room, deps, 'player-3')
+
+    const awards = expectPhase(room, 'awards')
+    const by = new Map(awards.pictures.map((p) => [p.authorId, p]))
+    expect(by.get('player-2')).toMatchObject({ favourites: 2, runnerUps: 0, points: 4, award: 'best' })
+    expect(by.get('player-3')).toMatchObject({ favourites: 1, runnerUps: 1, points: 3, award: 'second' })
+    // no votes: no award, no consolation
+    expect(by.get('player-1')).toMatchObject({ favourites: 0, runnerUps: 0, points: 0, award: null })
+    const score = (id: string) => room.seats.get(id)?.score
+    expect([score('player-1'), score('player-2'), score('player-3')]).toEqual([0, 4, 3])
+    // anonymous: who voted for what never leaves the server
+    expect(JSON.stringify(awards)).not.toMatch(/voter/)
+  })
+
+  it('the 3-player reveal fits in 15 seconds; the host can cut it short', () => {
+    const { room, deps } = buildToRate(true, 3)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    recordVote(room, 'player-1', 'player-2', 'player-3')
+    recordVote(room, 'player-2', 'player-3', 'player-1')
+    recordVote(room, 'player-3', 'player-1', 'player-2')
+    for (const id of ['player-1', 'player-2', 'player-3']) dropPendingActor(room, deps, id)
+    const awards = expectPhase(room, 'awards')
+    expect(awards.deadline - awards.startsAt).toBeLessThanOrEqual(15_000)
+
+    skipAwards(room, deps)
+    const skipped = expectPhase(room, 'awards')
+    expect(skipped.skipped).toBe(true)
+    vi.advanceTimersByTime(3_000)
+    expectPhase(room, 'scores')
+  })
+
+  it('the final scores hang every round’s Best in Show', () => {
+    const { room, deps } = buildToRate(true, 3)
+    for (let round = 1; round <= 2; round++) {
+      vi.advanceTimersByTime(BUILD_END_MS)
+      recordVote(room, 'player-1', 'player-2', null)
+      recordVote(room, 'player-3', 'player-2', null)
+      recordVote(room, 'player-2', 'player-1', null)
+      for (const id of ['player-1', 'player-2', 'player-3']) dropPendingActor(room, deps, id)
+      vi.advanceTimersByTime(expectPhase(room, 'awards').deadline - Date.now()) // -> scores
+      if (round === 1) vi.advanceTimersByTime(6_000) // scores -> next build
     }
+    const scores = expectPhase(room, 'scores')
+    expect(scores.isFinalRound).toBe(true)
+    expect(scores.exhibition.map((e) => [e.round, e.authorId])).toEqual([
+      [1, 'player-2'],
+      [2, 'player-2'],
+    ])
+  })
+
+  it('a missing picture is shown in the vote but cannot be voted for', () => {
+    const room = makeRoom(4, 1, 60, 'gallery', true)
+    const deps = makeDeps({ hasSubmission: (_c, _r, id) => id !== 'player-4' })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    const phase = expectPhase(room, 'vote')
+    expect(phase.pictures.find((p) => p.authorId === 'player-4')?.imagePath).toBeNull()
+    expect(voteProblem(room, 'player-1', 'player-4', 'player-2')).toMatch(/not up for a vote/)
+    // only two others' pictures to choose from now: runner-up optional
+    expect(voteProblem(room, 'player-1', 'player-2', null)).toBeNull()
+  })
+
+  it('nobody votes: the wall is shown with no awards, nobody scores', () => {
+    const { room } = buildToRate()
+    vi.advanceTimersByTime(BUILD_END_MS) // -> vote
+    vi.advanceTimersByTime(120_000) // nobody votes
+    const awards = expectPhase(room, 'awards')
+    expect(awards.announcements).toEqual([])
+    expect(awards.pictures.every((p) => p.award === null && p.points === 0)).toBe(true)
+  })
+
+  it('a round goes vote -> awards -> scores -> next build, and votes do not leak into the next round', () => {
+    const { room } = buildToRate()
+    vi.advanceTimersByTime(BUILD_END_MS)
+    recordVote(room, 'player-1', 'player-2', null)
+    vi.advanceTimersByTime(120_000)
+    // the reveal runs as long as its announcements need, no longer
+    vi.advanceTimersByTime(expectPhase(room, 'awards').deadline - Date.now())
     expect(expectPhase(room, 'scores').isFinalRound).toBe(false)
     vi.advanceTimersByTime(6_000)
     expectPhase(room, 'build')
     expect(room.round).toBe(2)
-    // ratings from round 1 don't leak into round 2
-    expect(room.ratingsByPictureIndex.size).toBe(0)
+    expect(room.votes.size).toBe(0)
   })
 
   it('never enters the guess phases', () => {
@@ -410,6 +506,6 @@ describe('GALLERY mode', () => {
       vi.advanceTimersByTime(1_000)
     }
     expect(seen.has('lie') || seen.has('guess') || seen.has('reveal')).toBe(false)
-    expect(seen.has('rate') && seen.has('rateResult')).toBe(true)
+    expect(seen.has('vote') && seen.has('awards')).toBe(true)
   })
 })

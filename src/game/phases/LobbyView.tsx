@@ -11,7 +11,7 @@ import ThemeSwitcher from '../../themes/ThemeSwitcher'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
   guess: { label: 'Guess', blurb: 'Secret prompts — fool the others with fake ones' },
-  gallery: { label: 'Gallery', blurb: 'Everyone builds, everyone rates 1–5' },
+  gallery: { label: 'Gallery', blurb: 'Everyone builds, then votes for a favourite' },
 }
 
 // a row of mutually exclusive buttons — quicker on a phone than a <select>,
@@ -105,9 +105,9 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
             )}
             <p className="lobby-mode-blurb">
               {settings.mode === 'gallery' && !settings.prompted
-                ? 'No prompt — build whatever you want, everyone rates 1–5'
+                ? 'No prompt — build whatever you want, then vote for a favourite and a runner-up'
                 : settings.mode === 'gallery'
-                  ? 'Same prompt for everyone, everyone rates 1–5'
+                  ? 'Same prompt for everyone, then vote for a favourite and a runner-up'
                   : MODE_LABELS.guess.blurb}
             </p>
           </div>

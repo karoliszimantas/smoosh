@@ -1,5 +1,7 @@
 export * from './ids.ts'
 export * from './settings.ts'
+export * from './gallery.ts'
+export * from './guessScoring.ts'
 export * from './player.ts'
 export * from './phase.ts'
 export * from './snapshot.ts'

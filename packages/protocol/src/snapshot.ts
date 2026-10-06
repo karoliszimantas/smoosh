@@ -25,8 +25,9 @@ export const RoomSnapshotSchema = z.object({
     // out "you can't pick your own lie" without waiting for reveal to know
     // which one that is
     ownOptionId: z.string().nullable(),
-    // during gallery RATE, the stars this player gave the current picture
-    ownRating: z.number().int().nullable(),
+    // during gallery VOTE, this player's own votes — nobody else's are ever
+    // sent: votes are anonymous, only counts are shown
+    ownVote: z.object({ favourite: PlayerIdSchema, runnerUp: PlayerIdSchema.nullable() }).nullable(),
   }),
   // who the current phase is still waiting on — in BUILD, whoever hasn't
   // sent a picture in yet, away players included

@@ -55,6 +55,23 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--warning': theme.warning,
     '--warning-text': theme.warningText,
     '--accent': theme.accent,
+    '--gallery-wall': theme.gallery.wall,
+    '--gallery-wall-text': theme.gallery.wallText,
+    '--placard-bg': theme.gallery.placardBg,
+    '--placard-text': theme.gallery.placardText,
+    '--placard-muted': theme.gallery.placardMuted,
+    '--placard-border': theme.gallery.placardBorder,
+    '--placard-artist-font': theme.gallery.placardArtistFont,
+    '--placard-title-font': theme.gallery.placardTitleFont,
+    '--frame': theme.gallery.frame,
+    '--frame-winner': theme.gallery.winnerFrame,
+    ...Object.fromEntries(
+      Object.entries(theme.gallery.ribbons).flatMap(([award, r]) => [
+        [`--ribbon-${award}-face`, r.face],
+        [`--ribbon-${award}-edge`, r.edge],
+        [`--ribbon-${award}-ink`, r.ink],
+      ]),
+    ),
   }
 }
 

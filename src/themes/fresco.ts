@@ -79,4 +79,27 @@ export const fresco: Theme = {
   warning: '#E8C170',
   warningText: '#2A1710',
   accent: '#9E2B1E',
+
+  // a museum's antiquities wing: plaster wall, bone cards set in Roman
+  // capitals, dark wood frames — and gilt for the winner
+  gallery: {
+    wall: '#E6C9A3',
+    wallText: '#2A1710',
+    placardBg: '#F4E6CF',
+    placardText: '#2A1710',
+    placardMuted: '#7A5A44',
+    placardBorder: 'none',
+    placardArtistFont: "'Cinzel', Georgia, serif",
+    placardTitleFont: "Georgia, 'Times New Roman', serif",
+    frame: '0 0 0 2px #2A1710, 0 0 0 7px #5C2E1C, 0 0 0 8px #2A1710, 0 4px 12px rgba(42,23,16,0.35)',
+    winnerFrame:
+      '0 0 0 10px #F4E6CF, 0 0 0 12px #7A5A1A, 0 0 0 17px #D4AF37, 0 0 0 19px #7A5A1A, 0 10px 24px rgba(42,23,16,0.45)',
+    ribbons: {
+      best: { face: '#9E2B1E', edge: '#D4AF37', ink: '#F4E6CF' },
+      second: { face: '#2A1710', edge: '#D4AF37', ink: '#F4E6CF' },
+      divisive: { face: '#C97B4A', edge: '#2A1710', ink: '#2A1710' },
+      everybodysSecond: { face: '#5C6B3A', edge: '#E8C170', ink: '#F4E6CF' },
+      honourable: { face: '#F4E6CF', edge: '#8C6A52', ink: '#2A1710' },
+    },
+  },
 }

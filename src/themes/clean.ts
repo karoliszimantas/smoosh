@@ -41,4 +41,25 @@ export const clean: Theme = {
   warning: '#F59E0B',
   warningText: '#1C1917',
   accent: '#D97706',
+
+  // a white-cube gallery: white wall, white mat, nothing to look at but the work
+  gallery: {
+    wall: '#F5F5F4',
+    wallText: '#1C1917',
+    placardBg: '#FFFFFF',
+    placardText: '#1C1917',
+    placardMuted: '#6B6560',
+    placardBorder: '1px solid #E7E5E4',
+    placardArtistFont: 'system-ui, sans-serif',
+    placardTitleFont: "Georgia, 'Times New Roman', serif",
+    frame: '0 0 0 1px #D6D3D1, 0 2px 8px rgba(28,25,23,0.12)',
+    winnerFrame: '0 0 0 14px #FFFFFF, 0 0 0 15px #D6D3D1, 0 10px 28px rgba(28,25,23,0.22)',
+    ribbons: {
+      best: { face: '#B45309', edge: '#FCD34D', ink: '#FFFFFF' },
+      second: { face: '#1D4ED8', edge: '#93C5FD', ink: '#FFFFFF' },
+      divisive: { face: '#B91C1C', edge: '#FCA5A5', ink: '#FFFFFF' },
+      everybodysSecond: { face: '#047857', edge: '#6EE7B7', ink: '#FFFFFF' },
+      honourable: { face: '#F5F5F4', edge: '#A8A29E', ink: '#1C1917' },
+    },
+  },
 }

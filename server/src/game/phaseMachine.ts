@@ -1,16 +1,22 @@
 import {
+  AWARDS_HOLD_MS,
   BUILD_GRACE_SEC,
   REVEAL_PHASE_SEC,
   MISSING_PHASE_SEC,
   SCORES_PHASE_SEC,
-  RATE_RESULT_PHASE_SEC,
+  EMPTY_BREAKDOWN,
+  addToBreakdown,
+  announcements,
+  awardsTimeline,
+  galleryResults,
+  runnerUpRequired,
+  scorePicture,
   type GameMode,
 } from '@smoosh/protocol'
 import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
 import { presentSeats, findSeatByPlayerId } from '../rooms/Room.ts'
 import { submissionPath } from '../submissions/store.ts'
 import { assignPrompts } from './promptAssignment.ts'
-import { scorePicture, scoreRatings } from './scoring.ts'
 
 export type PhaseMachineDeps = {
   // the prompts a game in this mode can be dealt, as of now
@@ -97,8 +103,8 @@ function advanceCurrentPhase(room: Room, deps: PhaseMachineDeps): void {
     case 'guess':
       startReveal(room, deps)
       return
-    case 'rate':
-      startRateResult(room, deps)
+    case 'vote':
+      startAwards(room, deps)
       return
     default:
       return
@@ -123,7 +129,8 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   room.liesByPictureIndex.clear()
   room.guessesByPictureIndex.clear()
   room.optionsByPictureIndex.clear()
-  room.ratingsByPictureIndex.clear()
+  room.votes.clear()
+  room.roundPoints.clear()
   room.pictureQueue = []
   room.pictureIndex = -1
 
@@ -188,7 +195,8 @@ function endBuild(room: Room, deps: PhaseMachineDeps): void {
     endRoundOrGame(room, deps)
     return
   }
-  nextPicture(room, deps)
+  if (room.settings.mode === 'gallery') startVote(room, deps)
+  else nextPicture(room, deps)
 }
 
 // on to the next slot in the order, or the round's end after the last one
@@ -201,7 +209,6 @@ function nextPicture(room: Room, deps: PhaseMachineDeps): void {
     return
   }
   if (!slot.hasPicture) startMissing(room, deps, slot.authorId)
-  else if (room.settings.mode === 'gallery') startRate(room, deps, slot.authorId)
   else startLie(room, deps, slot.authorId)
 }
 
@@ -286,12 +293,16 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
     .filter((o): o is PictureOption & { authorId: string } => o.authorId !== null)
     .map((o) => ({ optionId: o.id, authorId: o.authorId }))
 
-  const deltas = scorePicture({ authorId, truthOptionId: truthOption.id, lies, guesses })
+  // scored at the size of the table this round was dealt to — everyone with
+  // a slot in the picture order, so the values hold still for the round
+  const deltas = scorePicture({ players: room.pictureQueue.length, authorId, truthOptionId: truthOption.id, lies, guesses })
   const totals = new Map<string, number>()
   for (const delta of deltas) {
     const seat = findSeatByPlayerId(room, delta.playerId)
     if (seat) seat.score += delta.points
     totals.set(delta.playerId, (totals.get(delta.playerId) ?? 0) + delta.points)
+    room.roundPoints.set(delta.playerId, addToBreakdown(room.roundPoints.get(delta.playerId) ?? EMPTY_BREAKDOWN, delta))
+    room.gamePoints.set(delta.playerId, addToBreakdown(room.gamePoints.get(delta.playerId) ?? EMPTY_BREAKDOWN, delta))
   }
 
   const pickedByOption = new Map<string, string[]>()
@@ -325,63 +336,104 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
   deps.onSnapshot(room)
 }
 
-// ---------- gallery: rate each picture, then show how it did
+// ---------- gallery: everyone votes on the whole round, then the awards
 
 // the prompt everyone built to this round ("" in freestyle) — the same for
 // every player in gallery, so any seat's assignment is the one
-function sharedPrompt(room: Room, authorId: string): string {
-  return room.promptByPlayer.get(authorId) ?? ''
+function sharedPrompt(room: Room): string {
+  return [...room.promptByPlayer.values()][0] ?? ''
 }
 
-function startRate(room: Room, deps: PhaseMachineDeps, authorId: string): void {
-  room.shownThisRound.push(authorId)
-  room.pendingActors = new Set(presentSeats(room).map((s) => s.playerId).filter((id) => id !== authorId))
+// the round's pictures someone other than `voterId` made
+export function votablePictures(room: Room, voterId: string): string[] {
+  return room.pictureQueue.filter((s) => s.hasPicture && s.authorId !== voterId).map((s) => s.authorId)
+}
+
+function startVote(room: Room, deps: PhaseMachineDeps): void {
+  for (const slot of room.pictureQueue) if (slot.hasPicture) room.shownThisRound.push(slot.authorId)
+  // everyone here with something to vote for — a lone picture's author has
+  // nothing to choose between
+  room.pendingActors = new Set(
+    presentSeats(room)
+      .map((s) => s.playerId)
+      .filter((id) => votablePictures(room, id).length > 0),
+  )
   room.phase = {
-    phase: 'rate',
+    phase: 'vote',
     round: room.round,
     totalRounds: room.settings.rounds,
-    pictureIndex: room.pictureIndex,
-    pictureCount: room.pictureQueue.length,
-    authorId,
-    imagePath: submissionPath(room.code, room.round, authorId),
-    prompt: sharedPrompt(room, authorId),
+    prompt: sharedPrompt(room),
+    pictures: room.pictureQueue.map((slot) => ({
+      authorId: slot.authorId,
+      imagePath: slot.hasPicture ? submissionPath(room.code, room.round, slot.authorId) : null,
+    })),
     deadline: deadlineIn(room.settings.answerTimeSec),
   }
-  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
-  // nobody else connected to rate it — straight to the result
   if (room.pendingActors.size === 0) {
-    startRateResult(room, deps)
+    startAwards(room, deps)
     return
   }
+  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
   deps.onSnapshot(room)
 }
 
-function startRateResult(room: Room, deps: PhaseMachineDeps): void {
+// null when the vote is fine; otherwise why not, in a sentence
+export function voteProblem(room: Room, voterId: string, favourite: string, runnerUp: string | null): string | null {
+  const votable = votablePictures(room, voterId)
+  if (favourite === voterId || runnerUp === voterId) return 'you cannot vote for your own picture'
+  if (!votable.includes(favourite)) return 'that picture is not up for a vote'
+  if (runnerUp !== null && !votable.includes(runnerUp)) return 'that picture is not up for a vote'
+  if (runnerUp === favourite) return 'your runner-up has to be a different picture'
+  if (runnerUp === null && runnerUpRequired(votable.length)) return 'pick a runner-up too'
+  return null
+}
+
+function startAwards(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
-  const pictureIndex = room.pictureIndex
-  const { authorId } = currentSlot(room, 'startRateResult')
+  const authors = room.pictureQueue.filter((s) => s.hasPicture).map((s) => s.authorId)
+  const votes = [...room.votes.entries()].map(([voterId, v]) => ({ voterId, ...v }))
+  const results = galleryResults(authors, votes)
+  for (const r of results) {
+    const seat = findSeatByPlayerId(room, r.authorId)
+    if (seat) seat.score += r.points
+  }
+  const prompt = sharedPrompt(room)
+  for (const r of results) {
+    if (r.award === 'best') {
+      room.exhibition.push({
+        round: room.round,
+        prompt,
+        authorId: r.authorId,
+        imagePath: submissionPath(room.code, room.round, r.authorId),
+      })
+    }
+  }
 
-  const stars = [...(room.ratingsByPictureIndex.get(pictureIndex)?.values() ?? [])]
-  const summary = scoreRatings(stars)
-  const author = findSeatByPlayerId(room, authorId)
-  if (author) author.score += summary.points
-
+  const order = announcements(results)
+  const { totalMs } = awardsTimeline(order)
+  const startsAt = Date.now()
   room.phase = {
-    phase: 'rateResult',
+    phase: 'awards',
     round: room.round,
     totalRounds: room.settings.rounds,
-    pictureIndex,
-    pictureCount: room.pictureQueue.length,
-    authorId,
-    imagePath: submissionPath(room.code, room.round, authorId),
-    prompt: sharedPrompt(room, authorId),
-    average: summary.average,
-    counts: summary.counts,
-    points: summary.points,
-    deadline: deadlineIn(RATE_RESULT_PHASE_SEC),
+    prompt,
+    pictures: results.map((r) => ({ ...r, imagePath: submissionPath(room.code, room.round, r.authorId) })),
+    announcements: order,
+    startsAt,
+    skipped: false,
+    deadline: startsAt + totalMs,
   }
   room.pendingActors = new Set()
-  schedulePhaseEnd(room, RATE_RESULT_PHASE_SEC * 1000, () => nextPicture(room, deps))
+  schedulePhaseEnd(room, totalMs, () => endRoundOrGame(room, deps))
+  deps.onSnapshot(room)
+}
+
+// the host's tap: every phone cuts to the full wall, which holds a moment
+// so the result is still seen
+export function skipAwards(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'awards' || room.phase.skipped) return
+  room.phase = { ...room.phase, skipped: true, deadline: Date.now() + AWARDS_HOLD_MS }
+  schedulePhaseEnd(room, AWARDS_HOLD_MS, () => endRoundOrGame(room, deps))
   deps.onSnapshot(room)
 }
 
@@ -439,13 +491,20 @@ function endRoundOrGame(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
   reportRound(room, deps)
   const isFinalRound = room.round >= room.settings.rounds
-  const scoreboard = [...room.seats.values()].map((s) => ({ playerId: s.playerId, total: s.score }))
+  const guess = room.settings.mode === 'guess'
+  const scoreboard = [...room.seats.values()].map((s) => ({
+    playerId: s.playerId,
+    total: s.score,
+    round: guess ? (room.roundPoints.get(s.playerId) ?? EMPTY_BREAKDOWN) : null,
+    game: guess ? (room.gamePoints.get(s.playerId) ?? EMPTY_BREAKDOWN) : null,
+  }))
   room.phase = {
     phase: 'scores',
     round: room.round,
     totalRounds: room.settings.rounds,
     isFinalRound,
     scoreboard,
+    exhibition: [...room.exhibition],
     deadline: isFinalRound ? null : deadlineIn(SCORES_PHASE_SEC),
   }
   room.pendingActors = new Set()
@@ -504,9 +563,8 @@ export function restorePendingActor(room: Room, deps: PhaseMachineDeps, playerId
       acted =
         phase.authorId === playerId || (room.guessesByPictureIndex.get(phase.pictureIndex)?.has(playerId) ?? false)
       break
-    case 'rate':
-      acted =
-        phase.authorId === playerId || (room.ratingsByPictureIndex.get(phase.pictureIndex)?.has(playerId) ?? false)
+    case 'vote':
+      acted = room.votes.has(playerId) || votablePictures(room, playerId).length === 0
       break
     default:
       return
@@ -528,10 +586,8 @@ export function recordGuess(room: Room, pictureIndex: number, playerId: string, 
   room.guessesByPictureIndex.set(pictureIndex, map)
 }
 
-export function recordRating(room: Room, pictureIndex: number, playerId: string, stars: number): void {
-  const map = room.ratingsByPictureIndex.get(pictureIndex) ?? new Map<string, number>()
-  map.set(playerId, stars)
-  room.ratingsByPictureIndex.set(pictureIndex, map)
+export function recordVote(room: Room, voterId: string, favourite: string, runnerUp: string | null): void {
+  room.votes.set(voterId, { favourite, runnerUp })
 }
 
 export function existingLieTexts(room: Room, pictureIndex: number): string[] {

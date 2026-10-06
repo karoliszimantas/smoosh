@@ -42,4 +42,25 @@ export const neon: Theme = {
   warning: '#FFD60A',
   warningText: '#0D0326',
   accent: '#FFD60A',
+
+  // an arcade after hours: everything lit from inside
+  gallery: {
+    wall: '#07011A',
+    wallText: '#F3EBFF',
+    placardBg: '#22094F',
+    placardText: '#F3EBFF',
+    placardMuted: '#B9A6E0',
+    placardBorder: '1px solid #22F0FF',
+    placardArtistFont: 'system-ui, sans-serif',
+    placardTitleFont: "Georgia, 'Times New Roman', serif",
+    frame: '0 0 0 2px #22F0FF, 0 0 18px rgba(34,240,255,0.45)',
+    winnerFrame: '0 0 0 3px #FFD60A, 0 0 0 9px #22094F, 0 0 0 11px #FFD60A, 0 0 30px rgba(255,214,10,0.6)',
+    ribbons: {
+      best: { face: '#FFD60A', edge: '#FF2E88', ink: '#07011A' },
+      second: { face: '#22F0FF', edge: '#22094F', ink: '#07011A' },
+      divisive: { face: '#FF2E88', edge: '#FFD60A', ink: '#07011A' },
+      everybodysSecond: { face: '#7CFF6B', edge: '#22094F', ink: '#07011A' },
+      honourable: { face: '#B388FF', edge: '#22094F', ink: '#07011A' },
+    },
+  },
 }

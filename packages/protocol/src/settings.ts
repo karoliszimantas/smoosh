@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { AWARDS_MAX_SEC } from './gallery.ts'
 
 export const ROUND_OPTIONS = [3, 5, 10] as const
 export const BUILD_TIME_OPTIONS = [60, 90, 120, 300] as const
 // the time limit on every phase where players answer — writing a lie,
-// guessing, rating. A phase still ends early once everyone has answered.
+// guessing, voting. A phase still ends early once everyone has answered.
 export const ANSWER_TIME_OPTIONS = [120, 180, 300] as const
 
 // after the BUILD deadline the server keeps accepting uploads this long, so
@@ -13,8 +14,6 @@ export const BUILD_GRACE_SEC = 5
 export const REVEAL_PHASE_SEC = 8
 // how long a missing picture's placeholder is shown
 export const MISSING_PHASE_SEC = 4
-// Gallery: everyone but the author rates each picture, then sees how it did
-export const RATE_RESULT_PHASE_SEC = 6
 export const SCORES_PHASE_SEC = 6
 
 export const MAX_PLAYERS = 8
@@ -27,15 +26,11 @@ export const TIMER_AMBER_THRESHOLD_SEC = 20
 export const TIMER_RED_THRESHOLD_SEC = 10
 export const TIMER_PULSE_THRESHOLD_SEC = 5
 
-export const MIN_RATING = 1
-export const MAX_RATING = 5
-// a perfect average is worth the same as guessing the truth in Guess
-export const POINTS_PER_RATING_STAR = 200
-
 // guess:   everyone gets a secret prompt; the others invent fake prompts and
 //          guess which is real
 // gallery: everyone builds to the same prompt (or none — `prompted: false`,
-//          "freestyle") and the others rate each picture 1-5
+//          "freestyle"), then everyone votes for a favourite and a
+//          runner-up among the others' pictures (see gallery.ts)
 export const GAME_MODES = ['guess', 'gallery'] as const
 export const GameModeSchema = z.enum(GAME_MODES)
 export type GameMode = z.infer<typeof GameModeSchema>
@@ -81,8 +76,9 @@ export function estimateDurationSec(settings: GameSettings, playerCount: number)
   // the worst case
   const answer = settings.answerTimeSec
   if (settings.mode === 'gallery') {
-    // prompted and freestyle run the same phases, so the same estimate
-    return settings.rounds * (settings.buildTimeSec + playerCount * (answer + RATE_RESULT_PHASE_SEC))
+    // prompted and freestyle run the same phases, so the same estimate: one
+    // vote for the whole round, then the awards
+    return settings.rounds * (settings.buildTimeSec + answer + AWARDS_MAX_SEC)
   }
   return settings.rounds * playerCount * (settings.buildTimeSec + answer + answer + REVEAL_PHASE_SEC)
 }

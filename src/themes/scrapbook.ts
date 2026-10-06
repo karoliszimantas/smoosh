@@ -46,4 +46,27 @@ export const scrapbook: Theme = {
   warningText: '#1C1A16',
   // rust, like a rubber stamp — yellow stars vanish on cream paper
   accent: '#B8481C',
+  // a village show in a church hall: kraft board, white-bordered prints,
+
+  // rosettes in the fairground colours
+  gallery: {
+    wall: '#C9BC9E',
+    wallText: '#1C1A16',
+    placardBg: '#FBF7EE',
+    placardText: '#1C1A16',
+    placardMuted: '#6E675C',
+    placardBorder: 'none',
+    placardArtistFont: "'Archivo Black', system-ui, sans-serif",
+    placardTitleFont: "Georgia, 'Times New Roman', serif",
+    frame: '0 0 0 5px #FBF7EE, 0 3px 10px rgba(40,34,24,0.35)',
+    winnerFrame:
+      '0 0 0 3px #6B4E16, 0 0 0 8px #C9A13B, 0 0 0 10px #8A6A1F, 0 0 0 12px #E2C46B, 0 8px 20px rgba(40,34,24,0.45)',
+    ribbons: {
+      best: { face: '#5B2A86', edge: '#D9A93B', ink: '#FBF7EE' },
+      second: { face: '#1F4E9C', edge: '#9DB8E6', ink: '#FBF7EE' },
+      divisive: { face: '#C8601C', edge: '#F2C08A', ink: '#FBF7EE' },
+      everybodysSecond: { face: '#2E7D4F', edge: '#A9D8B8', ink: '#FBF7EE' },
+      honourable: { face: '#EFE6CF', edge: '#B7A77F', ink: '#1C1A16' },
+    },
+  },
 }

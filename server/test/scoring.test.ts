@@ -1,124 +1,136 @@
 import { describe, it, expect } from 'vitest'
-import { scorePicture, scoreRatings } from '../src/game/scoring.ts'
+import {
+  GUESS_POINTS,
+  addToBreakdown,
+  breakdownTotal,
+  EMPTY_BREAKDOWN,
+  guessPointsFor,
+  scorePicture,
+  type ScoreDelta,
+} from '@smoosh/protocol'
 
-describe('scorePicture', () => {
-  it('awards the guesser and the author 1000 each when the truth is guessed', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [],
-      guesses: [{ playerId: 'guesser', optionId: 'truth' }],
-    })
-    expect(deltas).toEqual(
-      expect.arrayContaining([
-        { playerId: 'guesser', points: 1000, reason: 'guessed_truth' },
-        { playerId: 'author', points: 1000, reason: 'picture_guessed' },
-      ]),
-    )
-    expect(deltas).toHaveLength(2)
+// A whole round at table size n: players p0..p(n-1), each builds one
+// picture. `guess(picture author, guesser)` says what the guesser picks:
+// 'truth', or the id of the player whose lie they fall for.
+function playRound(n: number, guess: (author: number, guesser: number) => 'truth' | number | null) {
+  const totals = new Map<string, number>()
+  const all: ScoreDelta[] = []
+  for (let a = 0; a < n; a++) {
+    const lies = Array.from({ length: n }, (_, w) => w)
+      .filter((w) => w !== a)
+      .map((w) => ({ optionId: `lie-${a}-${w}`, authorId: `p${w}` }))
+    const guesses = Array.from({ length: n }, (_, g) => g)
+      .filter((g) => g !== a)
+      .flatMap((g) => {
+        const pick = guess(a, g)
+        if (pick === null) return []
+        return [{ playerId: `p${g}`, optionId: pick === 'truth' ? 'truth' : `lie-${a}-${pick}` }]
+      })
+    const deltas = scorePicture({ players: n, authorId: `p${a}`, truthOptionId: 'truth', lies, guesses })
+    all.push(...deltas)
+    for (const d of deltas) totals.set(d.playerId, (totals.get(d.playerId) ?? 0) + d.points)
+  }
+  return { totals, all, score: (i: number) => totals.get(`p${i}`) ?? 0 }
+}
+
+const SIZES = [3, 4, 5, 6, 7, 8]
+
+describe('the points table', () => {
+  it('every value is a whole number', () => {
+    for (const row of Object.values(GUESS_POINTS)) {
+      for (const v of Object.values(row)) expect(Number.isInteger(v)).toBe(true)
+    }
   })
 
-  it('awards the author 1000 for each separate guesser who finds the truth', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [],
-      guesses: [
-        { playerId: 'p1', optionId: 'truth' },
-        { playerId: 'p2', optionId: 'truth' },
-      ],
-    })
-    const authorDeltas = deltas.filter((d) => d.playerId === 'author')
-    expect(authorDeltas).toHaveLength(2)
-    expect(authorDeltas.every((d) => d.points === 1000 && d.reason === 'picture_guessed')).toBe(true)
+  it.each(SIZES)('%i players: a perfect author round is 4200', (n) => {
+    // everyone guesses p0's picture right; everything else goes nowhere
+    const { all } = playRound(n, (a) => (a === 0 ? 'truth' : null))
+    const fromPicture = all.filter((d) => d.playerId === 'p0' && d.reason === 'picture_guessed')
+    expect(fromPicture.reduce((s, d) => s + d.points, 0)).toBe(4200)
   })
 
-  it('awards a lie author 500 for each guesser who picks their lie, independently', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [{ optionId: 'lieA', authorId: 'liar' }],
-      guesses: [
-        { playerId: 'p1', optionId: 'lieA' },
-        { playerId: 'p2', optionId: 'lieA' },
-      ],
-    })
-    const liarDeltas = deltas.filter((d) => d.playerId === 'liar')
-    expect(liarDeltas).toHaveLength(2)
-    expect(liarDeltas.every((d) => d.points === 500 && d.reason === 'lie_picked')).toBe(true)
+  it.each(SIZES)('%i players: a perfect guessing round is 4200', (n) => {
+    const { all } = playRound(n, (_a, g) => (g === 0 ? 'truth' : null))
+    const fromGuessing = all.filter((d) => d.playerId === 'p0' && d.reason === 'guessed_truth')
+    expect(fromGuessing.reduce((s, d) => s + d.points, 0)).toBe(4200)
   })
 
-  it('produces no delta for a missing guess (timeout)', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [{ optionId: 'lieA', authorId: 'liar' }],
-      guesses: [],
-    })
-    expect(deltas).toEqual([])
+  it.each(SIZES)('%i players: every lie landing is 2100', (n) => {
+    // on every picture but p0's own, every guesser who can falls for p0's lie
+    const { all } = playRound(n, (a, g) => (g === 0 ? null : a === 0 ? null : 0))
+    const fromLies = all.filter((d) => d.playerId === 'p0' && d.reason === 'lie_picked')
+    expect(fromLies.reduce((s, d) => s + d.points, 0)).toBe(2100)
   })
 
-  it('scores a truth guess correctly even with zero submitted lies', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [],
-      guesses: [{ playerId: 'guesser', optionId: 'truth' }],
-    })
-    expect(deltas).toHaveLength(2)
-  })
-
-  it('ignores a guess recorded from the author themselves (defensive)', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [],
-      guesses: [{ playerId: 'author', optionId: 'truth' }],
-    })
-    expect(deltas).toEqual([])
-  })
-
-  it('splits a mixed set of guessers across the truth and two distinct lies correctly', () => {
-    const deltas = scorePicture({
-      authorId: 'author',
-      truthOptionId: 'truth',
-      lies: [
-        { optionId: 'lieA', authorId: 'liarA' },
-        { optionId: 'lieB', authorId: 'liarB' },
-      ],
-      guesses: [
-        { playerId: 'p1', optionId: 'truth' },
-        { playerId: 'p2', optionId: 'lieA' },
-        { playerId: 'p3', optionId: 'lieB' },
-      ],
-    })
-    expect(deltas).toEqual(
-      expect.arrayContaining([
-        { playerId: 'p1', points: 1000, reason: 'guessed_truth' },
-        { playerId: 'author', points: 1000, reason: 'picture_guessed' },
-        { playerId: 'liarA', points: 500, reason: 'lie_picked' },
-        { playerId: 'liarB', points: 500, reason: 'lie_picked' },
-      ]),
-    )
-    expect(deltas).toHaveLength(4)
+  it('a table outside 3–8 plays on the nearest row', () => {
+    expect(guessPointsFor(2)).toEqual(GUESS_POINTS[3])
+    expect(guessPointsFor(9)).toEqual(GUESS_POINTS[8])
   })
 })
 
-describe('scoreRatings', () => {
-  it('scores the average, 200 points per star', () => {
-    expect(scoreRatings([5, 5, 5])).toEqual({ average: 5, counts: [0, 0, 0, 0, 3], points: 1000 })
-    expect(scoreRatings([1, 2])).toEqual({ average: 1.5, counts: [1, 1, 0, 0, 0], points: 300 })
+describe('a picture nobody got', () => {
+  it('earns its author nothing', () => {
+    // 5 players: everyone falls for p1's lie on p0's picture
+    const deltas = scorePicture({
+      players: 5,
+      authorId: 'p0',
+      truthOptionId: 'truth',
+      lies: [{ optionId: 'l1', authorId: 'p1' }],
+      guesses: ['p2', 'p3', 'p4'].map((playerId) => ({ playerId, optionId: 'l1' })),
+    })
+    expect(deltas.filter((d) => d.playerId === 'p0')).toEqual([])
+    expect(deltas.filter((d) => d.playerId === 'p1')).toHaveLength(3)
   })
 
-  it('rounds to whole points', () => {
-    expect(scoreRatings([4, 4, 5]).points).toBe(867)
+  it('a guesser who gets nothing right scores nothing', () => {
+    const { score } = playRound(4, (_a, g) => (g === 3 ? null : 'truth'))
+    // p3 guessed nothing; everyone else guessed p3's picture
+    expect(score(3)).toBe(4200) // only from their picture
+  })
+})
+
+describe('what stays the same', () => {
+  it('a correct guess pays guesser and author the same', () => {
+    for (const players of SIZES) {
+      const deltas = scorePicture({ players, authorId: 'a', truthOptionId: 't', lies: [], guesses: [{ playerId: 'g', optionId: 't' }] })
+      const [g, a] = [deltas.find((d) => d.playerId === 'g'), deltas.find((d) => d.playerId === 'a')]
+      expect(g?.points).toBe(a?.points)
+    }
   })
 
-  it('is unaffected by how many people rated — a timeout does not cost the author', () => {
-    expect(scoreRatings([4]).points).toBe(scoreRatings([4, 4, 4, 4]).points)
+  it('nobody scores from their own picture or their own lie', () => {
+    const deltas = scorePicture({
+      players: 4,
+      authorId: 'a',
+      truthOptionId: 't',
+      lies: [{ optionId: 'la', authorId: 'b' }],
+      guesses: [
+        { playerId: 'a', optionId: 't' }, // the author "guessing" their own
+        { playerId: 'b', optionId: 'la' }, // picking your own lie
+      ],
+    })
+    // neither counts
+    expect(deltas).toEqual([])
   })
 
-  it('no ratings: no average, no points', () => {
-    expect(scoreRatings([])).toEqual({ average: null, counts: [0, 0, 0, 0, 0], points: 0 })
+  it('a timeout costs nothing', () => {
+    const deltas = scorePicture({ players: 4, authorId: 'a', truthOptionId: 't', lies: [], guesses: [{ playerId: 'g', optionId: 't' }] })
+    expect(deltas.every((d) => d.points > 0)).toBe(true)
+    expect(deltas.some((d) => d.playerId === 'timed-out')).toBe(false)
+  })
+
+  it('an easy picture is never penalised: everyone right is full marks', () => {
+    const { score } = playRound(6, () => 'truth')
+    for (let i = 0; i < 6; i++) expect(score(i)).toBe(4200 + 4200)
+  })
+})
+
+describe('the breakdown', () => {
+  it('sums to the total, by source', () => {
+    const { all, totals } = playRound(5, (a, g) => (a === 1 ? (g === 0 ? 2 : 0) : (a + g) % 2 === 0 ? 'truth' : null))
+    for (const [playerId, total] of totals) {
+      const b = all.filter((d) => d.playerId === playerId).reduce(addToBreakdown, EMPTY_BREAKDOWN)
+      expect(breakdownTotal(b)).toBe(total)
+    }
   })
 })

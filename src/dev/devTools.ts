@@ -30,7 +30,7 @@ export type DevControls = {
   dropConnection: () => void
   restoreConnection: () => void
   // shows a phase with fake data, on this device only, until the next real update
-  jumpTo: (phase: FixturePhase, opts?: { authorId?: string }) => void
+  jumpTo: (phase: FixturePhase, opts?: { authorId?: string; exhibition?: boolean }) => void
   setSolo: (on: boolean) => void
 }
 

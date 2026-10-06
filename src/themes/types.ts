@@ -65,5 +65,27 @@ export type Theme = {
   dangerText: string // text on danger
   warning: string // a running-out timer, the reconnect banner
   warningText: string // text on warning
-  accent: string // stars, the winner, points
+  accent: string // the winner, points
+
+  // Gallery's judging, played as an art prize: the pictures hang on a wall
+  // with a museum label beside each, and prize-winners wear a fairground
+  // rosette. Straight-faced in every theme — the joke is the contrast.
+  gallery: {
+    wall: string // behind the hung pictures
+    wallText: string // headings and announcements on the wall
+    placardBg: string // the wall label: a small typeset card
+    placardText: string
+    placardMuted: string
+    placardBorder: string // 'none' or a CSS border
+    placardArtistFont: string // the artist's name, set in caps
+    placardTitleFont: string // the title, in italics
+    // CSS box-shadow stacks: an ordinary frame, and the heavier one the
+    // winner gets for its moment (gilt, or a deep museum mat)
+    frame: string
+    winnerFrame: string
+    // per award: the rosette's pleats and tails, its centre, and the type on it
+    ribbons: Record<'best' | 'second' | 'divisive' | 'everybodysSecond' | 'honourable', Ribbon>
+  }
 }
+
+export type Ribbon = { face: string; edge: string; ink: string }

@@ -1,13 +1,21 @@
 import {
+  AWARDS_HOLD_MS,
   DEFAULT_SETTINGS,
-  POINTS_PER_RATING_STAR,
+  EMPTY_BREAKDOWN,
+  addToBreakdown,
+  scorePicture,
   UPLOAD_MESSAGES,
+  announcements,
+  awardsTimeline,
+  galleryResults,
+  runnerUpRequired,
   type AckResult,
   type RoomEvent,
   type ClientToServerEvents,
   type GameSettings,
   type PhaseState,
   type Player,
+  type PointsBreakdown,
   type RoomSnapshot,
 } from '@smoosh/protocol'
 import type { AckArg, ConnectionEvent, EmitPayload, GameTransport } from '../game/services'
@@ -81,7 +89,10 @@ export class SoloGame {
   private lies = new Map<string, string>()
   private options: Option[] = []
   private guesses = new Map<string, string>()
-  private ratings = new Map<string, number>()
+  private votes = new Map<string, { favourite: string; runnerUp: string | null }>()
+  private exhibition: { round: number; prompt: string; authorId: string; imagePath: string }[] = []
+  private roundPoints = new Map<string, PointsBreakdown>()
+  private gamePoints = new Map<string, PointsBreakdown>()
   private connections = new Set<Connection>()
   // emits made while "disconnected" — socket.io buffers these and sends
   // them on reconnect, so this does too
@@ -190,11 +201,13 @@ export class SoloGame {
       case 'guess':
         this.startReveal()
         break
-      case 'rate':
-        this.startRateResult()
+      case 'vote':
+        this.startAwards()
+        break
+      case 'awards':
+        this.startScores()
         break
       case 'reveal':
-      case 'rateResult':
       case 'missing':
         this.nextSlot()
         break
@@ -210,6 +223,8 @@ export class SoloGame {
     if (p.phase === 'lobby') return 'lobby'
     if (p.phase === 'build') return `build, round ${p.round}${p.collecting ? ' (grace window)' : ''}`
     if (p.phase === 'scores') return `scores${p.isFinalRound ? ' (final)' : ''}`
+    if (p.phase === 'vote') return `vote, round ${p.round}`
+    if (p.phase === 'awards') return `awards, round ${p.round}${p.skipped ? ' (skipped)' : ''}`
     const author = this.players.find((x) => x.id === p.authorId)?.name ?? '?'
     return `${p.phase} · ${p.pictureIndex + 1}/${p.pictureCount} · ${author}`
   }
@@ -218,11 +233,16 @@ export class SoloGame {
 
   private startBuild(): void {
     this.round += 1
+    this.roundPoints = new Map()
     this.submitted = new Set(this.players.filter((p) => p.id !== YOU_ID && !this.skippers.has(p.id)).map((p) => p.id))
     if (this.yourPicture) URL.revokeObjectURL(this.yourPicture)
     this.yourPicture = null
     const prompts = shuffle(PROMPTS)
-    this.prompts = new Map(this.players.map((p, i) => [p.id, prompts[i % prompts.length] ?? '']))
+    // gallery: one prompt for everybody (none in freestyle)
+    const shared = this.settings.prompted ? (prompts[0] ?? '') : ''
+    this.prompts = new Map(
+      this.players.map((p, i) => [p.id, this.settings.mode === 'gallery' ? shared : (prompts[i % prompts.length] ?? '')]),
+    )
     this.phase = {
       phase: 'build',
       round: this.round,
@@ -236,6 +256,7 @@ export class SoloGame {
     this.queue = shuffle(this.players).map((p) => ({ authorId: p.id, hasPicture: this.submitted.has(p.id) }))
     this.index = -1
     if (!this.queue.some((s) => s.hasPicture)) this.startScores()
+    else if (this.settings.mode === 'gallery') this.startVote()
     else this.nextSlot()
   }
 
@@ -248,7 +269,6 @@ export class SoloGame {
     }
     this.lies = new Map()
     this.guesses = new Map()
-    this.ratings = new Map()
     this.options = []
     const context = {
       round: this.round,
@@ -259,14 +279,6 @@ export class SoloGame {
     }
     if (!slot.hasPicture) {
       this.phase = { ...context, phase: 'missing', deadline: Date.now() + 4_000 }
-    } else if (this.settings.mode === 'gallery') {
-      this.phase = {
-        ...context,
-        phase: 'rate',
-        imagePath: soloPicturePath(slot.authorId),
-        prompt: this.prompts.get(slot.authorId) ?? '',
-        deadline: Date.now() + this.settings.answerTimeSec * 1000,
-      }
     } else {
       this.phase = {
         ...context,
@@ -279,7 +291,7 @@ export class SoloGame {
 
   private currentAuthor(): string {
     const p = this.phase
-    return p.phase === 'lie' || p.phase === 'guess' || p.phase === 'rate' ? p.authorId : ''
+    return p.phase === 'lie' || p.phase === 'guess' ? p.authorId : ''
   }
 
   private startGuess(): void {
@@ -308,18 +320,22 @@ export class SoloGame {
       const choice = pick(this.options.filter((o) => o.authorId !== bot.id))
       if (choice) this.guesses.set(bot.id, choice.id)
     }
+    const truth = this.options.find((o) => o.authorId === null)
+    // the real scoring, at this round's table size
+    const deltas = scorePicture({
+      players: this.queue.length,
+      authorId: p.authorId,
+      truthOptionId: truth?.id ?? '',
+      lies: this.options.flatMap((o) => (o.authorId === null ? [] : [{ optionId: o.id, authorId: o.authorId }])),
+      guesses: [...this.guesses].map(([playerId, optionId]) => ({ playerId, optionId })),
+    })
     const points = new Map<string, number>()
-    const add = (id: string, n: number) => points.set(id, (points.get(id) ?? 0) + n)
-    for (const [guesser, optionId] of this.guesses) {
-      const option = this.options.find((o) => o.id === optionId)
-      if (!option) continue
-      if (option.authorId === null) {
-        add(guesser, 1000)
-        add(p.authorId, 1000)
-      } else add(option.authorId, 500)
+    for (const d of deltas) {
+      points.set(d.playerId, (points.get(d.playerId) ?? 0) + d.points)
+      this.roundPoints.set(d.playerId, addToBreakdown(this.roundPoints.get(d.playerId) ?? EMPTY_BREAKDOWN, d))
+      this.gamePoints.set(d.playerId, addToBreakdown(this.gamePoints.get(d.playerId) ?? EMPTY_BREAKDOWN, d))
     }
     for (const player of this.players) player.score += points.get(player.id) ?? 0
-    const truth = this.options.find((o) => o.authorId === null)
     this.phase = {
       ...p,
       phase: 'reveal',
@@ -336,20 +352,61 @@ export class SoloGame {
     }
   }
 
-  private startRateResult(): void {
-    const p = this.phase
-    if (p.phase !== 'rate') return
-    for (const bot of this.players) {
-      if (bot.id !== YOU_ID && bot.id !== p.authorId) this.ratings.set(bot.id, 2 + Math.floor(Math.random() * 4))
+  // ---------- gallery: the whole round at once, then the awards
+
+  private votable(voterId: string): string[] {
+    return this.queue.filter((s) => s.hasPicture && s.authorId !== voterId).map((s) => s.authorId)
+  }
+
+  private startVote(): void {
+    this.votes = new Map()
+    this.phase = {
+      phase: 'vote',
+      round: this.round,
+      totalRounds: this.settings.rounds,
+      prompt: this.prompts.get(YOU_ID) ?? '',
+      pictures: this.queue.map((s) => ({ authorId: s.authorId, imagePath: s.hasPicture ? soloPicturePath(s.authorId) : null })),
+      deadline: Date.now() + this.settings.answerTimeSec * 1000,
     }
-    const stars = [...this.ratings.values()]
-    const counts: [number, number, number, number, number] = [0, 0, 0, 0, 0]
-    for (const s of stars) counts[(s - 1) as 0 | 1 | 2 | 3 | 4] += 1
-    const average = stars.length > 0 ? stars.reduce((a, b) => a + b, 0) / stars.length : null
-    const points = average === null ? 0 : Math.round(average * POINTS_PER_RATING_STAR)
-    const author = this.players.find((x) => x.id === p.authorId)
-    if (author) author.score += points
-    this.phase = { ...p, phase: 'rateResult', average, counts, points, deadline: Date.now() + 6_000 }
+  }
+
+  private startAwards(): void {
+    const p = this.phase
+    if (p.phase !== 'vote') return
+    // the bots vote at random — a runner-up whenever one is required
+    for (const bot of this.players) {
+      if (bot.id === YOU_ID) continue
+      const choices = shuffle(this.votable(bot.id))
+      const [favourite, second] = choices
+      if (!favourite) continue
+      const runnerUp = second && (runnerUpRequired(choices.length) || Math.random() < 0.5) ? second : null
+      this.votes.set(bot.id, { favourite, runnerUp })
+    }
+    const authors = this.queue.filter((s) => s.hasPicture).map((s) => s.authorId)
+    const results = galleryResults(
+      authors,
+      [...this.votes].map(([voterId, v]) => ({ voterId, ...v })),
+    )
+    for (const r of results) {
+      const author = this.players.find((x) => x.id === r.authorId)
+      if (author) author.score += r.points
+      if (r.award === 'best') {
+        this.exhibition.push({ round: this.round, prompt: p.prompt, authorId: r.authorId, imagePath: soloPicturePath(r.authorId) })
+      }
+    }
+    const order = announcements(results)
+    const startsAt = Date.now()
+    this.phase = {
+      phase: 'awards',
+      round: this.round,
+      totalRounds: this.settings.rounds,
+      prompt: p.prompt,
+      pictures: results.map((r) => ({ ...r, imagePath: soloPicturePath(r.authorId) })),
+      announcements: order,
+      startsAt,
+      skipped: false,
+      deadline: startsAt + awardsTimeline(order).totalMs,
+    }
   }
 
   private startScores(): void {
@@ -359,7 +416,13 @@ export class SoloGame {
       round: this.round,
       totalRounds: this.settings.rounds,
       isFinalRound,
-      scoreboard: this.players.map((p) => ({ playerId: p.id, total: p.score })),
+      scoreboard: this.players.map((p) => ({
+        playerId: p.id,
+        total: p.score,
+        round: this.settings.mode === 'guess' ? (this.roundPoints.get(p.id) ?? EMPTY_BREAKDOWN) : null,
+        game: this.settings.mode === 'guess' ? (this.gamePoints.get(p.id) ?? EMPTY_BREAKDOWN) : null,
+      })),
+      exhibition: [...this.exhibition],
       deadline: isFinalRound ? null : Date.now() + 6_000,
     }
   }
@@ -382,6 +445,8 @@ export class SoloGame {
         return ok
       case 'room:playAgain':
         this.round = 0
+        this.exhibition = []
+        this.gamePoints = new Map()
         for (const p of this.players) p.score = 0
         this.phase = { phase: 'lobby' }
         return ok
@@ -401,12 +466,24 @@ export class SoloGame {
       case 'room:leave':
       case 'presence:away':
         return ok
-      case 'rating:submit': {
-        if (phase.phase !== 'rate' || phase.authorId === YOU_ID) return refused('not now')
-        this.ratings.set(YOU_ID, (payload as EmitPayload<'rating:submit'>).stars)
-        this.startRateResult()
+      case 'vote:submit': {
+        if (phase.phase !== 'vote' || this.votes.has(YOU_ID)) return refused('not now')
+        const { favourite, runnerUp } = payload as EmitPayload<'vote:submit'>
+        const votable = this.votable(YOU_ID)
+        if (favourite === YOU_ID || runnerUp === YOU_ID) return refused('you cannot vote for your own picture')
+        if (!votable.includes(favourite) || (runnerUp !== null && (!votable.includes(runnerUp) || runnerUp === favourite))) {
+          return refused('that picture is not up for a vote')
+        }
+        if (runnerUp === null && runnerUpRequired(votable.length)) return refused('pick a runner-up too')
+        this.votes.set(YOU_ID, { favourite, runnerUp })
+        this.startAwards()
         return ok
       }
+      case 'awards:skip':
+        if (phase.phase === 'awards' && !phase.skipped) {
+          this.phase = { ...phase, skipped: true, deadline: Date.now() + AWARDS_HOLD_MS }
+        }
+        return ok
     }
   }
 
@@ -419,7 +496,7 @@ export class SoloGame {
     if (p.phase === 'build') acted = this.submitted.has(YOU_ID)
     if (p.phase === 'lie') acted = author === YOU_ID || this.lies.has(YOU_ID)
     if (p.phase === 'guess') acted = author === YOU_ID || this.guesses.has(YOU_ID)
-    if (p.phase === 'rate') acted = author === YOU_ID || this.ratings.has(YOU_ID)
+    if (p.phase === 'vote') acted = this.votes.has(YOU_ID)
     return {
       roomCode: ROOM_CODE,
       settings: this.settings,
@@ -433,7 +510,7 @@ export class SoloGame {
         secretPrompt: p.phase === 'build' ? (this.prompts.get(YOU_ID) ?? '') : null,
         hasActedThisPhase: acted,
         ownOptionId: p.phase === 'guess' ? (this.options.find((o) => o.authorId === YOU_ID)?.id ?? null) : null,
-        ownRating: p.phase === 'rate' ? (this.ratings.get(YOU_ID) ?? null) : null,
+        ownVote: p.phase === 'vote' ? (this.votes.get(YOU_ID) ?? null) : null,
       },
     }
   }

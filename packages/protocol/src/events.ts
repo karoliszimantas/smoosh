@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { RoomCodeSchema } from './ids.ts'
-import { GameSettingsSchema, MIN_RATING, MAX_RATING } from './settings.ts'
+import { GameSettingsSchema } from './settings.ts'
+import { PlayerIdSchema } from './ids.ts'
 import { RoomSnapshotSchema } from './snapshot.ts'
 import { ErrorCodeSchema } from './errors.ts'
 import type { RoomEvent } from './roomEvents.ts'
@@ -25,10 +26,15 @@ export const SubmitGuessSchema = z.object({
   optionId: z.string().min(1),
 })
 
-export const SubmitRatingSchema = z.object({
-  pictureIndex: z.number().int().nonnegative(),
-  stars: z.number().int().min(MIN_RATING).max(MAX_RATING),
+// gallery: pictures are named by their author. The runner-up may be left
+// out only where it's optional (see runnerUpRequired) — the server checks
+export const SubmitVoteSchema = z.object({
+  round: z.number().int().positive(),
+  favourite: PlayerIdSchema,
+  runnerUp: PlayerIdSchema.nullable(),
 })
+// the host cuts the awards short: straight to the full wall
+export const SkipAwardsSchema = z.object({ round: z.number().int().positive() })
 
 // handshake `auth` payload, validated in an io.use middleware before any
 // event handler runs
@@ -51,7 +57,8 @@ export interface ClientToServerEvents {
   'presence:away': (payload: z.infer<typeof AwaySchema>, ack: (r: AckResult) => void) => void
   'lie:submit': (payload: z.infer<typeof SubmitLieSchema>, ack: (r: AckResult) => void) => void
   'guess:submit': (payload: z.infer<typeof SubmitGuessSchema>, ack: (r: AckResult) => void) => void
-  'rating:submit': (payload: z.infer<typeof SubmitRatingSchema>, ack: (r: AckResult) => void) => void
+  'vote:submit': (payload: z.infer<typeof SubmitVoteSchema>, ack: (r: AckResult) => void) => void
+  'awards:skip': (payload: z.infer<typeof SkipAwardsSchema>, ack: (r: AckResult) => void) => void
 }
 
 export interface ServerToClientEvents {

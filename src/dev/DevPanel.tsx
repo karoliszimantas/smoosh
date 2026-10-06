@@ -15,16 +15,17 @@ const FAULTS: { value: UploadFault; label: string }[] = [
   { value: 'never', label: 'never send' },
 ]
 
-const JUMPS: { phase: FixturePhase; label: string; yours?: boolean }[] = [
+const JUMPS: { phase: FixturePhase; label: string; yours?: boolean; exhibition?: boolean }[] = [
   { phase: 'missing', label: 'Placeholder' },
   { phase: 'missing', label: 'Placeholder (yours)', yours: true },
   { phase: 'build', label: 'build' },
   { phase: 'lie', label: 'lie' },
   { phase: 'guess', label: 'guess' },
   { phase: 'reveal', label: 'reveal' },
-  { phase: 'rate', label: 'rate' },
-  { phase: 'rateResult', label: 'rate result' },
+  { phase: 'vote', label: 'vote' },
+  { phase: 'awards', label: 'awards' },
   { phase: 'scores', label: 'scores' },
+  { phase: 'scores', label: 'exhibition', exhibition: true },
   { phase: 'lobby', label: 'lobby' },
 ]
 
@@ -202,7 +203,12 @@ export default function DevPanel({ controls }: { controls: DevControls }) {
           {JUMPS.map((j) => (
             <button
               key={j.label}
-              onClick={() => controls.jumpTo(j.phase, j.yours && youId ? { authorId: youId } : undefined)}
+              onClick={() =>
+                controls.jumpTo(j.phase, {
+                  ...(j.yours && youId ? { authorId: youId } : {}),
+                  ...(j.exhibition ? { exhibition: true } : {}),
+                })
+              }
             >
               {j.label}
             </button>

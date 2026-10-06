@@ -7,7 +7,8 @@ import {
   dropPendingActor,
   recordLie,
   recordGuess,
-  recordRating,
+  recordVote,
+  votablePictures,
   optionsForPicture,
   type PhaseMachineDeps,
 } from '../src/game/phaseMachine.ts'
@@ -125,20 +126,24 @@ function playGame(opts: {
   function onPhase(r: Room): void {
     const phase = r.phase
     const key =
-      phase.phase === 'build' || phase.phase === 'scores' || phase.phase === 'lobby'
+      phase.phase === 'build' || phase.phase === 'scores' || phase.phase === 'lobby' || phase.phase === 'vote' || phase.phase === 'awards'
         ? `${phase.phase}:${r.round}`
         : `${phase.phase}:${r.round}:${phase.pictureIndex}`
     if (key === lastPhaseKey) return
     lastPhaseKey = key
 
     if (phase.phase === 'build') planBuild(r.round)
-    if ((phase.phase === 'lie' || phase.phase === 'rate' || phase.phase === 'missing') && tamper) {
+    if ((phase.phase === 'lie' || phase.phase === 'vote' || phase.phase === 'missing') && tamper) {
       tamper(r, store)
       tamper = undefined
     }
-    if (phase.phase === 'lie' || phase.phase === 'rate') push(log.shown, r.round, phase.authorId)
+    if (phase.phase === 'lie') push(log.shown, r.round, phase.authorId)
     if (phase.phase === 'missing') push(log.placeholders, r.round, phase.authorId)
-    if (phase.phase === 'lie' || phase.phase === 'guess' || phase.phase === 'rate') planAnswers(key)
+    // gallery shows the whole round at once: a picture, or its placeholder
+    if (phase.phase === 'vote') {
+      for (const p of phase.pictures) push(p.imagePath ? log.shown : log.placeholders, r.round, p.authorId)
+    }
+    if (phase.phase === 'lie' || phase.phase === 'guess' || phase.phase === 'vote') planAnswers(key)
   }
 
   function planBuild(round: number): void {
@@ -177,7 +182,13 @@ function playGame(opts: {
           const pick = choices[Math.floor(rng() * choices.length)]
           if (pick) recordGuess(room, phase.pictureIndex, playerId, pick.id)
         }
-        if (phase.phase === 'rate') recordRating(room, phase.pictureIndex, playerId, 1 + Math.floor(rng() * 5))
+        if (phase.phase === 'vote') {
+          const choices = votablePictures(room, playerId)
+          const favourite = choices[Math.floor(rng() * choices.length)]
+          const rest = choices.filter((c) => c !== favourite)
+          const runnerUp = rest[Math.floor(rng() * rest.length)] ?? null
+          if (favourite) recordVote(room, playerId, favourite, runnerUp)
+        }
         dropPendingActor(room, deps, playerId)
       }, at)
     }
