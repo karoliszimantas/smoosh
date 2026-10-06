@@ -57,6 +57,8 @@ export function useGameConnection(): GameConnection {
   const replacedRef = useRef(false)
   const youRef = useRef<string | null>(null)
   const toastId = useRef(0)
+  // the game whose end has already been cleared up after
+  const endedRef = useRef<string | null>(null)
 
   const pushToast = useCallback((text: string, ms: number) => {
     toastId.current += 1
@@ -122,6 +124,14 @@ export function useGameConnection(): GameConnection {
       if (getActiveRoom()?.roomCode !== snap.roomCode) pruneGameCanvases(snap.roomCode)
       if (me) setActiveRoom({ roomCode: snap.roomCode, playerId: snap.you.playerId, name: me.name })
       youRef.current = snap.you.playerId
+      // the game is over: its canvases, and any photos in them, go now
+      if (snap.phase.phase === 'scores' && snap.phase.isFinalRound) {
+        const ended = `${snap.roomCode}:${snap.phase.round}`
+        if (endedRef.current !== ended) {
+          endedRef.current = ended
+          pruneGameCanvases(null)
+        }
+      } else endedRef.current = null
       setSnapshot(snap)
       setHomeNotice(null)
     })

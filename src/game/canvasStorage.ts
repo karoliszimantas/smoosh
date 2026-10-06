@@ -1,4 +1,5 @@
 import { MIN_OPACITY, MIN_SCALE, type CropRect, type LayerItem } from '../components/layerItem'
+import { prunePhotos } from '../photos/photoStore'
 
 // session: the default, for a canvas that only needs to survive a reload.
 // local: the sandbox and a BUILD round's canvas, which should survive the
@@ -131,7 +132,8 @@ export function clearCanvasItems(key: string, which: CanvasStorageArea = 'sessio
 // Game canvases live in localStorage (so a closed tab doesn't lose a
 // half-built picture), which never clears itself: drop every saved game
 // canvas except those for `keepRoomCode` — on joining a room, and with null
-// on leaving one for good.
+// on leaving one for good or at its final scores. Players' photos go with
+// the canvases that used them.
 export function pruneGameCanvases(keepRoomCode: string | null): void {
   try {
     const keep = keepRoomCode === null ? null : `smoosh_canvas_${keepRoomCode}_`
@@ -142,4 +144,5 @@ export function pruneGameCanvases(keepRoomCode: string | null): void {
   } catch {
     // best effort
   }
+  void prunePhotos()
 }

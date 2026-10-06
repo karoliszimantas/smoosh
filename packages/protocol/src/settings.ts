@@ -43,6 +43,14 @@ export const GameSettingsSchema = z.object({
   // only meaningful in gallery; guess always needs prompts (see
   // settingsProblem)
   prompted: z.boolean(),
+  // Players may add photos from their own phones. A photo never leaves the
+  // phone that took it — it's cut there and reaches the others only as
+  // pixels in a finished picture — so the room deciding is the whole of the
+  // moderation story: proportionate for people who know each other.
+  // Opening this beyond a private room needs reporting, blocking and a way
+  // to end a room (DSA), none of which exist yet. Absent from an older
+  // client's settings: on.
+  allowPhotos: z.boolean().default(true),
 })
 export type GameSettings = z.infer<typeof GameSettingsSchema>
 
@@ -52,6 +60,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   answerTimeSec: 120,
   mode: 'guess',
   prompted: true,
+  allowPhotos: true,
 }
 
 // combinations the schema alone can't rule out — null when the settings are

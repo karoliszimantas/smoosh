@@ -1,3 +1,5 @@
+import { isPhotoSrc, photoUrl } from '../photos/photoStore'
+
 // Decoding, downscaling and caching of layer images, shared by every layer
 // and by crop/erase modes — which need the original image, not whatever the
 // layer's node currently draws (a themed paper canvas, an erased copy).
@@ -66,17 +68,23 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   const cached = imageCache.get(src)
   if (cached) return cached
 
-  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new window.Image()
-    // no-op for same-origin manifest assets today, but prevents a tainted
-    // canvas (and a broken export) if a future CDN source lacks CORS headers
-    image.crossOrigin = 'anonymous'
-    image.onload = () => {
-      downscale(image).promise.then(resolve, reject)
-    }
-    image.onerror = () => reject(new Error(`failed to load ${src}`))
-    image.src = src
-  })
+  // a player's own photo is `photo:<id>`, kept on this device — its pixels
+  // come out of local storage, never off the network
+  const url = isPhotoSrc(src) ? photoUrl(src) : Promise.resolve(src)
+  const promise = url.then(
+    (resolved) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new window.Image()
+        // no-op for same-origin manifest assets today, but prevents a tainted
+        // canvas (and a broken export) if a future CDN source lacks CORS headers
+        image.crossOrigin = 'anonymous'
+        image.onload = () => {
+          downscale(image).promise.then(resolve, reject)
+        }
+        image.onerror = () => reject(new Error(`failed to load ${src}`))
+        image.src = resolved
+      }),
+  )
 
   // don't let a failed load poison the cache forever — a later retry (new
   // item, sheet retry) should get a fresh attempt

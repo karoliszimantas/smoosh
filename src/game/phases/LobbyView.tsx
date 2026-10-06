@@ -156,13 +156,31 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
               </select>
             </label>
           </div>
+          {/* the room decides, every game — see allowPhotos in the protocol */}
+          <div className="lobby-photos">
+            <span>Allow photos</span>
+            <Segmented
+              label="Allow photos"
+              options={[
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ]}
+              value={settings.allowPhotos ? 'on' : 'off'}
+              onChange={(v) => updateSettings({ allowPhotos: v === 'on' })}
+            />
+          </div>
+          <p className="lobby-mode-blurb">
+            {settings.allowPhotos
+              ? 'Players can add photos from their phones. Photos stay on the phone — only finished pictures are shared.'
+              : 'Pictures are built from the library only.'}
+          </p>
         </>
       ) : (
         <>
           <p className="lobby-mode-readonly">{modeSummary(settings)}</p>
           <p className="lobby-settings-readonly">
             {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to
-            answer
+            answer &middot; photos {settings.allowPhotos ? 'allowed' : 'off'}
           </p>
         </>
       )}

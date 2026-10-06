@@ -2936,3 +2936,140 @@ h2.awards-wall-title {
     animation: none;
   }
 }
+
+/* ---------- players' own photos ---------- */
+
+/* "Your photo" sits above the asset tabs with its one line of privacy
+   underneath — always visible, never a dialog */
+.photo-entry {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 8px;
+}
+
+.photo-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photo-button.busy {
+  opacity: 0.6;
+}
+
+/* the picker opens from the label; the input itself stays out of sight */
+.photo-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-privacy {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--chrome-text-muted);
+}
+
+/* the lasso: the photo, full screen, between two bars */
+.photo-lasso {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+
+.photo-lasso-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.photo-lasso-bar button {
+  min-height: 44px;
+  min-width: 72px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius);
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+}
+
+.photo-lasso-bar button.primary {
+  border-color: transparent;
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-weight: 700;
+}
+
+.photo-lasso-bar button:disabled {
+  opacity: 0.4;
+}
+
+.photo-lasso-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.photo-lasso-error {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: var(--warning);
+}
+
+.photo-lasso-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.photo-lasso-canvas {
+  position: relative;
+}
+
+.photo-lasso-canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* the finger draws here — nothing else may take the gesture */
+.photo-lasso-draw {
+  touch-action: none;
+}
+
+/* the lobby's photos switch */
+.lobby-photos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 14px;
+}

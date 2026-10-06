@@ -5,11 +5,14 @@ import App from './App.tsx'
 import ThemeProvider from './themes/ThemeProvider'
 import { applyThemeToDocument, loadThemeId, themeById } from './themes'
 import { captureCodeFromUrl } from './prompts/access'
+import { prunePhotos } from './photos/photoStore'
 import { defaultServices, GameServicesProvider, type GameServices } from './game/services'
 
 // a /prompts?code=… link: keep the code, and get it out of the address bar
 // before anything renders
 captureCodeFromUrl()
+// photos left behind by a tab that crashed or was closed mid-game
+void prunePhotos()
 
 // before the first render, so the page never flashes the wrong theme
 applyThemeToDocument(themeById(loadThemeId()))

@@ -125,6 +125,8 @@ type CanvasProps = {
   // no prompt to seed the asset sheet's tabs from — it offers the curated
   // categories instead
   freestyle?: boolean
+  // the asset sheet offers "Your photo" — off when the room's host says so
+  allowPhotos?: boolean
 }
 
 function downloadBlob(blob: Blob): void {
@@ -138,7 +140,7 @@ function downloadBlob(blob: Blob): void {
 }
 
 const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { promptText, onSubmit, initialItems, storageKey, storageArea = 'session', doneLabel, freestyle = false },
+  { promptText, onSubmit, initialItems, storageKey, storageArea = 'session', doneLabel, freestyle = false, allowPhotos = true },
   ref,
 ) {
   const [items, setItems] = useState<LayerItem[]>(() => initialItems ?? [])
@@ -927,6 +929,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           open={sheetOpen}
           promptText={promptText}
           freestyle={freestyle}
+          allowPhotos={allowPhotos}
           onClose={closeSheet}
           onPlace={handleAssetSelect}
           onCutShared={handleCutShared}

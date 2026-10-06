@@ -1,10 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react'
 import type { Asset, ImageVariant, PixabayHit, SearchResult } from '../assets'
 import { LocalAssetSource, SearchError, pixabaySource } from '../assets'
 import { matchesCurated, mergeResults, promptTabs } from '../assets/search'
 import { CutFailed, canCutOnDevice, cutImage, subscribeCutAvailability, type CutProgress } from '../cutting/cutClient'
 import type { Placement } from './layerItem'
 import ReportDialog from './ReportDialog'
+import { preparePhoto, releaseCanvas } from '../photos/photoCut'
+import { savePhoto } from '../photos/photoStore'
+
+// only fetched when someone actually adds a photo
+const PhotoLasso = lazy(() => import('../photos/PhotoLasso'))
+
+function CameraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  )
+}
 
 // single manifest fetch shared for the lifetime of the page
 const assetSource = new LocalAssetSource()
@@ -56,6 +70,7 @@ export default function AssetSheet({
   open,
   promptText,
   freestyle,
+  allowPhotos = true,
   onClose,
   onPlace,
   onCutShared,
@@ -63,6 +78,8 @@ export default function AssetSheet({
   open: boolean
   promptText: string
   freestyle: boolean
+  // "Your photo" is offered — the room's host can turn it off
+  allowPhotos?: boolean
   onClose: () => void
   onPlace: (placement: Placement) => void
   // a cut made on this device finished uploading — the canvas swaps its
@@ -81,6 +98,9 @@ export default function AssetSheet({
   const cutAvailable = useSyncExternalStore(subscribeCutAvailability, canCutOnDevice)
   const sheetRef = useRef<HTMLDivElement>(null)
   const refreshedTerms = useRef(new Set<string>())
+  // a photo from this phone, prepared and waiting to be cut — on this device only
+  const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
+  const [photoState, setPhotoState] = useState<'idle' | 'opening' | 'error'>('idle')
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedInput(input), SEARCH_DEBOUNCE_MS)
@@ -285,6 +305,36 @@ export default function AssetSheet({
     else cutOnDevice(result)
   }
 
+  // The photo is shrunk, turned upright and stripped of its metadata the
+  // moment it's picked; the original file is never read again.
+  const pickPhoto = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // the same photo can be picked again
+    if (!file) return
+    setPhotoState('opening')
+    preparePhoto(file).then(
+      (canvas) => {
+        setPhotoState('idle')
+        setPhoto(canvas)
+      },
+      () => setPhotoState('error'),
+    )
+  }
+
+  const closePhoto = () => {
+    releaseCanvas(photo)
+    setPhoto(null)
+  }
+
+  // the cut, kept on this device and placed like any other layer
+  const placePhoto = (cut: Blob) => {
+    closePhoto()
+    void savePhoto(cut).then((src) => {
+      onPlace({ full: src, thumb: src, label: 'Your photo', pixabayId: null })
+      onClose()
+    })
+  }
+
   const handleReported = (pixabayId: number) => {
     setHidden((prev) => new Set(prev).add(pixabayId))
     setReportTarget(null)
@@ -328,6 +378,21 @@ export default function AssetSheet({
             }}
           />
         </div>
+
+        {allowPhotos && (
+          <div className="photo-entry">
+            <label className={`photo-button${photoState === 'opening' ? ' busy' : ''}`}>
+              <CameraIcon />
+              {photoState === 'opening' ? 'Opening…' : 'Your photo'}
+              <input type="file" accept="image/*" onChange={pickPhoto} disabled={photoState === 'opening'} />
+            </label>
+            <p className="photo-privacy">
+              {photoState === 'error'
+                ? 'Couldn’t open that photo — try another.'
+                : 'Your photo stays on your phone. Only the finished picture is shared.'}
+            </p>
+          </div>
+        )}
 
         {tabs.length > 0 && (
           <div
@@ -402,6 +467,14 @@ export default function AssetSheet({
 
       {reportTarget !== null && (
         <ReportDialog pixabayId={reportTarget} onReported={handleReported} onClose={() => setReportTarget(null)} />
+      )}
+
+      {/* outside the sheet: the sheet slides on a transform, which would
+          pin a fixed overlay to it instead of the screen */}
+      {photo && (
+        <Suspense fallback={null}>
+          <PhotoLasso photo={photo} onDone={placePhoto} onCancel={closePhoto} />
+        </Suspense>
       )}
     </>
   )

@@ -109,6 +109,7 @@ export default function BuildView({ snapshot, onNotice }: BuildViewProps) {
         ref={canvasRef}
         promptText={freestyle || !prompt ? FREESTYLE_PROMPT : prompt}
         freestyle={freestyle}
+        allowPhotos={snapshot.settings.allowPhotos}
         onSubmit={(blob) => void submit(blob)}
         initialItems={initialItems}
         storageKey={submitted ? undefined : storageKey}
