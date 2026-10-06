@@ -102,7 +102,7 @@ export function seatLeft(room: Room, deps: PresenceDeps, seat: Seat): void {
 // Every phase after it moves on without them — there, waiting holds the
 // whole room up.
 function waitsForAway(room: Room): boolean {
-  return room.phase.phase === 'build'
+  return room.phase.phase === 'build' || room.phase.phase === 'pass'
 }
 
 // The room may have been waiting only on them: if so it moves on now —

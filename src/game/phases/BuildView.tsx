@@ -10,10 +10,13 @@ import { useGameServices } from '../services'
 import { uploadPicture } from '../upload'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
 import PromptWindow from './PromptWindow'
+import { PASS_LAYER_CAP } from '@smoosh/protocol'
 
 // freestyle gets an empty prompt from the server; the bar still shows (so
 // the layout is the same in every mode) with this instead
 const FREESTYLE_PROMPT = 'Build whatever you want'
+// a chain pass after the first: no prompt — only what's on the canvas
+const BLIND_PASS_PROMPT = 'Add to what you can see'
 
 type BuildViewProps = PhaseProps & {
   // for news that has to outlive this view — an upload refused after the
@@ -24,10 +27,14 @@ type BuildViewProps = PhaseProps & {
 export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) {
   const { upload: send } = useGameServices()
   const phase = snapshot.phase
-  const isBuild = phase.phase === 'build'
-  const round = isBuild ? phase.round : 0
-  // this player's own clock: it starts when their prompt window closes
-  const deadline = isBuild ? (snapshot.you.build?.deadline ?? phase.deadline) : null
+  // BUILD, or a chain pass — the same screen. Uploads, the saved canvas
+  // and the clock are named by the round in BUILD and by the pass (`unit`)
+  // in a chain
+  const isBuild = phase.phase === 'build' || phase.phase === 'pass'
+  const round = phase.phase === 'build' ? phase.round : phase.phase === 'pass' ? phase.unit : 0
+  // this player's own clock: in BUILD it starts when their prompt window closes
+  const deadline =
+    phase.phase === 'build' ? (snapshot.you.build?.deadline ?? phase.deadline) : phase.phase === 'pass' ? phase.deadline : null
 
   // hooks run unconditionally every render (rules-of-hooks) — the actual
   // phase!=='build' bail-out happens once, right before the JSX below
@@ -80,7 +87,7 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
 
   // auto-submit with whatever exists when time runs out — by this phone's
   // clock, or when the server says it's collecting, whichever comes first
-  const collecting = isBuild && phase.collecting
+  const collecting = (phase.phase === 'build' || phase.phase === 'pass') && phase.collecting
   useEffect(() => {
     if (!isBuild || busyRef.current || autoSubmittedRef.current) return
     if (remainingMs > 0 && !collecting) return
@@ -88,7 +95,23 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
     void canvasRef.current?.exportImage()
   }, [remainingMs, isBuild, collecting])
 
-  if (phase.phase !== 'build') return null
+  if (phase.phase !== 'build' && phase.phase !== 'pass') return null
+  const pass = phase.phase === 'pass' ? snapshot.you.pass : null
+
+  // one picture per chain: not your turn yet
+  if (phase.phase === 'pass' && (!pass || pass.chainId === null)) {
+    return (
+      <div className="pass-waiting">
+        <DeadlineTimer deadline={phase.deadline} />
+        <h2>Not your turn yet</h2>
+        <p className="phase-status">
+          {pass?.nextPass !== null && pass?.nextPass !== undefined
+            ? `Someone’s adding to your chain. You’re on pass ${pass.nextPass + 1} of ${phase.passCount}.`
+            : 'Your part of the chain is done. The others are finishing theirs.'}
+        </p>
+      </div>
+    )
+  }
 
   const waitingFor: WaitingFor[] = snapshot.waitingOn
     .filter((id) => id !== snapshot.you.playerId)
@@ -96,8 +119,8 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
       const player = snapshot.players.find((p) => p.id === id)
       return player ? [{ id, name: player.name, away: player.presence === 'away' }] : []
     })
-  const freestyle = snapshot.settings.mode === 'gallery' && !snapshot.settings.prompted
-  const prompt = snapshot.you.secretPrompt ?? ''
+  const freestyle = (snapshot.settings.mode === 'gallery' && !snapshot.settings.prompted) || (pass !== null && pass.prompt === null)
+  const prompt = pass ? (pass.prompt ?? '') : (snapshot.you.secretPrompt ?? '')
 
   return (
     <div className="build-view">
@@ -109,7 +132,7 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
       />
       <Canvas
         ref={canvasRef}
-        promptText={freestyle || !prompt ? FREESTYLE_PROMPT : prompt}
+        promptText={pass && pass.prompt === null ? BLIND_PASS_PROMPT : freestyle || !prompt ? FREESTYLE_PROMPT : prompt}
         freestyle={freestyle}
         allowPhotos={snapshot.settings.allowPhotos}
         onSubmit={(blob) => void submit(blob)}
@@ -117,6 +140,7 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
         storageKey={submitted ? undefined : storageKey}
         // survives the tab being closed, not just reloaded
         storageArea="local"
+        {...(pass ? { underlay: pass.underlay, maxLayers: PASS_LAYER_CAP, transparentExport: true } : {})}
       />
       {snapshot.you.build && !submitted && (
         <PromptWindow round={round} prompt={prompt} build={snapshot.you.build} emit={emit} />

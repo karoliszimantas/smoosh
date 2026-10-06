@@ -32,6 +32,20 @@ export const RoomSnapshotSchema = z.object({
     // their prompt window is open (the clock hasn't started); `deadline` is
     // when their build ends — each player's is their own. `offered`: the
     // prompt a swap brought up, while they choose between the two
+    // chain, during a pass: the chain this player adds to (null: none this
+    // pass — one-picture chains, waiting their turn), its prompt (first pass
+    // only — nobody after sees it), the earlier passes to show as ghosts,
+    // and which pass is theirs next when waiting
+    pass: z
+      .object({
+        chainId: z.string().nullable(),
+        prompt: z.string().nullable(),
+        underlay: z.array(z.string()),
+        nextPass: z.number().int().nonnegative().nullable(),
+      })
+      .nullable(),
+    // chain, during the vote: the chains this player may vote for, and their vote
+    chainVote: z.object({ votable: z.array(z.string()), own: z.string().nullable() }).nullable(),
     build: z
       .object({
         windowEndsAt: z.number().nullable(),

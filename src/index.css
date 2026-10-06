@@ -2771,7 +2771,7 @@ h2.awards-wall-title {
 }
 
 .awards-shared {
-  margin-top: -8px;
+  margin-top: 0;
   font-family: var(--placard-artist-font);
   font-size: 11px;
   letter-spacing: 3px;
@@ -3141,4 +3141,95 @@ h2.awards-wall-title {
   text-transform: var(--display-transform);
   letter-spacing: var(--display-tracking);
   overflow-wrap: anywhere;
+}
+
+/* ---------- chain: exquisite corpse ---------- */
+
+/* a chain's passes stacked on the canvas colour */
+.chain-picture {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--canvas-bg);
+}
+
+.chain-picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition:
+    filter 0.6s ease,
+    opacity 0.6s ease;
+}
+
+/* what later players saw: a flat grey silhouette at a quarter strength */
+.chain-picture img.ghost {
+  filter: brightness(0) invert(0.5);
+  opacity: 0.25;
+}
+
+.chain-reveal {
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 64px 20px calc(40px + env(safe-area-inset-bottom));
+  background: var(--gallery-wall);
+  color: var(--gallery-wall-text);
+  text-align: center;
+}
+
+.chain-reveal-picture {
+  width: min(84vw, 380px);
+}
+
+.chain-reveal-step {
+  min-height: 1.4em;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.chain-reveal-prompt {
+  font-family: var(--placard-title-font);
+  font-size: 17px;
+  animation: awards-in 0.45s ease-out both;
+}
+
+.chain-reveal-prompt strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  text-transform: var(--display-transform);
+  letter-spacing: var(--display-tracking);
+}
+
+.chain-reveal-placard {
+  width: min(84vw, 380px);
+  display: flex;
+  animation: awards-in 0.45s ease-out both;
+}
+
+.pass-waiting {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain-picture img,
+  .chain-reveal-prompt,
+  .chain-reveal-placard {
+    transition: none;
+    animation: none;
+  }
 }

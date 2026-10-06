@@ -126,9 +126,7 @@ function playGame(opts: {
   function onPhase(r: Room): void {
     const phase = r.phase
     const key =
-      phase.phase === 'build' || phase.phase === 'scores' || phase.phase === 'lobby' || phase.phase === 'vote' || phase.phase === 'awards'
-        ? `${phase.phase}:${r.round}`
-        : `${phase.phase}:${r.round}:${phase.pictureIndex}`
+      'pictureIndex' in phase ? `${phase.phase}:${r.round}:${phase.pictureIndex}` : `${phase.phase}:${r.round}`
     if (key === lastPhaseKey) return
     lastPhaseKey = key
 

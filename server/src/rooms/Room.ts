@@ -1,4 +1,4 @@
-import type { GameSettings, PhaseState, PointsBreakdown, Presence } from '@smoosh/protocol'
+import type { ChainPlan, GameSettings, PhaseState, PointsBreakdown, Presence } from '@smoosh/protocol'
 import { DEFAULT_SETTINGS } from '@smoosh/protocol'
 import { generateRoomCode } from './roomCode.ts'
 import type { BuildWindow } from '../game/promptSwap.ts'
@@ -63,6 +63,13 @@ export type Room = {
   votes: Map<string, { favourite: string; runnerUp: string | null }>
   // gallery: every round's Best in Show so far, for the final exhibition
   exhibition: { round: number; prompt: string; authorId: string; imagePath: string }[]
+  // chain: this round's plan (who adds to which chain on which pass), each
+  // chain's prompt, what each pass actually added, and the vote
+  chainPlan: ChainPlan | null
+  chainIds: string[]
+  chainPrompts: Map<string, string>
+  chainPasses: Map<string, { authorId: string; imagePath: string }[]>
+  chainVotes: Map<string, string>
   // guess: swaps spent this game, per player — reset when a game starts
   swapsUsed: Map<string, number>
   // this BUILD's per-player prompt windows and clocks (see promptSwap.ts)
@@ -104,6 +111,11 @@ export function createRoom(code: string): Room {
     optionsByPictureIndex: new Map(),
     votes: new Map(),
     exhibition: [],
+    chainPlan: null,
+    chainIds: [],
+    chainPrompts: new Map(),
+    chainPasses: new Map(),
+    chainVotes: new Map(),
     swapsUsed: new Map(),
     buildWindows: new Map(),
     buildStartedAt: null,

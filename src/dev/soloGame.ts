@@ -232,6 +232,7 @@ export class SoloGame {
     if (p.phase === 'scores') return `scores${p.isFinalRound ? ' (final)' : ''}`
     if (p.phase === 'vote') return `vote, round ${p.round}`
     if (p.phase === 'awards') return `awards, round ${p.round}${p.skipped ? ' (skipped)' : ''}`
+    if (!('authorId' in p)) return p.phase
     const author = this.players.find((x) => x.id === p.authorId)?.name ?? '?'
     return `${p.phase} · ${p.pictureIndex + 1}/${p.pictureCount} · ${author}`
   }
@@ -455,8 +456,13 @@ export class SoloGame {
         if (phase.phase === 'lobby') this.settings = payload as GameSettings
         return ok
       case 'room:start':
+        // Chain needs real players passing pictures — try it with a room
+        if (this.settings.mode === 'chain') return refused('Chain isn’t in the solo walkthrough — play it in a room')
         this.startBuild()
         return ok
+      case 'chainVote:submit':
+      case 'chainReveal:skip':
+        return refused('not in solo')
       case 'room:playAgain':
         this.round = 0
         this.exhibition = []
@@ -553,6 +559,8 @@ export class SoloGame {
         hasActedThisPhase: acted,
         ownOptionId: p.phase === 'guess' ? (this.options.find((o) => o.authorId === YOU_ID)?.id ?? null) : null,
         ownVote: p.phase === 'vote' ? (this.votes.get(YOU_ID) ?? null) : null,
+        pass: null,
+        chainVote: null,
         build:
           p.phase === 'build'
             ? {

@@ -11,6 +11,9 @@ import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
 import VoteView from './phases/VoteView'
 import AwardsView from './phases/AwardsView'
+import ChainRevealView from './chain/ChainRevealView'
+import ChainVoteView from './chain/ChainVoteView'
+import ChainAwardsView from './chain/ChainAwardsView'
 import MissingView from './phases/MissingView'
 import GameNotice from './GameNotice'
 import ReconnectBanner from './ReconnectBanner'
@@ -50,7 +53,7 @@ function useBackGuard(active: boolean, onBack: () => void): void {
 // phases with players' names on screen and room at the bottom for them —
 // not BUILD (the toolbar lives there), the lobby (it lists everyone) or the
 // awards (the room's attention belongs on the wall)
-const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'vote', 'scores'])
+const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'vote', 'chainVote', 'scores'])
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const game = useGameConnection()
@@ -130,6 +133,15 @@ function PhaseView({
       return <GuessView key={`guess-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'reveal':
       return <RevealView key={`reveal-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
+    case 'pass':
+      // keyed by pass, like BUILD by round: a fresh canvas for each
+      return <BuildView key={`pass-${phase.unit}`} snapshot={snapshot} emit={emit} onNotice={onNotice} />
+    case 'chainReveal':
+      return <ChainRevealView key={`chainReveal-${phase.round}`} snapshot={snapshot} emit={emit} />
+    case 'chainVote':
+      return <ChainVoteView key={`chainVote-${phase.round}`} snapshot={snapshot} emit={emit} />
+    case 'chainAwards':
+      return <ChainAwardsView key={`chainAwards-${phase.round}`} snapshot={snapshot} emit={emit} />
     case 'vote':
       return <VoteView key={`vote-${phase.round}`} snapshot={snapshot} emit={emit} />
     case 'awards':

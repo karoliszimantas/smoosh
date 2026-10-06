@@ -24,7 +24,7 @@ function seat(n: number, presence: Seat['presence'] = 'present'): Seat {
 
 function game(players = 4, rounds: GameSettings['rounds'] = 5, pool: string[] = POOL, away: number[] = []) {
   const room = createRoom('SWAP')
-  room.settings = { rounds, buildTimeSec: 60, answerTimeSec: 120, mode: 'guess', prompted: true, allowPhotos: true }
+  room.settings = { rounds, buildTimeSec: 60, answerTimeSec: 120, mode: 'guess', prompted: true, allowPhotos: true, chainStructure: 'rotate' }
   for (let i = 1; i <= players; i++) room.seats.set(`p${i}`, seat(i, away.includes(i) ? 'away' : 'present'))
   const deps: PhaseMachineDeps = { prompts: () => pool, hasSubmission: () => false, onSnapshot: vi.fn() }
   startBuild(room, deps)
@@ -206,7 +206,7 @@ describe('the pool', () => {
 
   it('gallery has no window at all', () => {
     const room = createRoom('GAL')
-    room.settings = { rounds: 3, buildTimeSec: 60, answerTimeSec: 120, mode: 'gallery', prompted: true, allowPhotos: true }
+    room.settings = { rounds: 3, buildTimeSec: 60, answerTimeSec: 120, mode: 'gallery', prompted: true, allowPhotos: true, chainStructure: 'rotate' }
     for (let i = 1; i <= 3; i++) room.seats.set(`p${i}`, seat(i))
     const start = Date.now()
     startBuild(room, { prompts: () => POOL, hasSubmission: () => false, onSnapshot: vi.fn() })

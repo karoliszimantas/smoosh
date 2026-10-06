@@ -1,5 +1,6 @@
 import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Stage, Layer, Rect } from 'react-konva'
+import { Stage, Layer, Rect, Image as KonvaImage, Line } from 'react-konva'
+import { VISIBLE_STRIP } from '@smoosh/protocol'
 import Konva from 'konva'
 import type { ImageVariant } from '../assets'
 import { generateId } from '../id'
@@ -29,6 +30,8 @@ import CanvasFrame from './CanvasFrame'
 import LayerSliders from './LayerSliders'
 import { pivotAround, turnBetween, type Point } from './transformMath'
 import { useTheme } from '../themes/useTheme'
+import { buildUnderlay } from './chainUnderlay'
+import { SERVER_URL } from '../game/serverUrl'
 
 Konva.hitOnDragEnabled = true
 
@@ -127,6 +130,13 @@ type CanvasProps = {
   freestyle?: boolean
   // the asset sheet offers "Your photo" — off when the room's host says so
   allowPhotos?: boolean
+  // chain: the earlier passes, drawn under the layers as ghosts with the
+  // bottom strip in full (chainUnderlay.ts) — never part of the export
+  underlay?: readonly string[]
+  // chain: at most this many layers
+  maxLayers?: number
+  // chain: export only this player's layers, on a transparent ground
+  transparentExport?: boolean
 }
 
 function downloadBlob(blob: Blob): void {
@@ -140,7 +150,19 @@ function downloadBlob(blob: Blob): void {
 }
 
 const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { promptText, onSubmit, initialItems, storageKey, storageArea = 'session', doneLabel, freestyle = false, allowPhotos = true },
+  {
+    promptText,
+    onSubmit,
+    initialItems,
+    storageKey,
+    storageArea = 'session',
+    doneLabel,
+    freestyle = false,
+    allowPhotos = true,
+    underlay,
+    maxLayers,
+    transparentExport = false,
+  },
   ref,
 ) {
   const [items, setItems] = useState<LayerItem[]>(() => initialItems ?? [])
@@ -168,6 +190,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const stageRef = useRef<Konva.Stage>(null)
   const frameDecorRef = useRef<Konva.Layer>(null)
+  const backgroundRef = useRef<Konva.Layer>(null)
   const itemsLayerRef = useRef<Konva.Layer>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLButtonElement>(null)
@@ -250,10 +273,31 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     }
   }, [theme.canvasTexture])
 
+  const maxLayersRef = useRef(maxLayers)
+  maxLayersRef.current = maxLayers
+
+  // the earlier passes of a chain, built into one ghosted image
+  const underlayKey = underlay?.join('|') ?? ''
+  const [underlayImage, setUnderlayImage] = useState<HTMLCanvasElement | null>(null)
+  useEffect(() => {
+    if (!underlayKey) return
+    let live = true
+    buildUnderlay(underlayKey.split('|').map((path) => `${SERVER_URL}${path}`)).then(
+      (img) => live && setUnderlayImage(img),
+      (err: unknown) => console.error('could not draw the earlier passes', err),
+    )
+    return () => {
+      live = false
+    }
+  }, [underlayKey])
+
   const addItem = useCallback((placement: Placement) => {
     const id = generateId()
     const jitter = () => (Math.random() - 0.5) * 100 // ±50 units so stacked copies are distinguishable
-    setItems((prev) => [
+    setItems((prev) => {
+      // a chain pass's cap holds however the layer arrives
+      if (maxLayersRef.current !== undefined && prev.length >= maxLayersRef.current) return prev
+      return [
       ...prev,
       {
         id,
@@ -271,7 +315,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         opacity: 1,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
       },
-    ])
+      ]
+    })
     setSelectedId(id)
   }, [])
 
@@ -724,6 +769,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       // race that could bake them in
       selectedNode?.strokeWidth(0)
       frameDecor?.visible(false)
+      // a chain pass sends only its own layers
+      if (transparentExport) backgroundRef.current?.visible(false)
       cropOverlay?.visible(false)
       eraseOverlay?.visible(false)
       croppingNode?.visible(true)
@@ -751,12 +798,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     } finally {
       selectedNode?.strokeWidth(3)
       frameDecor?.visible(true)
+      backgroundRef.current?.visible(true)
       cropOverlay?.visible(true)
       eraseOverlay?.visible(true)
       croppingNode?.visible(false)
       stage.batchDraw()
     }
-  }, [selectedId, onSubmit, frame, cropping, erasing])
+  }, [selectedId, onSubmit, frame, cropping, erasing, transparentExport])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
@@ -797,7 +845,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onMouseMove={(e) => press.current?.handOff(e.evt.clientX, e.evt.clientY)}
           onTouchEnd={handleTouchEnd}
         >
-          <Layer listening={false}>
+          <Layer listening={false} ref={backgroundRef}>
             <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={theme.canvasBg} />
             {texture && (
               <Rect
@@ -810,6 +858,19 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               />
             )}
             <CanvasFrame frame={theme.canvasFrame} />
+            {underlay && underlayImage && (
+              <>
+                <KonvaImage image={underlayImage} x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} />
+                {/* where the strip begins: below it, the earlier passes as they are */}
+                <Line
+                  points={[0, CANVAS_SIZE * (1 - VISIBLE_STRIP), CANVAS_SIZE, CANVAS_SIZE * (1 - VISIBLE_STRIP)]}
+                  stroke={theme.chromeBorder}
+                  strokeWidth={1.5}
+                  dash={[10, 8]}
+                  strokeScaleEnabled={false}
+                />
+              </>
+            )}
           </Layer>
           <Layer listening={!editing} ref={itemsLayerRef}>
             {shownItems.map((item) => (
@@ -897,6 +958,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         selectedId={selectedId}
         addButtonRef={addButtonRef}
         onAdd={openSheet}
+        {...(maxLayers !== undefined ? { addLimit: { used: items.length, max: maxLayers } } : {})}
         onDone={exportImage}
         doneLabel={doneLabel}
         canMoveFront={canMoveFront}

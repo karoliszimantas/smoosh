@@ -11,6 +11,11 @@ import {
   galleryResults,
   runnerUpRequired,
   scorePicture,
+  CHAIN_AWARDS_SEC,
+  chainResults,
+  chainRevealTimeline,
+  passSeconds,
+  planChains,
   type GameMode,
 } from '@smoosh/protocol'
 import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
@@ -125,6 +130,12 @@ function advanceCurrentPhase(room: Room, deps: PhaseMachineDeps): void {
     case 'vote':
       startAwards(room, deps)
       return
+    case 'pass':
+      endPass(room, deps)
+      return
+    case 'chainVote':
+      startChainAwards(room, deps)
+      return
     default:
       return
   }
@@ -149,6 +160,10 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   // a new game: everyone's swaps are back (burned prompts return with
   // usedPrompts, cleared when the game is set up)
   if (room.round === 1) room.swapsUsed.clear()
+  if (room.settings.mode === 'chain') {
+    startChainRound(room, deps)
+    return
+  }
   room.liesByPictureIndex.clear()
   room.guessesByPictureIndex.clear()
   room.optionsByPictureIndex.clear()
@@ -500,6 +515,205 @@ export function skipAwards(room: Room, deps: PhaseMachineDeps): void {
   deps.onSnapshot(room)
 }
 
+// ---------- chain: passes, then the reveal, the vote and the awards
+
+// which chain this player adds to on the current pass — null if none
+export function passChainOf(room: Room, playerId: string): string | null {
+  if (room.phase.phase !== 'pass' || !room.chainPlan) return null
+  const k = room.phase.pass
+  const i = room.chainPlan.chains.findIndex((c) => c.authors[k] === playerId)
+  return i >= 0 ? (room.chainIds[i] ?? null) : null
+}
+
+// the next pass (after this one) this player has a chain on
+export function nextPassOf(room: Room, playerId: string): number | null {
+  if (room.phase.phase !== 'pass' || !room.chainPlan) return null
+  for (let k = room.phase.pass + 1; k < room.chainPlan.passCount; k++) {
+    if (room.chainPlan.chains.some((c) => c.authors[k] === playerId)) return k
+  }
+  return null
+}
+
+function chainUnit(round: number, pass: number): number {
+  return round * 10 + pass
+}
+
+// a round of chains: everyone seated is planned in, in a fresh order each
+// round so the groups and hand-offs change; each chain gets its own prompt
+function startChainRound(room: Room, deps: PhaseMachineDeps): void {
+  const players = shuffle(
+    [...room.seats.values()].filter((s) => s.presence !== 'left').map((s) => s.playerId),
+    deps.random,
+  )
+  room.chainPlan = planChains(players, room.settings.chainStructure)
+  room.chainIds = room.chainPlan.chains.map((_, i) => `c${room.round}-${i + 1}`)
+  const available = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p))
+  const { assignments, used } = assignPrompts(room.chainIds, available)
+  for (const p of used) room.usedPrompts.add(p)
+  room.chainPrompts = assignments
+  room.chainPasses = new Map(room.chainIds.map((id) => [id, []]))
+  room.chainVotes = new Map()
+  startPass(room, deps, 0)
+}
+
+function startPass(room: Room, deps: PhaseMachineDeps, pass: number): void {
+  clearRoomTimer(room)
+  const plan = room.chainPlan
+  if (!plan) return
+  const sec = passSeconds(pass, room.settings.buildTimeSec)
+  room.phase = {
+    phase: 'pass',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    pass,
+    passCount: plan.passCount,
+    unit: chainUnit(room.round, pass),
+    deadline: deadlineIn(sec),
+    collecting: false,
+  }
+  // like BUILD: everyone with a chain this pass, away or not — a pass runs
+  // its time anyway, and an away player may be back before it ends
+  room.pendingActors = new Set(
+    plan.chains.flatMap((c) => {
+      const id = c.authors[pass]
+      return id && room.seats.get(id) && room.seats.get(id)?.presence !== 'left' ? [id] : []
+    }),
+  )
+  if (room.pendingActors.size === 0) {
+    endPass(room, deps)
+    return
+  }
+  schedulePhaseEnd(room, sec * 1000, () => closePass(room, deps))
+  deps.onSnapshot(room)
+}
+
+// the pass's deadline: the same grace for late uploads as BUILD
+function closePass(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'pass') return
+  room.phase = { ...room.phase, collecting: true }
+  schedulePhaseEnd(room, BUILD_GRACE_SEC * 1000, () => endPass(room, deps))
+  deps.onSnapshot(room)
+}
+
+// What each chain got this pass. A pass that never arrived (away, or out of
+// time) is skipped — the chain carries on to its next player regardless.
+function endPass(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  const plan = room.chainPlan
+  if (room.phase.phase !== 'pass' || !plan) return
+  const { pass, unit } = room.phase
+  plan.chains.forEach((c, i) => {
+    const authorId = c.authors[pass]
+    const chainId = room.chainIds[i]
+    if (!authorId || !chainId || !deps.hasSubmission(room.code, unit, authorId)) return
+    room.chainPasses.get(chainId)?.push({ authorId, imagePath: submissionPath(room.code, unit, authorId) })
+  })
+  if (pass + 1 < plan.passCount) startPass(room, deps, pass + 1)
+  else startChainReveal(room, deps)
+}
+
+// chains worth showing: two or more people added to them. One person's
+// chain isn't a chain — it's dropped rather than revealed
+function shownChains(room: Room) {
+  return room.chainIds.flatMap((id) => {
+    const passes = room.chainPasses.get(id) ?? []
+    if (new Set(passes.map((p) => p.authorId)).size < 2) return []
+    return [{ id, prompt: room.chainPrompts.get(id) ?? '', passes }]
+  })
+}
+
+function startChainReveal(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  const chains = shownChains(room)
+  if (chains.length === 0) {
+    endRoundOrGame(room, deps)
+    return
+  }
+  const { totalMs } = chainRevealTimeline(chains.map((c) => c.passes.length))
+  const startsAt = Date.now()
+  room.pendingActors = new Set()
+  room.phase = {
+    phase: 'chainReveal',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    chains,
+    startsAt,
+    skipped: false,
+    deadline: startsAt + totalMs,
+  }
+  schedulePhaseEnd(room, totalMs, () => startChainVote(room, deps))
+  deps.onSnapshot(room)
+}
+
+// the host's tap: on to the vote
+export function skipChainReveal(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'chainReveal') return
+  startChainVote(room, deps)
+}
+
+// the shown chains this player didn't add to
+export function votableChains(room: Room, playerId: string): string[] {
+  return shownChains(room)
+    .filter((c) => !c.passes.some((p) => p.authorId === playerId))
+    .map((c) => c.id)
+}
+
+function startChainVote(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  const chains = shownChains(room)
+  room.pendingActors = new Set(
+    presentSeats(room)
+      .map((s) => s.playerId)
+      .filter((id) => votableChains(room, id).length > 0),
+  )
+  // nobody has a chain they didn't add to (one group of one picture): no
+  // vote — the reveal was the round
+  if (room.pendingActors.size === 0) {
+    endRoundOrGame(room, deps)
+    return
+  }
+  room.phase = {
+    phase: 'chainVote',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    chains: chains.map((c) => ({ id: c.id, passes: c.passes.map((p) => p.imagePath) })),
+    deadline: deadlineIn(room.settings.answerTimeSec),
+  }
+  schedulePhaseEnd(room, room.settings.answerTimeSec * 1000, () => advanceCurrentPhase(room, deps))
+  deps.onSnapshot(room)
+}
+
+export function recordChainVote(room: Room, voterId: string, chainId: string): void {
+  room.chainVotes.set(voterId, chainId)
+}
+
+function startChainAwards(room: Room, deps: PhaseMachineDeps): void {
+  clearRoomTimer(room)
+  const chains = shownChains(room)
+  const contributors = new Map(chains.map((c) => [c.id, [...new Set(c.passes.map((p) => p.authorId))]]))
+  const results = new Map(chainResults(contributors, room.chainVotes).map((r) => [r.chainId, r]))
+  for (const [chainId, authors] of contributors) {
+    const each = results.get(chainId)?.pointsEach ?? 0
+    for (const id of authors) {
+      const seat = findSeatByPlayerId(room, id)
+      if (seat) seat.score += each
+    }
+  }
+  room.pendingActors = new Set()
+  room.phase = {
+    phase: 'chainAwards',
+    round: room.round,
+    totalRounds: room.settings.rounds,
+    chains: chains.map((c) => {
+      const r = results.get(c.id)
+      return { ...c, votes: r?.votes ?? 0, best: r?.best ?? false, pointsEach: r?.pointsEach ?? 0 }
+    }),
+    deadline: deadlineIn(CHAIN_AWARDS_SEC),
+  }
+  schedulePhaseEnd(room, CHAIN_AWARDS_SEC * 1000, () => endRoundOrGame(room, deps))
+  deps.onSnapshot(room)
+}
+
 // ---------- end of round: report what happened, and check nobody was lost
 
 export type RoundAudit = {
@@ -584,6 +798,9 @@ export type SubmissionResult = { ok: true } | { ok: false; reason: SubmissionRej
 
 export function submissionRejection(room: Room, round: number): SubmissionRejection | null {
   if (room.phase.phase === 'build' && room.phase.round === round) return null
+  // chain uploads are named by their pass (`unit`), not the round
+  if (room.phase.phase === 'pass') return room.phase.unit === round ? null : round < room.phase.unit ? 'too_late' : 'wrong_phase'
+  if (room.settings.mode === 'chain') return round >= room.round * 10 ? 'too_late' : 'wrong_phase'
   return round === room.round ? 'too_late' : 'wrong_phase'
 }
 
@@ -597,7 +814,9 @@ export function acceptSubmission(
   round: number,
   save: () => void,
 ): SubmissionResult {
-  const rejection = submissionRejection(room, round)
+  // a pass takes uploads only from whoever has a chain on it
+  const rejection =
+    submissionRejection(room, round) ?? (room.phase.phase === 'pass' && passChainOf(room, playerId) === null ? 'wrong_phase' : null)
   if (rejection) {
     const log = deps.log ?? console
     log.warn(`[build] ${room.code} round ${round}: rejected upload from ${playerId} (${rejection})`)
@@ -628,6 +847,12 @@ export function restorePendingActor(room: Room, deps: PhaseMachineDeps, playerId
       break
     case 'vote':
       acted = room.votes.has(playerId) || votablePictures(room, playerId).length === 0
+      break
+    case 'pass':
+      acted = passChainOf(room, playerId) === null || deps.hasSubmission(room.code, phase.unit, playerId)
+      break
+    case 'chainVote':
+      acted = room.chainVotes.has(playerId) || votableChains(room, playerId).length === 0
       break
     default:
       return

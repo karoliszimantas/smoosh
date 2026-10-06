@@ -141,6 +141,7 @@ export default function Toolbar({
   selectedId,
   addButtonRef,
   onAdd,
+  addLimit,
   onDone,
   doneLabel = 'Done',
   canMoveFront,
@@ -171,6 +172,8 @@ export default function Toolbar({
   selectedId: string | null
   addButtonRef: Ref<HTMLButtonElement>
   onAdd: () => void
+  // a chain pass at its layer limit: Add stays where it is, greyed, saying so
+  addLimit?: { used: number; max: number }
   onDone: () => void
   doneLabel?: string
   canMoveFront: boolean
@@ -245,7 +248,15 @@ export default function Toolbar({
   } else if (mode === 'layer') {
     buttons = (
       <>
-        <ToolButton icon="add" label="Add" onClick={onAdd} variant="primary" buttonRef={addButtonRef} />
+        <ToolButton
+          icon="add"
+          label={addLimit && addLimit.used >= addLimit.max ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+          ariaLabel={addLimit && addLimit.used >= addLimit.max ? `Layer limit reached: ${addLimit.max} a pass` : undefined}
+          disabled={addLimit !== undefined && addLimit.used >= addLimit.max}
+          onClick={onAdd}
+          variant="primary"
+          buttonRef={addButtonRef}
+        />
         <ToolButton
           icon="front"
           label="Front"
@@ -276,7 +287,15 @@ export default function Toolbar({
   } else {
     buttons = (
       <>
-        <ToolButton icon="add" label="Add" onClick={onAdd} variant="primary" buttonRef={addButtonRef} />
+        <ToolButton
+          icon="add"
+          label={addLimit && addLimit.used >= addLimit.max ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+          ariaLabel={addLimit && addLimit.used >= addLimit.max ? `Layer limit reached: ${addLimit.max} a pass` : undefined}
+          disabled={addLimit !== undefined && addLimit.used >= addLimit.max}
+          onClick={onAdd}
+          variant="primary"
+          buttonRef={addButtonRef}
+        />
         <ToolButton icon="done" label={doneLabel} onClick={onDone} />
       </>
     )

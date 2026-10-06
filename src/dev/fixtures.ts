@@ -23,10 +23,31 @@ export const FIXTURE_PHASES: readonly FixturePhase[] = [
   'missing',
   'vote',
   'awards',
+  'pass',
+  'chainReveal',
+  'chainVote',
+  'chainAwards',
   'scores',
 ]
 
 export const YOU_ID = 'you'
+
+// stand-ins for chain passes: local cut-out assets
+const PASS_IMAGES = [
+  '/assets/animals/animals-adorable-15904-full.webp',
+  '/assets/props/props-acoustic-4900731-full.webp',
+  '/assets/animals/animals-alpaca-7313977-full.webp',
+]
+
+// two chains of three passes, by the fixture players in turn
+function CHAINS(base: { players: Player[] }) {
+  const ids = base.players.map((p) => p.id)
+  return [0, 1].map((c) => ({
+    id: `c1-${c + 1}`,
+    prompt: c === 0 ? 'Cat Wearing Sunglasses' : 'Horse Doing Taxes',
+    passes: PASS_IMAGES.map((imagePath, k) => ({ authorId: ids[(c + k) % ids.length] ?? YOU_ID, imagePath })),
+  }))
+}
 
 export const FIXTURE_PLAYERS: Player[] = [
   { id: YOU_ID, name: 'Sam', isHost: true, presence: 'present', score: 1500 },
@@ -167,6 +188,30 @@ export function fixtureSnapshot(
       }
       break
     }
+    case 'pass':
+      state = { phase: 'pass', round, totalRounds, pass: 1, passCount: 3, unit: round * 10 + 1, deadline: now + 90_000, collecting: false }
+      break
+    case 'chainReveal':
+      state = { phase: 'chainReveal', round, totalRounds, chains: CHAINS(base), startsAt: now, skipped: false, deadline: now + 60_000 }
+      break
+    case 'chainVote':
+      state = {
+        phase: 'chainVote',
+        round,
+        totalRounds,
+        chains: CHAINS(base).map((c) => ({ id: c.id, passes: c.passes.map((p) => p.imagePath) })),
+        deadline: now + 120_000,
+      }
+      break
+    case 'chainAwards':
+      state = {
+        phase: 'chainAwards',
+        round,
+        totalRounds,
+        chains: CHAINS(base).map((c, i) => ({ ...c, votes: i === 0 ? 3 : 1, best: i === 0, pointsEach: i === 0 ? 1400 : 0 })),
+        deadline: now + 8_000,
+      }
+      break
     case 'scores':
       state = {
         phase: 'scores',
@@ -206,6 +251,9 @@ export function fixtureSnapshot(
       hasActedThisPhase: false,
       ownOptionId: phase === 'guess' ? yourLie.id : null,
       ownVote: null,
+      pass:
+        phase === 'pass' ? { chainId: 'c1-1', prompt: null, underlay: [PASS_IMAGES[0] ?? ''], nextPass: null } : null,
+      chainVote: phase === 'chainVote' ? { votable: ['c1-2'], own: null } : null,
       build:
         phase === 'build'
           ? { windowEndsAt: now + 5_000, deadline: now + 95_000, swapsLeft: 2, canSwap: true, offered: null }

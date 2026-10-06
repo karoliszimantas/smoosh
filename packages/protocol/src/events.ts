@@ -38,6 +38,9 @@ export const SubmitVoteSchema = z.object({
 export const SwapPromptSchema = z.object({ round: z.number().int().positive() })
 export const KeepPromptSchema = z.object({ round: z.number().int().positive(), keep: z.enum(['original', 'swapped']) })
 export const BeginBuildSchema = z.object({ round: z.number().int().positive() })
+// chain: one favourite chain each, and the host's cut past the reveal
+export const SubmitChainVoteSchema = z.object({ round: z.number().int().positive(), chainId: z.string().min(1) })
+export const SkipChainRevealSchema = z.object({ round: z.number().int().positive() })
 // the host cuts the awards short: straight to the full wall
 export const SkipAwardsSchema = z.object({ round: z.number().int().positive() })
 
@@ -66,6 +69,8 @@ export interface ClientToServerEvents {
   'prompt:keep': (payload: z.infer<typeof KeepPromptSchema>, ack: (r: AckResult) => void) => void
   'build:begin': (payload: z.infer<typeof BeginBuildSchema>, ack: (r: AckResult) => void) => void
   'vote:submit': (payload: z.infer<typeof SubmitVoteSchema>, ack: (r: AckResult) => void) => void
+  'chainVote:submit': (payload: z.infer<typeof SubmitChainVoteSchema>, ack: (r: AckResult) => void) => void
+  'chainReveal:skip': (payload: z.infer<typeof SkipChainRevealSchema>, ack: (r: AckResult) => void) => void
   'awards:skip': (payload: z.infer<typeof SkipAwardsSchema>, ack: (r: AckResult) => void) => void
 }
 

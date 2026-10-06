@@ -7,7 +7,8 @@ import { getPromptStore } from './shared.ts'
 // If that list can't be reached yet, or has nothing for this mode, the
 // generated pool stands in, so a game can always start; the log says so.
 export function gamePrompts(mode: GameMode): readonly string[] {
-  const listed = getPromptStore().playable(mode)
+  // chain prompts are read, then built to, like Guess's — short ones
+  const listed = getPromptStore().playable(mode === 'chain' ? 'guess' : mode)
   if (listed === null) {
     console.warn(`[prompts] list not loaded — ${mode} game uses the generated pool`)
     return PROMPT_POOL

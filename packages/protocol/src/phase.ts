@@ -20,6 +20,14 @@ const PictureContextSchema = z.object({
   imagePath: z.string(),
 })
 
+// a finished chain: its passes in order (each just that pass's layers, on
+// a transparent ground), who made each, and the prompt it started from
+const ChainShownSchema = z.object({
+  id: z.string(),
+  prompt: z.string(),
+  passes: z.array(z.object({ authorId: PlayerIdSchema, imagePath: z.string() })),
+})
+
 const ScoreboardEntrySchema = z.object({
   playerId: PlayerIdSchema,
   total: z.number().int(),
@@ -97,6 +105,59 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     announcements: z.array(AwardSchema),
     startsAt: z.number(),
     skipped: z.boolean(),
+    deadline: z.number(),
+  }),
+
+  // chain: one pass — everyone with a chain this pass adds to it (each
+  // player's chain is in their snapshot). `unit` names this pass's uploads.
+  z.object({
+    phase: z.literal('pass'),
+    round: z.number().int().positive(),
+    totalRounds: z.number().int().positive(),
+    pass: z.number().int().nonnegative(),
+    passCount: z.number().int().positive(),
+    unit: z.number().int().positive(),
+    deadline: z.number(),
+    collecting: z.boolean(),
+  }),
+
+  // chain: each finished chain in turn — ghosts resolving pass by pass, its
+  // prompt last, then its artists. Chains only one person added to are left
+  // out. Played from `startsAt` on chainRevealTimeline; `skipped`: the host
+  // cut straight to the vote.
+  z.object({
+    phase: z.literal('chainReveal'),
+    round: z.number().int().positive(),
+    totalRounds: z.number().int().positive(),
+    chains: z.array(ChainShownSchema),
+    startsAt: z.number(),
+    skipped: z.boolean(),
+    deadline: z.number(),
+  }),
+
+  // chain: everyone picks one favourite chain — never one they added to
+  // (which ones those are is in each player's snapshot)
+  z.object({
+    phase: z.literal('chainVote'),
+    round: z.number().int().positive(),
+    totalRounds: z.number().int().positive(),
+    chains: z.array(z.object({ id: z.string(), passes: z.array(z.string()) })),
+    deadline: z.number(),
+  }),
+
+  // chain: the verdict — vote counts only, Best in Show to a chain, its
+  // points shared by its artists
+  z.object({
+    phase: z.literal('chainAwards'),
+    round: z.number().int().positive(),
+    totalRounds: z.number().int().positive(),
+    chains: z.array(
+      ChainShownSchema.extend({
+        votes: z.number().int().nonnegative(),
+        best: z.boolean(),
+        pointsEach: z.number().int().nonnegative(),
+      }),
+    ),
     deadline: z.number(),
   }),
 
