@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react'
 import type { Asset, ImageVariant, PixabayHit, SearchResult } from '../assets'
 import { LocalAssetSource, SearchError, pixabaySource } from '../assets'
-import { matchesCurated, mergeResults, promptTabs } from '../assets/search'
+import { mergeResults, promptTabs } from '../assets/search'
+import { buildIndex, searchAssets } from '../assetSearch'
+import { recordMissingWord } from '../assets/missingWords'
 import { CutFailed, canCutOnDevice, cutImage, subscribeCutAvailability, type CutProgress } from '../cutting/cutClient'
 import type { Placement } from './layerItem'
 import ReportDialog from './ReportDialog'
@@ -24,7 +26,8 @@ function CameraIcon() {
 const assetSource = new LocalAssetSource()
 
 // Several players typing at once is what blows the shared Pixabay rate limit —
-// manual search only fires once typing pauses.
+// a Pixabay search only fires once typing pauses. The library itself is
+// searched on every keystroke: it's local, and instant.
 const SEARCH_DEBOUNCE_MS = 500
 const MIN_MANUAL_CHARS = 2
 
@@ -61,10 +64,11 @@ type CardStatus = { kind: 'download'; pct: number } | { kind: 'cutting' } | { ki
 
 const PER_PAGE = 20
 
-// a word from the prompt (searched: curated + Pixabay) or, in freestyle,
-// where there's no prompt to take words from, a curated category (browsed —
-// no Pixabay call)
-type SheetTab = { kind: 'word' | 'category'; label: string; key: string }
+// A word from the player's prompt, pre-searched (library + Pixabay) — the
+// fastest way to what they need on a timer — and, last, All: the library by
+// category. With no prompt (freestyle, a blind chain pass) All is the only tab.
+type SheetTab = { kind: 'word' | 'all'; label: string; key: string }
+const ALL_TAB: SheetTab = { kind: 'all', label: 'All', key: '__all' }
 
 export default function AssetSheet({
   open,
@@ -108,14 +112,24 @@ export default function AssetSheet({
   }, [input])
 
   const tabs = useMemo((): SheetTab[] => {
-    if (!freestyle) return promptTabs(promptText).map((t) => ({ kind: 'word', label: t.label, key: t.term }))
-    // categories in manifest order, each once — known once curated loads
-    const seen = new Map<string, string>()
-    for (const e of curated ?? []) if (!seen.has(e.asset.category)) seen.set(e.asset.category, e.categoryLabel)
-    return [...seen].map(([key, label]) => ({ kind: 'category', label, key }))
-  }, [freestyle, promptText, curated])
+    const words = freestyle ? [] : promptTabs(promptText).map((t): SheetTab => ({ kind: 'word', label: t.label, key: t.term }))
+    return [...words, ALL_TAB]
+  }, [freestyle, promptText])
   const activeTab = tabIndex === null ? undefined : tabs[tabIndex]
 
+  // the library's categories, in manifest order — browsed inside All
+  const categories = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const e of curated ?? []) if (!seen.has(e.asset.category)) seen.set(e.asset.category, e.categoryLabel)
+    return [...seen].map(([key, label]) => ({ key, label }))
+  }, [curated])
+  const [categoryKey, setCategoryKey] = useState<string | null>(null)
+  const activeCategory = activeTab?.kind === 'all' ? (categoryKey ?? categories[0]?.key ?? null) : null
+
+  // the library: searched instantly, as typed
+  const index = useMemo(() => buildIndex(curated ?? []), [curated])
+  const libraryQuery = tabIndex === null ? input.trim().toLowerCase() : activeTab?.kind === 'word' ? activeTab.key : ''
+  // Pixabay: only once typing pauses (a tab's word is already settled)
   const manualTerm = input.trim() ? debouncedInput.trim().toLowerCase() : ''
   const activeTerm =
     tabIndex === null
@@ -125,7 +139,6 @@ export default function AssetSheet({
       : activeTab?.kind === 'word'
         ? activeTab.key
         : null
-  const activeCategory = activeTab?.kind === 'category' ? activeTab.key : null
 
   useEffect(() => {
     if (!open || curated) return
@@ -220,19 +233,48 @@ export default function AssetSheet({
 
   const termState = activeTerm ? terms[activeTerm] : undefined
 
+  const libraryMatches = useMemo(() => (libraryQuery ? searchAssets(index, libraryQuery) : []), [index, libraryQuery])
+
   const results = useMemo(() => {
     if (activeCategory) {
       const assets = (curated ?? []).filter((e) => e.asset.category === activeCategory).map((e) => e.asset)
       return mergeResults(assets, [])
     }
-    if (!activeTerm) return []
-    const curatedMatches = (curated ?? [])
-      .filter((e) => matchesCurated(e.asset, e.categoryLabel, activeTerm))
-      .map((e) => e.asset)
-    return mergeResults(curatedMatches, termState?.hits ?? []).filter(
-      (r) => r.pixabayId === null || r.tier === 1 || !hidden.has(r.pixabayId),
-    )
-  }, [activeTerm, activeCategory, curated, termState, hidden])
+    if (!libraryQuery) return []
+    // Pixabay's hits only once they're for what's in the box now — never a
+    // stale search under fresh library results
+    const hits = activeTerm === libraryQuery ? (termState?.hits ?? []) : []
+    return mergeResults(libraryMatches, hits).filter((r) => r.pixabayId === null || r.tier === 1 || !hidden.has(r.pixabayId))
+  }, [activeCategory, curated, libraryQuery, libraryMatches, activeTerm, termState, hidden])
+
+  // a prompt word the library has nothing for: shown as an empty tab (the
+  // player should know), and counted (so the library can grow where it's thin)
+  const loggedMissing = useRef(new Set<string>())
+  const missingWord = activeTab?.kind === 'word' && curated !== null && libraryMatches.length === 0 ? activeTab.key : null
+  useEffect(() => {
+    if (!open || !missingWord || loggedMissing.current.has(missingWord)) return
+    loggedMissing.current.add(missingWord)
+    recordMissingWord(missingWord)
+  }, [open, missingWord])
+
+  // with the keyboard up, the sheet fits what's left of the screen rather
+  // than sliding behind the keyboard — so the grid keeps more than one row
+  const [keyboard, setKeyboard] = useState<{ inset: number; height: number } | null>(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!open || !vv) return
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboard(inset > 80 ? { inset, height: vv.height } : null)
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [open])
 
   const selectTab = (index: number) => {
     lastTabIndex.current = index
@@ -342,15 +384,16 @@ export default function AssetSheet({
 
   const showSkeleton =
     (activeTerm !== null && results.length === 0 && (termState?.loading ?? true) && !termState?.error) ||
-    // freestyle's category tabs appear once curated loads
-    (freestyle && tabIndex !== null && curated === null)
+    // the library is still on its way
+    (curated === null && (activeCategory !== null || libraryQuery !== ''))
 
   return (
     <>
       <div className={`sheet-backdrop${open ? ' open' : ''}`} onClick={onClose} aria-hidden="true" />
       <div
         ref={sheetRef}
-        className={`asset-sheet${open ? ' open' : ''}`}
+        className={`asset-sheet${open ? ' open' : ''}${keyboard ? ' keyboard-open' : ''}`}
+        style={keyboard ? { bottom: keyboard.inset, height: keyboard.height } : undefined}
         role="dialog"
         aria-modal="true"
         aria-label="Add to canvas"
@@ -398,7 +441,7 @@ export default function AssetSheet({
           <div
             className="asset-sheet-tabs"
             role="tablist"
-            aria-label={freestyle ? 'Picture categories' : 'Words from your prompt'}
+            aria-label="Words from your prompt, and the whole library"
           >
             {tabs.map((tab, i) => (
               <button
@@ -414,7 +457,31 @@ export default function AssetSheet({
           </div>
         )}
 
+        {/* All: the library by category */}
+        {activeTab?.kind === 'all' && categories.length > 0 && (
+          <div className="asset-sheet-categories" role="tablist" aria-label="Library categories">
+            {categories.map((c) => (
+              <button
+                key={c.key}
+                role="tab"
+                aria-selected={c.key === activeCategory}
+                className={`asset-sheet-category${c.key === activeCategory ? ' active' : ''}`}
+                onClick={() => setCategoryKey(c.key)}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="asset-sheet-grid">
+          {/* a word the library hasn't got: always said plainly, whatever
+              Pixabay is doing — before anything it found */}
+          {libraryQuery && curated !== null && libraryMatches.length === 0 && (
+            <p className="asset-sheet-message library-miss">
+              Nothing in the library for “{libraryQuery}”{results.length > 0 ? ' — these are from Pixabay.' : '.'}
+            </p>
+          )}
           {/* Pixabay's one condition for free API use: wherever its search
               results are shown, say where they come from */}
           {termState && termState.hits.length > 0 && (
@@ -425,10 +492,8 @@ export default function AssetSheet({
               </a>
             </p>
           )}
-          {activeTerm === null && activeCategory === null && !showSkeleton ? (
-            <p className="asset-sheet-message">
-              {tabIndex === null ? 'Keep typing…' : 'Search for anything to add to your picture.'}
-            </p>
+          {!libraryQuery && activeCategory === null && !showSkeleton ? (
+            <p className="asset-sheet-message">Search for anything to add to your picture.</p>
           ) : showSkeleton ? (
             Array.from({ length: 6 }, (_, i) => <div key={i} className="result-card skeleton" aria-hidden="true" />)
           ) : (
@@ -453,7 +518,10 @@ export default function AssetSheet({
                   <button onClick={() => fetchPage(activeTerm, termState.nextPage ?? 1)}>Retry</button>
                 </div>
               ) : results.length === 0 ? (
-                <p className="asset-sheet-message">No pictures of “{activeTerm}”. Try another word.</p>
+                <p className="asset-sheet-message">
+                  No pictures of “{activeTerm}” — not in the library, not on Pixabay. Try a nearby word: an animal, a
+                  thing, a place.
+                </p>
               ) : termState.nextPage !== null ? (
                 <button className="asset-sheet-more" onClick={() => fetchPage(activeTerm, termState.nextPage ?? 1)}>
                   More

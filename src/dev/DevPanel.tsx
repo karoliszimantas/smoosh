@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { activeFaultCount, useDevState, type UploadFault } from './devStore'
 import { FIXTURE_PLAYERS, type FixturePhase } from './fixtures'
 import type { DevControls } from './devTools'
+import { clearMissingWords, missingWords } from '../assets/missingWords'
 import './devPanel.css'
 
 const DELAYS = [0, 1000, 5000, 15000] as const
@@ -32,6 +33,25 @@ const JUMPS: { phase: FixturePhase; label: string; yours?: boolean; exhibition?:
   { phase: 'scores', label: 'exhibition', exhibition: true },
   { phase: 'lobby', label: 'lobby' },
 ]
+
+// prompt words the library had nothing for, counted on this device
+function MissingWords() {
+  const [words, setWords] = useState(() => missingWords())
+  if (words.length === 0) return <p className="devp-note">None yet.</p>
+  return (
+    <>
+      <p className="devp-note">{words.map(([w, n]) => `${w} ×${n}`).join(' · ')}</p>
+      <button
+        onClick={() => {
+          clearMissingWords()
+          setWords([])
+        }}
+      >
+        Clear
+      </button>
+    </>
+  )
+}
 
 function seconds(ms: number): string {
   return ms === 0 ? 'off' : `${ms / 1000}s`
@@ -200,6 +220,10 @@ export default function DevPanel({ controls }: { controls: DevControls }) {
           value={state.slowImagesMs}
           onChange={(slowImagesMs) => store.set({ slowImagesMs })}
         />
+      </Section>
+
+      <Section title="Library misses (prompt words with nothing)">
+        <MissingWords />
       </Section>
 
       <Section title="Jump to (this device, until the next update)">

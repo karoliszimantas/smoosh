@@ -95,6 +95,10 @@ export class PixabayAssetSource implements AssetSource {
         w: hit.w,
         h: hit.h,
         label: labelFromTags(hit.tags),
+        tags: hit.tags
+          .split(',')
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean),
       }
     })
   }

@@ -12,6 +12,9 @@ export type Asset = {
   w: number
   h: number
   label: string
+  // search words beyond the label (synonyms, plurals, related things) —
+  // absent from manifests published before tags existed
+  tags: string[]
 }
 
 export type AssetSource = {

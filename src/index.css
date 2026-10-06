@@ -3233,3 +3233,55 @@ h2.awards-wall-title {
     animation: none;
   }
 }
+
+/* ---------- the picker: All's categories, and the keyboard ---------- */
+
+/* the library's categories, inside the All tab: smaller than the word tabs
+   above, so the two rows read as tabs and sub-tabs */
+.asset-sheet-categories {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 10px;
+  overflow-x: auto;
+}
+
+.asset-sheet-category {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--chrome-text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.asset-sheet-category.active {
+  border-color: var(--primary-bg);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+/* a word the library hasn't got, said once above whatever Pixabay found */
+.asset-sheet-message.library-miss {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+/* keyboard up: the sheet is sized to what's left of the screen (in JS, from
+   visualViewport) and gives the grid every row it can — the photo row and
+   its note step aside while typing */
+.asset-sheet.keyboard-open {
+  border-radius: 0;
+  transition: none;
+}
+
+.asset-sheet.keyboard-open .sheet-handle,
+.asset-sheet.keyboard-open .photo-entry {
+  display: none;
+}

@@ -7,6 +7,15 @@ import { removeBackground } from '@imgly/background-removal-node'
 import { CATEGORIES } from './categories.ts'
 import type { SourceRow } from './sourceRow.ts'
 import { parseCsv } from './csv.ts'
+import {
+  IMAGE_RE,
+  loadAssetLabels,
+  orphanedRows,
+  rawAssetIds,
+  reportOrphans,
+  reportProblems,
+  slugify,
+} from './assetLabels.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -21,8 +30,6 @@ const FULL_SIZE = 800
 const THUMB_SIZE = 160
 // guard against decompression bombs in raw input files
 const MAX_INPUT_PIXELS = 40_000_000
-const IMAGE_RE = /\.(jpe?g|png|webp)$/i
-
 interface ManifestAsset {
   id: string
   c: string
@@ -31,6 +38,8 @@ interface ManifestAsset {
   w: number
   h: number
   l: string
+  // search words beyond the label: synonyms, plurals, related things
+  tags?: string[]
 }
 
 interface ManifestCategory {
@@ -97,13 +106,6 @@ function mimeFor(filename: string): string {
   return 'image/png'
 }
 
-function slugify(filename: string): string {
-  return filename
-    .replace(/\.[^.]+$/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 
 function humanize(filename: string): string {
   const base = filename
@@ -275,6 +277,12 @@ async function processFile(
 
 async function main(): Promise<void> {
   const sources = await loadSources()
+  // checked before any cutting: a bad row stops the run, not halfway through
+  const { labels, problems } = await loadAssetLabels()
+  if (problems.length > 0) {
+    reportProblems(problems)
+    process.exit(1)
+  }
   const previousDims = await loadPreviousDimensions()
   const manifestAssets: ManifestAsset[] = []
   const provenance: Provenance = {}
@@ -295,6 +303,12 @@ async function main(): Promise<void> {
 
       try {
         const { id, w, h } = await processFile(category.id, filename, previousDims)
+        // asset-labels.tsv: the reviewed label and tags, or taken out
+        const entry = labels.get(id)
+        if (entry?.remove) {
+          console.log(`[removed] ${id} (asset-labels.tsv)`)
+          continue
+        }
 
         manifestAssets.push({
           id,
@@ -303,7 +317,10 @@ async function main(): Promise<void> {
           t: `/assets/${category.id}/${id}-thumb.webp`,
           w,
           h,
-          l: humanize(filename),
+          // a reviewed label wins; the filename is only a fallback for an
+          // asset nobody has labelled yet
+          l: entry?.label || humanize(filename),
+          ...(entry && entry.tags.length > 0 ? { tags: entry.tags } : {}),
         })
         categoryCounts.set(category.id, (categoryCounts.get(category.id) ?? 0) + 1)
 
@@ -343,6 +360,8 @@ async function main(): Promise<void> {
   console.log(`\nwrote ${manifestAssets.length} assets -> ${path.relative(process.cwd(), MANIFEST_PATH)}`)
 
   await reportOrphanedOutputs(new Set(manifestAssets.map((a) => a.id)))
+  const known = await rawAssetIds()
+  if (known) reportOrphans(orphanedRows(labels, known))
 }
 
 main().catch((err: unknown) => {

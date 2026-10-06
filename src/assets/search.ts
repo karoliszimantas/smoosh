@@ -2,11 +2,20 @@ import type { Asset, PixabayHit, SearchResult } from './types'
 
 // ---------- prompt → tabs
 
-// The spec'd list, plus the few function words the prompt generator actually
-// emits ("Working as a Chef") that would otherwise become useless tabs.
+// Function words, plus the verbs and modifiers the prompt generator uses
+// that name nothing you could pick from a library — "Crab Performing Heart
+// Surgery" is Crab · Heart · Surgery. Verbs that do name a thing stay:
+// "Chainsawing" finds the chainsaw (assetSearch tries it without -ing).
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'of', 'in', 'at', 'and', 'or', 'with', 'to', 'for', 'on',
   'as', 'is', 'are', 'by', 'from', 'into', 'its', 'his', 'her', 'their',
+  'over', 'about', 'very', 'everyone',
+  'performing', 'doing', 'having', 'getting', 'making', 'taking', 'being',
+  'playing', 'singing', 'juggling', 'stealing', 'pushing', 'directing', 'unclogging',
+  'hoarding', 'guarding', 'licking', 'hugging', 'riding', 'packing', 'drinking',
+  'selling', 'blowing', 'carrying', 'eating', 'fighting', 'starting', 'racing',
+  'robbing', 'arguing', 'wearing', 'holding', 'working', 'sitting', 'standing',
+  'giant', 'tiny', 'mysterious', 'stolen', 'whole', 'full', 'last', 'awkward', 'first', 'panic',
 ])
 
 export type PromptTab = { label: string; term: string }
@@ -29,7 +38,7 @@ export function promptTabs(prompt: string): PromptTab[] {
 // ---------- curated (tier 1) matching
 
 // crude singular form so "goats" finds the curated "Goat" and vice versa
-function stem(word: string): string {
+export function stem(word: string): string {
   if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
   if (word.length > 3 && /(s|x|z|ch|sh)es$/.test(word)) return word.slice(0, -2)
   if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)

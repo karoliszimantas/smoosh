@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "cut": "tsx cut.ts",
+    "relabel": "tsx relabel.ts",
     "fetch": "tsx fetch.ts",
     "publish": "tsx --env-file=.env publish.ts",
     "typecheck": "tsc --noEmit",

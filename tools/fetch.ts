@@ -103,9 +103,12 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-function slugForHit(hit: PixabayHit): string {
-  const firstTag = hit.tags.split(',')[0] ?? ''
-  return slugify(firstTag) || 'image'
+// Named after what was searched for, not the photo's first Pixabay tag:
+// that tag is often a mood word ("adorable", "cute", "isolated"), and it
+// used to become the asset's label. The query is the subject the library
+// wanted. (Labels proper come from asset-labels.tsv; this is the fallback.)
+function slugForHit(hit: PixabayHit, query: string): string {
+  return slugify(query) || slugify(hit.tags.split(',')[0] ?? '') || 'image'
 }
 
 function detectHasPeople(tags: string): boolean {
@@ -315,7 +318,7 @@ async function main(): Promise<void> {
   for (const [i, idx] of indices.entries()) {
     const hit = json.hits[idx]
     if (!hit) continue // idx came from parseIndices, already bounded — defensive only
-    const filename = `${slugForHit(hit)}-${hit.id}.jpg`
+    const filename = `${slugForHit(hit, queryArg)}-${hit.id}.jpg`
 
     if (existingFilenames.has(filename)) {
       console.log(`[skip] ${filename} already in sources.csv`)

@@ -8,6 +8,8 @@ type ManifestAsset = {
   w: number
   h: number
   l: string
+  // optional: manifests published before tags existed have none
+  tags?: string[]
 }
 
 type Manifest = {
@@ -55,7 +57,8 @@ function isManifest(value: unknown): value is Manifest {
 }
 
 function toAsset(a: ManifestAsset): Asset {
-  return { id: a.id, category: a.c, full: a.f, thumb: a.t, w: a.w, h: a.h, label: a.l }
+  const tags = Array.isArray(a.tags) ? a.tags.filter((t): t is string => typeof t === 'string') : []
+  return { id: a.id, category: a.c, full: a.f, thumb: a.t, w: a.w, h: a.h, label: a.l, tags }
 }
 
 // Defaults to the manifest cut.ts writes locally so dev works without R2;
