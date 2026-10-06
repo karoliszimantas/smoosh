@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
+import { actionErrorText } from '../roomMessages'
 
 export default function GuessView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
@@ -20,7 +21,7 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
     setPicked(optionId)
     const res = await emit('guess:submit', { pictureIndex: phase.pictureIndex, optionId })
     if (!res.ok) {
-      setError(res.message)
+      setError(actionErrorText(res.code))
       setPicked(null)
     }
   }

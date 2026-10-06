@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { RoomSnapshot } from '@smoosh/protocol'
+import type { ErrorCode, RoomSnapshot } from '@smoosh/protocol'
 import type { GameConnection } from '../useGameConnection'
 import { useCountdown } from '../useCountdown'
+import { actionErrorText } from '../roomMessages'
 
 type Build = NonNullable<RoomSnapshot['you']['build']>
 
@@ -25,13 +26,13 @@ export default function PromptWindow({
   const [error, setError] = useState<string | null>(null)
   if (build.windowEndsAt === null || remainingMs <= 0) return null
 
-  const send = async (run: () => Promise<{ ok: boolean; message?: string }>) => {
+  const send = async (run: () => Promise<{ ok: true } | { ok: false; code: ErrorCode }>) => {
     if (busy) return
     setBusy(true)
     setError(null)
     const res = await run()
     setBusy(false)
-    if (!res.ok) setError(res.message ?? 'Try again.')
+    if (!res.ok) setError(actionErrorText(res.code))
   }
   const seconds = Math.ceil(remainingMs / 1000)
 

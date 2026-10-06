@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import DeadlineTimer from '../DeadlineTimer'
 import { ChainPicture } from './ChainPicture'
+import { actionErrorText } from '../roomMessages'
 
 // One favourite chain each — never one you added to. No names, no prompts.
 export default function ChainVoteView({ snapshot, emit }: PhaseProps) {
@@ -19,7 +20,7 @@ export default function ChainVoteView({ snapshot, emit }: PhaseProps) {
     setSending(true)
     const res = await emit('chainVote:submit', { round: phase.round, chainId: pick })
     setSending(false)
-    if (!res.ok) setError(res.message)
+    if (!res.ok) setError(actionErrorText(res.code))
   }
 
   return (

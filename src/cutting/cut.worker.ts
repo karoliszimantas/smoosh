@@ -44,7 +44,7 @@ function canvas2d(w: number, h: number): OffscreenCanvasRenderingContext2D {
 
 async function fetchDownscaled(url: string): Promise<Blob> {
   const res = await fetch(url)
-  if (!res.ok) throw new ImageError(`Couldn't load this image (HTTP ${res.status}).`)
+  if (!res.ok) throw new ImageError("Couldn't load this image.")
   const bitmap = await createImageBitmap(await res.blob())
   const scale = Math.min(1, MAX_INPUT_PX / Math.max(bitmap.width, bitmap.height))
   const w = Math.round(bitmap.width * scale)

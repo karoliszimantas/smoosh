@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import type { PictureProps } from '../game/ServerPicture'
 import { SERVER_URL } from '../game/serverUrl'
 import { useDevState, type DevStore } from './devStore'
+import PicturePlaceholder from '../game/PicturePlaceholder'
 
 // a WebP header with nothing after it — the browser's own broken-image
 // rendering, without asking the server for anything
@@ -16,6 +17,7 @@ export function makeDevPicture(
   return function DevPicture({ imagePath }: PictureProps) {
     const { brokenImageOf, slowImagesMs } = useDevState(store)
     const [loaded, setLoaded] = useState(slowImagesMs === 0)
+    const [broken, setBroken] = useState<string | null>(null)
 
     useEffect(() => {
       if (slowImagesMs === 0) return
@@ -26,7 +28,8 @@ export function makeDevPicture(
     const playerId = imagePath.split('/').pop() ?? ''
     let src = imagePath.startsWith('solo/') ? soloPicture(playerId) : `${SERVER_URL}${imagePath}`
     if (brokenImageOf !== null && playerId === brokenImageOf) src = BROKEN_SRC
-    // no src yet is how a slow picture looks: nothing, at no size, until it arrives
-    return <img className="picture-display" src={loaded ? src : undefined} alt="" />
+    // no src yet is how a slow picture looks: an empty box, its size kept, until it arrives
+    if (broken === src) return <PicturePlaceholder />
+    return <img className="picture-display" src={loaded ? src : undefined} alt="" onError={() => setBroken(src)} />
   }
 }

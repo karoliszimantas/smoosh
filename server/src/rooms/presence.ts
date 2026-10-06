@@ -34,6 +34,10 @@ export type PresenceDeps = PhaseMachineDeps & {
   dispose: (room: Room) => void
 }
 
+// how long an away player still counts toward a phase's answers — longer
+// than a blip, short enough that nobody waits on a phone that's really gone
+export const AWAY_RESPONSE_GRACE_MS = 4000
+
 // A socket has (re)attached to this seat — a new join, a reload, a
 // reconnect, the page coming back to the foreground.
 export function seatArrived(room: Room, deps: PresenceDeps, seat: Seat, socketId: string): void {
@@ -42,6 +46,8 @@ export function seatArrived(room: Room, deps: PresenceDeps, seat: Seat, socketId
   if (!returning) return
 
   cancelLobbyRelease(room, seat.playerId)
+  // back inside the grace: they were never stopped being waited on
+  cancelAwayGrace(room, seat.playerId)
   seat.presence = 'present'
   seat.presentSince = Date.now()
   if (room.emptyTimer) clearTimeout(room.emptyTimer)
@@ -110,13 +116,40 @@ function waitsForAway(room: Room): boolean {
 // (seatArrived sorts out who's expected when someone is back); otherwise
 // every phase would see "nobody left to wait for" and the game would play
 // itself out to the end with nobody watching.
+//
+// Away isn't gone, though: a phone in a lift, a wifi handover, a second in
+// the app switcher. An away player is still expected for
+// AWAY_RESPONSE_GRACE_MS — back inside it, they answer as if nothing
+// happened; still away after it, the phase stops waiting on them. Leaving
+// on purpose stops it at once. (Holding the seat itself is separate, and
+// much longer — see EMPTY_ROOM_HOLD_MS and the lobby release.)
 function stopWaitingOn(room: Room, deps: PresenceDeps, seat: Seat): void {
   if (presentSeats(room).length === 0) {
     pausePhaseClock(room)
     return
   }
   if (seat.presence === 'away' && waitsForAway(room)) return
+  if (seat.presence === 'away') {
+    cancelAwayGrace(room, seat.playerId)
+    room.awayGraceTimers.set(
+      seat.playerId,
+      setTimeout(() => {
+        room.awayGraceTimers.delete(seat.playerId)
+        // back since, or the room has emptied and frozen: nothing to do
+        if (seat.presence !== 'away' || presentSeats(room).length === 0) return
+        dropPendingActor(room, deps, seat.playerId)
+      }, AWAY_RESPONSE_GRACE_MS),
+    )
+    return
+  }
+  cancelAwayGrace(room, seat.playerId)
   dropPendingActor(room, deps, seat.playerId)
+}
+
+function cancelAwayGrace(room: Room, playerId: string): void {
+  const timer = room.awayGraceTimers.get(playerId)
+  if (timer) clearTimeout(timer)
+  room.awayGraceTimers.delete(playerId)
 }
 
 // ---------- the lobby

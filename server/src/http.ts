@@ -12,7 +12,9 @@ import { handleMediaRequest } from './media/routes.ts'
 import { handlePromptsRequest, PROMPT_CORS_HEADERS } from './prompts/routes.ts'
 import { handleLabelsRequest } from './labels/routes.ts'
 
-const MAX_UPLOAD_BYTES = 1_000_000
+// R2 takes far more; this is a guard, not a budget. A busy 1024px picture
+// can pass 1MB, and the phone re-encodes smaller if it's ever refused
+const MAX_UPLOAD_BYTES = 5_000_000
 
 // shown to the player as-is, so it says what happened to their picture
 const REJECTION_MESSAGES: Record<SubmissionRejection, string> = {

@@ -49,7 +49,7 @@ async function call(method: string, path: string, body?: unknown): Promise<Respo
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     })
   } catch {
-    throw new PromptApiError('offline', "Can't reach the server. Check your connection and try again.")
+    throw new PromptApiError('offline', "Can't connect. Check your connection and try again.")
   }
   if (!res.ok) {
     let message = 'Something went wrong. Try again.'

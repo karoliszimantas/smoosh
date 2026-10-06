@@ -99,7 +99,7 @@ function useTopBannerOffset(): number {
   useEffect(() => {
     const measure = () => {
       let bottom = 0
-      for (const el of document.querySelectorAll('.reconnect-banner, .game-notice')) {
+      for (const el of document.querySelectorAll('.notice-region .notice')) {
         bottom = Math.max(bottom, el.getBoundingClientRect().bottom)
       }
       setOffset(bottom)

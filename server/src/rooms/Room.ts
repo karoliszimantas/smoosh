@@ -49,6 +49,9 @@ export type Room = {
   hostTimer: NodeJS.Timeout | null
   // lobby only: an away player's seat is released when theirs fires
   lobbyReleaseTimers: Map<string, NodeJS.Timeout>
+  // an away player is still waited on for a few seconds (see presence.ts,
+  // AWAY_RESPONSE_GRACE_MS) — the timers that stop it, by player
+  awayGraceTimers: Map<string, NodeJS.Timeout>
   pendingActors: Set<string> // playerId — who must still act for the phase to early-advance
   round: number
   pictureQueue: PictureSlot[] // this round's presentation order, one slot per player
@@ -100,6 +103,7 @@ export function createRoom(code: string): Room {
     emptyTimer: null,
     hostTimer: null,
     lobbyReleaseTimers: new Map(),
+    awayGraceTimers: new Map(),
     pendingActors: new Set(),
     round: 0,
     pictureQueue: [],
@@ -154,6 +158,8 @@ export function clearRoomTimers(room: Room): void {
   room.hostTimer = null
   for (const t of room.lobbyReleaseTimers.values()) clearTimeout(t)
   room.lobbyReleaseTimers.clear()
+  for (const t of room.awayGraceTimers.values()) clearTimeout(t)
+  room.awayGraceTimers.clear()
 }
 
 export function allRooms(): IterableIterator<Room> {

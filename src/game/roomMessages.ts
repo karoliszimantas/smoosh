@@ -81,3 +81,28 @@ export function leaveDialogText(opts: { roomCode: string; isLobby: boolean; isHo
     body: `The others will keep playing without you.${host} You can rejoin with the room code ${opts.roomCode}.`,
   }
 }
+
+// why a tap during a round (a lie, a guess, a vote, a prompt swap) didn't
+// count — fixed words, never the server's own text
+export function actionErrorText(code: ErrorCode): string {
+  switch (code) {
+    case 'LIE_MATCHES_TRUTH':
+      return 'That’s the real prompt — write something else.'
+    case 'LIE_DUPLICATE':
+      return 'Someone already wrote that — try something else.'
+    case 'CANNOT_PICK_OWN':
+      return 'That one’s yours — pick another.'
+    case 'ALREADY_ACTED':
+      return 'You’ve already done that this round.'
+    case 'PHASE_MISMATCH':
+      return 'Too late — the game has moved on.'
+    default:
+      return 'That didn’t work. Try again.'
+  }
+}
+
+export const RECONNECTING_TEXT = 'Reconnecting…'
+
+// a picture that isn't there, as everyone else sees it, and as its player does
+export const NO_PICTURE_TEXT = 'No picture this round'
+export const YOUR_PICTURE_MISSING_TEXT = "Your picture didn't make it this round"

@@ -26,7 +26,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     })
   } catch {
-    throw new LabelsApiError('offline', "Can't reach the server. Check your connection and try again.")
+    throw new LabelsApiError('offline', "Can't connect. Check your connection and try again.")
   }
   const data = (await res.json().catch(() => ({}))) as { error?: unknown; message?: unknown }
   if (!res.ok) {

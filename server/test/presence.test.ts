@@ -12,6 +12,7 @@ import {
   HOST_AWAY_GRACE_MS,
   LOBBY_SEAT_HOLD_MS,
   type PresenceDeps,
+  AWAY_RESPONSE_GRACE_MS,
 } from '../src/rooms/presence.ts'
 import {
   startBuild,
@@ -126,7 +127,7 @@ describe('away', () => {
     expect(h.seat(2).score).toBe(1500)
   })
 
-  it('after BUILD, the room stops waiting on them straight away', () => {
+  it('after BUILD, the room stops waiting on them once they have been away 4 seconds', () => {
     const h = setup()
     buildToLie(h)
     actAll(h) // -> guess
@@ -136,6 +137,9 @@ describe('away', () => {
     const seat = h.room.seats.get(absent)
     if (!seat) throw new Error('no seat')
     seatAway(h.room, h.deps, seat)
+    // a blip isn't a departure: still expected for a moment
+    expect(h.room.pendingActors.has(absent)).toBe(true)
+    vi.advanceTimersByTime(AWAY_RESPONSE_GRACE_MS)
     expect(h.room.pendingActors.has(absent)).toBe(false)
     // everyone still here guesses: on to the reveal, without the away player
     for (const id of rest) {
@@ -157,11 +161,58 @@ describe('away', () => {
     if (!seat) throw new Error('no seat')
 
     seatAway(h.room, h.deps, seat)
+    vi.advanceTimersByTime(AWAY_RESPONSE_GRACE_MS)
     expect(h.room.pendingActors.has(guesser)).toBe(false)
     seatArrived(h.room, h.deps, seat, 'socket-new')
     // never "already guessed" for a guess they didn't make
     expect(h.room.pendingActors.has(guesser)).toBe(true)
     expect(authorId).not.toBe(guesser)
+  })
+
+  it('a 2-second drop mid-guess: still expected throughout, and their guess counts', () => {
+    const h = setup()
+    buildToLie(h)
+    actAll(h) // -> guess
+    const { pictureIndex } = expectPhase(h.room, 'guess')
+    const [blip, ...rest] = [...h.room.pendingActors]
+    if (!blip) throw new Error('no guessers')
+    const seat = h.room.seats.get(blip)
+    if (!seat) throw new Error('no seat')
+    // everyone else has guessed — the only one left is the one who drops
+    for (const id of rest) {
+      const option = optionsForPicture(h.room, pictureIndex).find((o) => o.authorId !== id)
+      if (option) recordGuess(h.room, pictureIndex, id, option.id)
+      dropPendingActor(h.room, h.deps, id)
+    }
+    seatAway(h.room, h.deps, seat)
+    vi.advanceTimersByTime(2000)
+    expectPhase(h.room, 'guess') // not moved on without them
+    seatArrived(h.room, h.deps, seat, 'socket-back')
+    vi.advanceTimersByTime(5000) // the old grace timer must not fire
+    expect(h.room.pendingActors.has(blip)).toBe(true)
+    const option = optionsForPicture(h.room, pictureIndex).find((o) => o.authorId !== blip)
+    if (option) recordGuess(h.room, pictureIndex, blip, option.id)
+    dropPendingActor(h.room, h.deps, blip)
+    expectPhase(h.room, 'reveal')
+  })
+
+  it('a 10-second drop: the phase goes on without them', () => {
+    const h = setup()
+    buildToLie(h)
+    actAll(h) // -> guess
+    const { pictureIndex } = expectPhase(h.room, 'guess')
+    const [gone, ...rest] = [...h.room.pendingActors]
+    if (!gone) throw new Error('no guessers')
+    for (const id of rest) {
+      const option = optionsForPicture(h.room, pictureIndex).find((o) => o.authorId !== id)
+      if (option) recordGuess(h.room, pictureIndex, id, option.id)
+      dropPendingActor(h.room, h.deps, id)
+    }
+    const seat = h.room.seats.get(gone)
+    if (!seat) throw new Error('no seat')
+    seatAway(h.room, h.deps, seat)
+    vi.advanceTimersByTime(10_000)
+    expectPhase(h.room, 'reveal')
   })
 
   it('coming back after already acting does not make them pending again', () => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
+import { actionErrorText } from '../roomMessages'
 
 export default function LieView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
@@ -20,7 +21,7 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
     if (!trimmed) return
     const res = await emit('lie:submit', { pictureIndex: phase.pictureIndex, text: trimmed })
     if (!res.ok) {
-      setError(res.message)
+      setError(actionErrorText(res.code))
       return
     }
     setError(null)

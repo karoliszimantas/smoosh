@@ -4,6 +4,7 @@ import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
 import { titleFor } from '../gallery/galleryText'
+import { actionErrorText } from '../roomMessages'
 
 // Gallery judging: the whole round hangs at once. Tap your favourite, then
 // your runner-up (tap again to take a pick back). Nobody's name is on the
@@ -44,7 +45,7 @@ export default function VoteView({ snapshot, emit }: PhaseProps) {
     setSending(true)
     const res = await emit('vote:submit', { round: phase.round, favourite, runnerUp: runnerUp ?? null })
     setSending(false)
-    if (!res.ok) setError(res.message)
+    if (!res.ok) setError(actionErrorText(res.code))
   }
 
   const instruction =

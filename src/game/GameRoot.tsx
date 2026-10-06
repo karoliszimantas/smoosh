@@ -15,11 +15,9 @@ import ChainRevealView from './chain/ChainRevealView'
 import ChainVoteView from './chain/ChainVoteView'
 import ChainAwardsView from './chain/ChainAwardsView'
 import MissingView from './phases/MissingView'
-import GameNotice from './GameNotice'
-import ReconnectBanner from './ReconnectBanner'
 import GameMenu from './GameMenu'
 import LeaveDialog from './LeaveDialog'
-import Toasts from './Toasts'
+import NoticeRegion from './NoticeRegion'
 import PresenceStrip from './PresenceStrip'
 import ReplacedView from './ReplacedView'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
@@ -78,7 +76,7 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
           notice={game.homeNotice}
           lastRoomCode={game.lastRoomCode}
         />
-        <Toasts toasts={game.toasts} onDone={game.dismissToast} />
+        <NoticeRegion toasts={game.toasts} onToastDone={game.dismissToast} />
       </>
     )
   }
@@ -86,13 +84,17 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const isLobby = snapshot.phase.phase === 'lobby'
   return (
     <>
-      {game.showReconnecting && <ReconnectBanner />}
-      {notice && <GameNotice message={notice} onDismiss={() => setNotice(null)} />}
       {!isLobby && <FloatingThemeSwitcher />}
       <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />
       <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
       {STRIP_PHASES.has(snapshot.phase.phase) && <PresenceStrip snapshot={snapshot} />}
-      <Toasts toasts={game.toasts} onDone={game.dismissToast} />
+      <NoticeRegion
+        reconnecting={game.showReconnecting}
+        alert={notice}
+        onDismissAlert={() => setNotice(null)}
+        toasts={game.toasts}
+        onToastDone={game.dismissToast}
+      />
       {confirmLeave && (
         <LeaveDialog
           roomCode={snapshot.roomCode}

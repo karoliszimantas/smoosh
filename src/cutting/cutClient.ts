@@ -148,12 +148,17 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
           resolve({ place: msg.place, upload: msg.upload })
           return
         case 'error':
-          fail(msg.message, msg.fatal)
+          // the worker's own words are for the console; the player gets fixed ones
+          console.warn('[cut] failed:', msg.message)
+          fail(msg.fatal ? 'Cutting isn’t available on this device — use Full instead.' : 'Couldn’t cut this image — use Full instead.', msg.fatal)
           return
       }
     }
 
-    const onError = (event: ErrorEvent) => fail(event.message || 'The cutter failed to start.', true)
+    const onError = (event: ErrorEvent) => {
+      console.warn('[cut] worker error:', event.message)
+      fail('Cutting isn’t available on this device — use Full instead.', true)
+    }
 
     w.addEventListener('message', onMessage)
     w.addEventListener('error', onError)

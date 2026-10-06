@@ -46,7 +46,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--reveal-filter': theme.revealFilter ?? 'none',
     // letterboxed: the picture sits in a full-width band with bars above and below
     '--reveal-letterbox': theme.revealLetterbox ? '28px' : '0px',
-    '--reveal-width': theme.revealLetterbox ? '100vw' : 'min(90vw, 480px)',
+    '--reveal-width': theme.revealLetterbox ? '100vw' : 'var(--picture-size)',
     '--page-bg': theme.pageBg,
     '--surface': theme.surface,
     '--scrim': theme.scrim,

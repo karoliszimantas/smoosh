@@ -8,6 +8,7 @@ import { canvasStorageKey, loadCanvasItems, clearCanvasItems } from '../canvasSt
 import { SERVER_URL } from '../serverUrl'
 import { useGameServices } from '../services'
 import { uploadPicture } from '../upload'
+import { shrinkPicture } from '../reencode'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
 import PromptWindow from './PromptWindow'
 import { PASS_LAYER_CAP } from '@smoosh/protocol'
@@ -71,18 +72,24 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
     setUpload({ status: 'sending' })
 
     const url = `${SERVER_URL}/submissions/${snapshot.roomCode}/${round}/${snapshot.you.playerId}`
-    const result = await uploadPicture(send, url, blob)
+    const result = await uploadPicture(send, url, blob, shrinkPicture)
     if (result.ok) {
       clearCanvasItems(storageKey, 'local')
       setUpload({ status: 'submitted' })
       return
     }
     busyRef.current = false
-    setUpload({ status: 'failed', message: result.message, canRetry: !result.final })
-    // a refusal means the round has moved on (or is about to), and a
-    // failure after this view is gone has nowhere else to show — either way,
-    // say so on whatever screen the player is on next
-    if (result.final || !mountedRef.current) onNotice(result.message)
+    // each message in one place only. A refusal means the round has moved
+    // on (or is about to): it goes to the notice region, which outlives this
+    // view. A failure worth retrying is shown here with Try again — and in
+    // the notice region only if this view is already gone.
+    if (result.final) {
+      setUpload({ status: 'refused' })
+      onNotice(result.message)
+      return
+    }
+    setUpload({ status: 'failed', message: result.message })
+    if (!mountedRef.current) onNotice(result.message)
   }
 
   // auto-submit with whatever exists when time runs out — by this phone's

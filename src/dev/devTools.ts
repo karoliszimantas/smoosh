@@ -93,6 +93,9 @@ export function createDevTools() {
     return { ...transport, onSnapshot: (fn) => void listeners.push(fn) }
   }
 
+  // '413 big' refuses a picture until it comes back smaller, as the real
+  // limit would
+  let refusedSize: number | null = null
   const upload: GameServices['upload'] = async (url, init) => {
     const { uploadDelayMs, uploadFault } = store.get()
     if (uploadDelayMs > 0) await sleep(uploadDelayMs)
@@ -101,8 +104,15 @@ export function createDevTools() {
         throw new TypeError('Failed to fetch (dev panel: forced network failure)')
       case 'too_late':
         return new Response(UPLOAD_MESSAGES.too_late, { status: 409 })
-      case 'too_large':
-        return new Response(UPLOAD_MESSAGES.too_large, { status: 413 })
+      case 'too_large': {
+        const size = init.body instanceof Blob ? init.body.size : 0
+        if (refusedSize === null || size >= refusedSize) {
+          refusedSize ??= size
+          return new Response(UPLOAD_MESSAGES.too_large, { status: 413 })
+        }
+        refusedSize = null
+        return solo ? solo.receiveUpload(init.body) : defaultServices.upload(url, init)
+      }
       case 'never':
         // the phone that never gets it out: no request, no answer, ever
         return new Promise<Response>(() => {})

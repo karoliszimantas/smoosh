@@ -60,20 +60,35 @@ function resolveVariant(v: ImageVariant): ImageVariant {
   return { full: resolveServerUrl(v.full), thumb: resolveServerUrl(v.thumb) }
 }
 
+// what the player reads when a search fails — fixed words by the error's
+// code, never the server's own text or a status code
+const SEARCH_FAILED = "Search didn't work. Try again."
+function searchErrorText(code: string): string {
+  switch (code) {
+    case 'rate_limited':
+      return 'Image search is busy right now — try again in a few seconds.'
+    case 'not_configured':
+    case 'unavailable':
+      return "Image search isn't available yet."
+    default:
+      return SEARCH_FAILED
+  }
+}
+
 async function errorFrom(res: Response): Promise<SearchError> {
+  let code = 'http_error'
   try {
     const body: unknown = await res.json()
     if (typeof body === 'object' && body !== null) {
-      const { error, message } = body as Record<string, unknown>
-      if (typeof error === 'string' && typeof message === 'string') return new SearchError(error, message)
+      const { error } = body as Record<string, unknown>
+      if (typeof error === 'string') code = error
     }
   } catch {
-    // not JSON — fall through
+    // not JSON — every /api/* error from the game server is, so a bare 404
+    // means it predates image search (deployed client, un-updated server)
+    if (res.status === 404) code = 'unavailable'
   }
-  // every /api/* error from our server is JSON — a bare 404 means the game
-  // server predates image search (deployed client, un-updated server)
-  if (res.status === 404) return new SearchError('unavailable', "Image search isn't available on this server yet.")
-  return new SearchError('http_error', `Request failed (${res.status}).`)
+  return new SearchError(code, searchErrorText(code))
 }
 
 export class PixabayAssetSource implements AssetSource {
@@ -113,11 +128,11 @@ export class PixabayAssetSource implements AssetSource {
       })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') throw err
-      throw new SearchError('network', "Couldn't reach the server. Check your connection.")
+      throw new SearchError('network', "Couldn't connect. Check your connection.")
     }
     if (!res.ok) throw await errorFrom(res)
     const json: unknown = await res.json()
-    if (!isSearchPage(json)) throw new SearchError('bad_response', 'Search returned something unexpected.')
+    if (!isSearchPage(json)) throw new SearchError('bad_response', SEARCH_FAILED)
     return {
       ...json,
       hits: json.hits.map((h) => ({
