@@ -3073,3 +3073,72 @@ h2.awards-wall-title {
   gap: 12px;
   font-size: 14px;
 }
+
+/* ---------- guess: the prompt window before the build clock ---------- */
+
+.prompt-window {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--scrim);
+}
+
+.prompt-window-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 360px);
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+}
+
+.prompt-window-kicker,
+.prompt-window-note,
+.prompt-window-clock {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.prompt-window-prompt {
+  font-size: 24px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.prompt-window-card button {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  font-size: 16px;
+}
+
+.prompt-window-start {
+  border: none;
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-weight: 700;
+}
+
+.prompt-window-swap {
+  border: 1px solid var(--chrome-border);
+  background: transparent;
+  color: var(--text);
+}
+
+/* the two prompts after a swap: either one, a tap */
+.prompt-window-choice {
+  border: 2px solid var(--primary-bg);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  letter-spacing: var(--display-tracking);
+  overflow-wrap: anywhere;
+}

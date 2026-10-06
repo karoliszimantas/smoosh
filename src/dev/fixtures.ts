@@ -206,6 +206,10 @@ export function fixtureSnapshot(
       hasActedThisPhase: false,
       ownOptionId: phase === 'guess' ? yourLie.id : null,
       ownVote: null,
+      build:
+        phase === 'build'
+          ? { windowEndsAt: now + 5_000, deadline: now + 95_000, swapsLeft: 2, canSwap: true, offered: null }
+          : null,
     },
   }
 }

@@ -2,6 +2,9 @@ import {
   AWARDS_HOLD_MS,
   DEFAULT_SETTINGS,
   EMPTY_BREAKDOWN,
+  PROMPT_CHOICE_SEC,
+  PROMPT_WINDOW_SEC,
+  swapAllowance,
   addToBreakdown,
   scorePicture,
   UPLOAD_MESSAGES,
@@ -92,6 +95,10 @@ export class SoloGame {
   private votes = new Map<string, { favourite: string; runnerUp: string | null }>()
   private exhibition: { round: number; prompt: string; authorId: string; imagePath: string }[] = []
   private roundPoints = new Map<string, PointsBreakdown>()
+  // your prompt window this build (guess), and swaps spent this game
+  private window: { endsAt: number; started: boolean; offered: string | null } | null = null
+  private swapsUsed = 0
+  private burned = new Set<string>()
   private gamePoints = new Map<string, PointsBreakdown>()
   private connections = new Set<Connection>()
   // emits made while "disconnected" — socket.io buffers these and sends
@@ -234,6 +241,10 @@ export class SoloGame {
   private startBuild(): void {
     this.round += 1
     this.roundPoints = new Map()
+    if (this.round === 1) {
+      this.swapsUsed = 0
+      this.burned = new Set()
+    }
     this.submitted = new Set(this.players.filter((p) => p.id !== YOU_ID && !this.skippers.has(p.id)).map((p) => p.id))
     if (this.yourPicture) URL.revokeObjectURL(this.yourPicture)
     this.yourPicture = null
@@ -243,6 +254,9 @@ export class SoloGame {
     this.prompts = new Map(
       this.players.map((p, i) => [p.id, this.settings.mode === 'gallery' ? shared : (prompts[i % prompts.length] ?? '')]),
     )
+    for (const prompt of this.prompts.values()) this.burned.add(prompt)
+    this.window =
+      this.settings.mode === 'guess' ? { endsAt: Date.now() + PROMPT_WINDOW_SEC * 1000, started: false, offered: null } : null
     this.phase = {
       phase: 'build',
       round: this.round,
@@ -479,6 +493,29 @@ export class SoloGame {
         this.startAwards()
         return ok
       }
+      // your prompt window — the server's rules, simplified (no timers here)
+      case 'prompt:swap': {
+        const w = this.window
+        if (phase.phase !== 'build' || !w || w.started || w.offered || Date.now() >= w.endsAt) return refused('too late to swap')
+        if (this.swapsUsed >= swapAllowance(this.settings.rounds)) return refused('no swaps left this game')
+        const offered = shuffle(PROMPTS.filter((p) => !this.burned.has(p)))[0]
+        if (!offered) return refused('no prompts to spare')
+        this.burned.add(offered)
+        this.swapsUsed += 1
+        this.window = { ...w, offered, endsAt: Math.max(w.endsAt, Date.now() + PROMPT_CHOICE_SEC * 1000) }
+        return ok
+      }
+      case 'prompt:keep':
+      case 'build:begin': {
+        const w = this.window
+        if (phase.phase !== 'build' || !w || w.started) return ok
+        const keep = event === 'prompt:keep' ? (payload as EmitPayload<'prompt:keep'>).keep : 'swapped'
+        if (w.offered && keep === 'swapped') this.prompts.set(YOU_ID, w.offered)
+        // the clock starts now: your build gets its full time from here
+        this.window = { endsAt: Date.now(), started: true, offered: null }
+        this.phase = { ...phase, deadline: Date.now() + this.settings.buildTimeSec * 1000 }
+        return ok
+      }
       case 'awards:skip':
         if (phase.phase === 'awards' && !phase.skipped) {
           this.phase = { ...phase, skipped: true, deadline: Date.now() + AWARDS_HOLD_MS }
@@ -507,10 +544,29 @@ export class SoloGame {
       you: {
         playerId: YOU_ID,
         isHost: true,
-        secretPrompt: p.phase === 'build' ? (this.prompts.get(YOU_ID) ?? '') : null,
+        secretPrompt:
+          p.phase === 'build'
+            ? (this.window && !this.window.started && this.window.offered && Date.now() >= this.window.endsAt
+                ? this.window.offered
+                : (this.prompts.get(YOU_ID) ?? ''))
+            : null,
         hasActedThisPhase: acted,
         ownOptionId: p.phase === 'guess' ? (this.options.find((o) => o.authorId === YOU_ID)?.id ?? null) : null,
         ownVote: p.phase === 'vote' ? (this.votes.get(YOU_ID) ?? null) : null,
+        build:
+          p.phase === 'build'
+            ? {
+                windowEndsAt: this.window && !this.window.started && Date.now() < this.window.endsAt ? this.window.endsAt : null,
+                deadline: p.deadline,
+                swapsLeft: Math.max(0, swapAllowance(this.settings.rounds) - this.swapsUsed),
+                canSwap:
+                  !!this.window &&
+                  !this.window.started &&
+                  !this.window.offered &&
+                  this.swapsUsed < swapAllowance(this.settings.rounds),
+                offered: this.window && !this.window.started ? this.window.offered : null,
+              }
+            : null,
       },
     }
   }

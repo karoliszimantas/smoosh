@@ -9,6 +9,7 @@ import { SERVER_URL } from '../serverUrl'
 import { useGameServices } from '../services'
 import { uploadPicture } from '../upload'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
+import PromptWindow from './PromptWindow'
 
 // freestyle gets an empty prompt from the server; the bar still shows (so
 // the layout is the same in every mode) with this instead
@@ -20,12 +21,13 @@ type BuildViewProps = PhaseProps & {
   onNotice: (message: string) => void
 }
 
-export default function BuildView({ snapshot, onNotice }: BuildViewProps) {
+export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) {
   const { upload: send } = useGameServices()
   const phase = snapshot.phase
   const isBuild = phase.phase === 'build'
   const round = isBuild ? phase.round : 0
-  const deadline = isBuild ? phase.deadline : null
+  // this player's own clock: it starts when their prompt window closes
+  const deadline = isBuild ? (snapshot.you.build?.deadline ?? phase.deadline) : null
 
   // hooks run unconditionally every render (rules-of-hooks) — the actual
   // phase!=='build' bail-out happens once, right before the JSX below
@@ -99,7 +101,7 @@ export default function BuildView({ snapshot, onNotice }: BuildViewProps) {
 
   return (
     <div className="build-view">
-      <DeadlineTimer deadline={phase.deadline} />
+      <DeadlineTimer deadline={deadline} />
       <UploadStatus
         state={shownState}
         onRetry={() => void canvasRef.current?.exportImage()}
@@ -116,6 +118,9 @@ export default function BuildView({ snapshot, onNotice }: BuildViewProps) {
         // survives the tab being closed, not just reloaded
         storageArea="local"
       />
+      {snapshot.you.build && !submitted && (
+        <PromptWindow round={round} prompt={prompt} build={snapshot.you.build} emit={emit} />
+      )}
     </div>
   )
 }
