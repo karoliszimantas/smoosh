@@ -1,13 +1,8 @@
 import type { Award } from '@smoosh/protocol'
-import { SERVER_URL } from '../serverUrl'
+import { passImageUrl as src } from '../../components/chainUnderlay'
 import Rosette from '../gallery/Rosette'
 import { Placard } from '../gallery/Exhibit'
 import { chainArtists } from './chainText'
-
-// a pass's image: from the game server, or (dev fixtures) a local asset
-function src(path: string): string {
-  return path.startsWith('/submissions/') ? `${SERVER_URL}${path}` : path
-}
 
 // A chain's picture: its passes stacked in order on the canvas colour.
 // The first `resolved` show as they are; the rest as flat grey ghosts —

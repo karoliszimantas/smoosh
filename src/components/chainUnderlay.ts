@@ -1,4 +1,11 @@
 import { VISIBLE_STRIP } from '@smoosh/protocol'
+import { SERVER_URL } from '../game/serverUrl'
+
+// a pass's image: uploaded passes come from the game server; anything else
+// (the dev panel's stand-ins) is a path on this site
+export function passImageUrl(path: string): string {
+  return path.startsWith('/submissions/') ? `${SERVER_URL}${path}` : path
+}
 
 // What a chain player sees of the passes before theirs: everything above
 // the strip as a flat grey silhouette at a quarter strength — where things

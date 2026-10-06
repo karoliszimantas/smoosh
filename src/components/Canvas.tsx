@@ -30,8 +30,7 @@ import CanvasFrame from './CanvasFrame'
 import LayerSliders from './LayerSliders'
 import { pivotAround, turnBetween, type Point } from './transformMath'
 import { useTheme } from '../themes/useTheme'
-import { buildUnderlay } from './chainUnderlay'
-import { SERVER_URL } from '../game/serverUrl'
+import { buildUnderlay, passImageUrl } from './chainUnderlay'
 
 Konva.hitOnDragEnabled = true
 
@@ -282,7 +281,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   useEffect(() => {
     if (!underlayKey) return
     let live = true
-    buildUnderlay(underlayKey.split('|').map((path) => `${SERVER_URL}${path}`)).then(
+    buildUnderlay(underlayKey.split('|').map(passImageUrl)).then(
       (img) => live && setUnderlayImage(img),
       (err: unknown) => console.error('could not draw the earlier passes', err),
     )
