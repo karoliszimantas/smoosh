@@ -3,6 +3,7 @@ import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
 import { actionErrorText } from '../roomMessages'
+import RoomProgress from '../RoomProgress'
 
 export default function LieView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
@@ -33,10 +34,15 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
       <DeadlineTimer deadline={phase.deadline} />
       <Picture imagePath={phase.imagePath} />
 
-      {isAuthor ? (
-        <p className="phase-status">Everyone else is writing fake prompts for your picture…</p>
-      ) : submitted ? (
-        <p className="phase-status">Lie submitted — waiting for others…</p>
+      {isAuthor || submitted ? (
+        <>
+          <p className="phase-status">
+            {isAuthor
+              ? 'This one’s yours — everyone else is writing fake prompts for it.'
+              : 'Lie submitted — waiting for the others…'}
+          </p>
+          <RoomProgress snapshot={snapshot} verb="written theirs" exclude={[phase.authorId]} />
+        </>
       ) : (
         <div className="lie-form">
           <input

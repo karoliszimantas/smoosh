@@ -9,8 +9,10 @@ import {
   FULL_CROP,
   baseSize,
   cropCenterOffset,
+  DUPLICATE_OFFSET,
   isFullCrop,
   MAX_ERASE_STROKES,
+  MAX_LAYERS,
   MIN_SCALE,
   type CropRect,
   type EraseStroke,
@@ -272,8 +274,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     }
   }, [theme.canvasTexture])
 
-  const maxLayersRef = useRef(maxLayers)
-  maxLayersRef.current = maxLayers
+  // a chain pass's own cap, or the canvas-wide one
+  const layerCap = Math.min(maxLayers ?? MAX_LAYERS, MAX_LAYERS)
+  const layerCapRef = useRef(layerCap)
+  layerCapRef.current = layerCap
 
   // the earlier passes of a chain, built into one ghosted image
   const underlayKey = underlay?.join('|') ?? ''
@@ -294,8 +298,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const id = generateId()
     const jitter = () => (Math.random() - 0.5) * 100 // ±50 units so stacked copies are distinguishable
     setItems((prev) => {
-      // a chain pass's cap holds however the layer arrives
-      if (maxLayersRef.current !== undefined && prev.length >= maxLayersRef.current) return prev
+      // the cap holds however the layer arrives
+      if (prev.length >= layerCapRef.current) return prev
       return [
       ...prev,
       {
@@ -592,6 +596,26 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     }
     if (remaining === 0) gestureOwner.current = null
   }
+
+  // A copy of the selected layer — every transform, crop, eraser strokes,
+  // mirror and opacity — just above it and a step down-right, then selected,
+  // so tapping again steps on from the copy rather than stacking in place.
+  // The copy names the same src, so it draws from the image already decoded
+  // (imageCache), and shares the original's stroke list and so its erased
+  // canvas (erasedFor) until either is erased further. Nothing is fetched.
+  const duplicateSelected = useCallback(() => {
+    const source = items.find((i) => i.id === selectedId)
+    if (!source || items.length >= layerCapRef.current) return
+    // step back the other way rather than off the edge of the frame
+    const step = (v: number) => (v + DUPLICATE_OFFSET > CANVAS_SIZE * 0.95 ? v - DUPLICATE_OFFSET : v + DUPLICATE_OFFSET)
+    const copy: LayerItem = { ...source, id: generateId(), x: step(source.x), y: step(source.y) }
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === source.id)
+      if (idx === -1 || prev.length >= layerCapRef.current) return prev
+      return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)]
+    })
+    setSelectedId(copy.id)
+  }, [items, selectedId])
 
   const deleteSelected = useCallback(() => {
     setItems((prev) => prev.filter((i) => i.id !== selectedId))
@@ -957,7 +981,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         selectedId={selectedId}
         addButtonRef={addButtonRef}
         onAdd={openSheet}
-        {...(maxLayers !== undefined ? { addLimit: { used: items.length, max: maxLayers } } : {})}
+        addLimit={{ used: items.length, max: layerCap, perPass: maxLayers !== undefined }}
         onDone={exportImage}
         doneLabel={doneLabel}
         canMoveFront={canMoveFront}
@@ -970,6 +994,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         onCrop={startCrop}
         onErase={startErase}
         onDelete={deleteSelected}
+        onDuplicate={duplicateSelected}
         onReport={selectedPixabayId !== undefined ? () => setReportTarget(selectedPixabayId) : undefined}
         onOpacityPreview={previewOpacity}
         onOpacityCommit={commitOpacity}

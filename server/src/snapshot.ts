@@ -38,6 +38,13 @@ function computeHasActed(room: Room, seat: Seat): boolean {
   return false
 }
 
+// this player's own guess on the current picture, once made
+function computeOwnGuess(room: Room, seat: Seat): string | null {
+  const phase = room.phase
+  if (phase.phase !== 'guess') return null
+  return room.guessesByPictureIndex.get(phase.pictureIndex)?.get(seat.playerId) ?? null
+}
+
 // this player's own votes only — never anyone else's
 function computeOwnVote(room: Room, seat: Seat): { favourite: string; runnerUp: string | null } | null {
   if (room.phase.phase !== 'vote') return null
@@ -87,6 +94,7 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
       secretPrompt,
       hasActedThisPhase: computeHasActed(room, seat),
       ownOptionId: computeOwnOptionId(room, seat),
+      ownGuessId: computeOwnGuess(room, seat),
       ownVote: computeOwnVote(room, seat),
       pass: computePass(room, seat),
       chainVote:

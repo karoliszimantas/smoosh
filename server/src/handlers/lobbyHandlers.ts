@@ -23,6 +23,7 @@ import { dealIn, enterLobby, seatArrived, seatAway, seatLeft, type PresenceDeps 
 import { startBuild } from '../game/phaseMachine.ts'
 import { deleteRoomSubmissions } from '../submissions/store.ts'
 import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { phaseLabel, roomLog, waitingLabel, who } from '../roomLog.ts'
 
 export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps: PresenceDeps): void {
   // Taking a seat in a room is leaving any other: a player is in one game
@@ -43,6 +44,7 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
     // window): this one takes the seat, the old one is told and let go
     const previous = seat.socketId
     if (previous && previous !== socket.id) {
+      roomLog(room.code, `${who(seat)}: another tab or device took the seat over`)
       io.to(previous).emit('room:event', { type: 'replaced' })
       io.in(previous).disconnectSockets(true)
     }
@@ -72,11 +74,17 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
     try {
       const { roomCode, name } = JoinRoomSchema.parse(payload)
       const room = getRoom(roomCode)
-      if (!room) throw new GameError('ROOM_NOT_FOUND', `no room with code ${roomCode}`)
+      if (!room) {
+        // a rejoin into a room this server doesn't have (a restart empties them all)
+        console.log(`[room ${roomCode}] join refused: no such room`)
+        throw new GameError('ROOM_NOT_FOUND', `no room with code ${roomCode}`)
+      }
 
       const seat = resolveSeat(room, socket.data.sessionId, name, room.phase.phase === 'lobby')
+      const was = room.seats.has(seat.playerId) ? seat.presence : 'new'
       leaveOtherRooms(room.code)
       attach(room, seat)
+      roomLog(room.code, `${who(seat)} joined (was ${was}) during ${phaseLabel(room)}; ${waitingLabel(room)}`)
       cb(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
@@ -104,7 +112,10 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
       // only the socket holding the seat speaks for it
-      if (seat.socketId === socket.id) seatAway(room, deps, seat)
+      if (seat.socketId === socket.id) {
+        seatAway(room, deps, seat)
+        roomLog(room.code, `${who(seat)} away (page hidden)`)
+      }
       cb(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {

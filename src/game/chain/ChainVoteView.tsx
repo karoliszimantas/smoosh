@@ -3,6 +3,7 @@ import type { PhaseProps } from '../types'
 import DeadlineTimer from '../DeadlineTimer'
 import { ChainPicture } from './ChainPicture'
 import { actionErrorText } from '../roomMessages'
+import RoomProgress from '../RoomProgress'
 
 // One favourite chain each — never one you added to. No names, no prompts.
 export default function ChainVoteView({ snapshot, emit }: PhaseProps) {
@@ -38,6 +39,7 @@ export default function ChainVoteView({ snapshot, emit }: PhaseProps) {
               ? 'You had a hand in every one — the others are voting.'
               : 'Pick one. You can’t vote for a chain you added to.'}
         </p>
+        {(done || votable.size === 0) && <RoomProgress snapshot={snapshot} verb="voted" />}
       </header>
       <ul className="vote-grid">
         {phase.chains.map((c) => {

@@ -65,6 +65,26 @@ export function replayStroke(ctx: CanvasRenderingContext2D, stroke: EraseStroke,
   }
 }
 
+// Erased images, by stroke list and then source image: duplicates of a
+// layer share its stroke array (until one of them is erased further), and
+// so share one erased canvas rather than each building its own. Weak on
+// both keys — a stroke list replaced by the next stroke lets its canvas go.
+const erasedCache = new WeakMap<readonly EraseStroke[], WeakMap<HTMLImageElement, HTMLCanvasElement>>()
+
+export function erasedFor(image: HTMLImageElement, strokes: readonly EraseStroke[]): HTMLCanvasElement {
+  let byImage = erasedCache.get(strokes)
+  if (!byImage) {
+    byImage = new WeakMap()
+    erasedCache.set(strokes, byImage)
+  }
+  let canvas = byImage.get(image)
+  if (!canvas) {
+    canvas = renderErased(image, strokes)
+    byImage.set(image, canvas)
+  }
+  return canvas
+}
+
 // the image with every stroke replayed onto it — a new canvas; the source
 // image is never touched
 export function renderErased(image: HTMLImageElement, strokes: readonly EraseStroke[]): HTMLCanvasElement {

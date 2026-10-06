@@ -51,6 +51,16 @@ export const MIN_OPACITY = 0.1
 export const MIN_SCALE = 0.01
 export const MAX_ERASE_STROKES = 200
 
+// Layers on one canvas, however they arrive (Add or Duplicate). Export cost
+// barely grows with the count — the picture is one 1024px canvas — but each
+// layer keeps its own hit mask and saved state, and a canvas past a few
+// dozen layers is a pile, not a picture. A chain pass has its own, lower cap.
+export const MAX_LAYERS = 30
+// how far a duplicate lands from its original, in canvas units (the frame
+// is CANVAS_SIZE across): clear of it enough to grab, close enough to read
+// as a copy. Each duplicate of a duplicate steps on again.
+export const DUPLICATE_OFFSET = 40
+
 export type CropRect = { x: number; y: number; width: number; height: number }
 
 export const FULL_CROP: CropRect = { x: 0, y: 0, width: 1, height: 1 }

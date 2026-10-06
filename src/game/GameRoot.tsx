@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGameConnection } from './useGameConnection'
 import type { GameConnection } from './useGameConnection'
 import type { RoomSnapshot } from '@smoosh/protocol'
@@ -20,6 +20,8 @@ import LeaveDialog from './LeaveDialog'
 import NoticeRegion from './NoticeRegion'
 import PresenceStrip from './PresenceStrip'
 import ReplacedView from './ReplacedView'
+import { useStuckWatchdog } from './stuckWatchdog'
+import { STUCK_TEXT } from './roomMessages'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
 
 // everywhere but the lobby (which shows the full swatch row): one swatch in
@@ -62,6 +64,17 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const openLeave = useCallback(() => setConfirmLeave(true), [])
   useBackGuard(snapshot !== null, openLeave)
+  // the phase's own screen, watched for the one state nobody can get out
+  // of alone: the room waiting on them, nothing for them to press
+  const phaseRoot = useRef<HTMLDivElement>(null)
+  const { stuck, reset: resetWatchdog } = useStuckWatchdog(snapshot, phaseRoot)
+  const rejoin = {
+    label: 'Rejoin',
+    onClick: () => {
+      resetWatchdog()
+      game.rejoinNow()
+    },
+  }
 
   if (game.replaced) return <ReplacedView onPlayHere={game.playHere} />
 
@@ -76,7 +89,12 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
           notice={game.homeNotice}
           lastRoomCode={game.lastRoomCode}
         />
-        <NoticeRegion toasts={game.toasts} onToastDone={game.dismissToast} />
+        <NoticeRegion
+          alert={game.rejoinProblem}
+          {...(game.rejoinProblem ? { alertAction: rejoin } : {})}
+          toasts={game.toasts}
+          onToastDone={game.dismissToast}
+        />
       </>
     )
   }
@@ -86,11 +104,15 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
     <>
       {!isLobby && <FloatingThemeSwitcher />}
       <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />
-      <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+      <div className="phase-root" ref={phaseRoot}>
+        <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+      </div>
       {STRIP_PHASES.has(snapshot.phase.phase) && <PresenceStrip snapshot={snapshot} />}
       <NoticeRegion
         reconnecting={game.showReconnecting}
-        alert={notice}
+        // a problem with a way out comes first; then news to dismiss
+        alert={game.rejoinProblem ?? (stuck ? STUCK_TEXT : notice)}
+        {...(game.rejoinProblem || stuck ? { alertAction: rejoin } : {})}
         onDismissAlert={() => setNotice(null)}
         toasts={game.toasts}
         onToastDone={game.dismissToast}

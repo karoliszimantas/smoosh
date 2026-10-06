@@ -18,6 +18,7 @@ const ICONS = {
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4',
   cancel: 'M6 6l12 12M18 6L6 18',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
+  duplicate: 'M9 9h11v11H9zM5 15H4V4h11v1',
 } as const
 type IconName = keyof typeof ICONS
 
@@ -154,6 +155,7 @@ export default function Toolbar({
   onCrop,
   onErase,
   onDelete,
+  onDuplicate,
   onReport,
   onOpacityPreview,
   onOpacityCommit,
@@ -172,8 +174,9 @@ export default function Toolbar({
   selectedId: string | null
   addButtonRef: Ref<HTMLButtonElement>
   onAdd: () => void
-  // a chain pass at its layer limit: Add stays where it is, greyed, saying so
-  addLimit?: { used: number; max: number }
+  // at the layer limit, Add stays where it is, greyed, saying so — and
+  // Duplicate greys with it. `perPass`: a chain pass's limit, not the canvas's
+  addLimit: { used: number; max: number; perPass: boolean }
   onDone: () => void
   doneLabel?: string
   canMoveFront: boolean
@@ -186,6 +189,7 @@ export default function Toolbar({
   onCrop: () => void
   onErase: () => void
   onDelete: () => void
+  onDuplicate: () => void
   // only for layers that came from Pixabay — curated assets aren't reportable
   onReport?: () => void
   onOpacityPreview: (v: number) => void
@@ -206,6 +210,8 @@ export default function Toolbar({
   const moreOpen = moreOpenIn === mode && mode === 'layer'
   const setMoreOpen = (open: boolean) => setMoreOpenIn(open ? mode : null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // at the layer limit nothing more goes on, by Add or by Duplicate
+  const full = addLimit.used >= addLimit.max
 
   // …and any tap outside it
   useEffect(() => {
@@ -250,9 +256,9 @@ export default function Toolbar({
       <>
         <ToolButton
           icon="add"
-          label={addLimit && addLimit.used >= addLimit.max ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
-          ariaLabel={addLimit && addLimit.used >= addLimit.max ? `Layer limit reached: ${addLimit.max} a pass` : undefined}
-          disabled={addLimit !== undefined && addLimit.used >= addLimit.max}
+          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
+          disabled={full}
           onClick={onAdd}
           variant="primary"
           buttonRef={addButtonRef}
@@ -289,9 +295,9 @@ export default function Toolbar({
       <>
         <ToolButton
           icon="add"
-          label={addLimit && addLimit.used >= addLimit.max ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
-          ariaLabel={addLimit && addLimit.used >= addLimit.max ? `Layer limit reached: ${addLimit.max} a pass` : undefined}
-          disabled={addLimit !== undefined && addLimit.used >= addLimit.max}
+          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
+          disabled={full}
           onClick={onAdd}
           variant="primary"
           buttonRef={addButtonRef}
@@ -306,6 +312,14 @@ export default function Toolbar({
       {mode === 'layer' && moreOpen && (
         <div className="toolbar-more" role="group" aria-label="More layer tools">
           <div className="toolbar-more-row">
+            {/* stays open after a tap: five taps, five copies */}
+            <ToolButton
+              icon="duplicate"
+              label="Duplicate"
+              onClick={onDuplicate}
+              disabled={full}
+              ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : 'Duplicate this layer'}
+            />
             <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
             <ToolButton
               icon="crop"

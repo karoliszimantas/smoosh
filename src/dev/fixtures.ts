@@ -250,6 +250,7 @@ export function fixtureSnapshot(
       secretPrompt: phase === 'build' ? 'a cat riding a bicycle' : null,
       hasActedThisPhase: false,
       ownOptionId: phase === 'guess' ? yourLie.id : null,
+      ownGuessId: null,
       ownVote: null,
       pass:
         phase === 'pass' ? { chainId: 'c1-1', prompt: null, underlay: [PASS_IMAGES[0] ?? ''], nextPass: null } : null,

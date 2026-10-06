@@ -26,12 +26,15 @@ export default function NoticeRegion({
   reconnecting = false,
   alert = null,
   onDismissAlert,
+  alertAction,
   toasts,
   onToastDone,
 }: {
   reconnecting?: boolean
   alert?: string | null
   onDismissAlert?: () => void
+  // in place of dismissing: the one thing that fixes it (Rejoin)
+  alertAction?: { label: string; onClick: () => void }
   toasts: Toast[]
   onToastDone: (id: number) => void
 }) {
@@ -56,9 +59,15 @@ export default function NoticeRegion({
           {alert && (
             <li className="notice notice-alert" role="alert">
               <span>{alert}</span>
-              <button aria-label="Dismiss" onClick={onDismissAlert}>
-                ✕
-              </button>
+              {alertAction ? (
+                <button className="notice-action" onClick={alertAction.onClick}>
+                  {alertAction.label}
+                </button>
+              ) : (
+                <button aria-label="Dismiss" onClick={onDismissAlert}>
+                  ✕
+                </button>
+              )}
             </li>
           )}
           {shownToasts.map((t) => (

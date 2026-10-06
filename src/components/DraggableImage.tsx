@@ -3,7 +3,7 @@ import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { FULL_CROP, MIN_SCALE, baseSize, type LayerItem } from './layerItem'
 import { CANVAS_UNITS_PER_THEME_PX, paperFor } from './paper'
-import { renderErased } from './erase'
+import { erasedFor } from './erase'
 import { loadImage } from './imageCache'
 import { useTheme } from '../themes/useTheme'
 
@@ -74,9 +74,10 @@ const DraggableImage = memo(function DraggableImage({
   const theme = useTheme()
 
   // the image with its eraser strokes replayed — rebuilt only when the
-  // strokes change (a new array), never per frame
+  // strokes change (a new array), never per frame, and shared with any
+  // duplicate that still has the same strokes
   const erased = useMemo(
-    () => (img && item.erase && item.erase.length > 0 ? renderErased(img, item.erase) : img),
+    () => (img && item.erase && item.erase.length > 0 ? erasedFor(img, item.erase) : img),
     [img, item.erase],
   )
 

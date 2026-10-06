@@ -233,6 +233,8 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
         <ThemeSwitcher variant="inline" />
       </div>
 
+      {!you.isHost && <p className="phase-status">The host starts the game — waiting for them.</p>}
+
       {you.isHost && (
         <button className="lobby-start" disabled={!canStart} onClick={() => void emit('room:start', {})}>
           {canStart ? 'Start game' : `Need at least ${MIN_PLAYERS_TO_START} players`}

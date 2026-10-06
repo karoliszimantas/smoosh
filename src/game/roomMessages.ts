@@ -103,6 +103,10 @@ export function actionErrorText(code: ErrorCode): string {
 
 export const RECONNECTING_TEXT = 'Reconnecting…'
 
+// the server is waiting on this player and their screen offers nothing to
+// press — said plainly, with Rejoin beside it
+export const STUCK_TEXT = 'Your screen has stopped responding.'
+
 // a picture that isn't there, as everyone else sees it, and as its player does
 export const NO_PICTURE_TEXT = 'No picture this round'
 export const YOUR_PICTURE_MISSING_TEXT = "Your picture didn't make it this round"

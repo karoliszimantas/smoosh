@@ -16,6 +16,12 @@ const RECONNECTING_BANNER_DELAY_MS = 1500
 const STALE_AFTER_HIDDEN_MS = 5000
 // how long a leave waits for the server before going home anyway
 const LEAVE_TIMEOUT_MS = 3000
+// an action (a lie, a guess, a vote) the server hasn't answered in this long
+// is given up on, so the screen can say so and let them try again — rather
+// than sitting on "picked" forever over a socket that died without noticing
+const ACTION_TIMEOUT_MS = 10_000
+// a rejoin unanswered this long is said out loud, with a way to try again
+const REJOIN_TIMEOUT_MS = 8000
 
 export type Toast = { id: number; text: string; ms: number }
 
@@ -31,6 +37,11 @@ export type GameConnection = {
   lastRoomCode: string | null
   toasts: Toast[]
   dismissToast: (id: number) => void
+  // getting back into the game didn't work and nothing else said so (no
+  // answer to the rejoin) — shown with a way to try again
+  rejoinProblem: string | null
+  // a fresh connection and rejoin, from scratch
+  rejoinNow: () => void
   // the same player opened the game somewhere else, which took the seat
   replaced: boolean
   playHere: () => void
@@ -38,6 +49,12 @@ export type GameConnection = {
 }
 
 const noop = () => {}
+
+// in development, what the server said and what came back — so the next
+// "my screen froze" can be read off the console instead of guessed at
+export function devLog(what: string, detail: unknown): void {
+  if (import.meta.env.DEV) console.info(`[game] ${what}`, detail)
+}
 
 // The one socket module. A player is a session (session.ts), not a socket:
 // on every connect — first load, reload, reopened tab, reconnect — it
@@ -54,6 +71,7 @@ export function useGameConnection(): GameConnection {
   const [lastRoomCode, setLastRoomCode] = useState<string | null>(() => getActiveRoom()?.roomCode ?? null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [replaced, setReplaced] = useState(false)
+  const [rejoinProblem, setRejoinProblem] = useState<string | null>(null)
   const replacedRef = useRef(false)
   const youRef = useRef<string | null>(null)
   const toastId = useRef(0)
@@ -86,11 +104,23 @@ export function useGameConnection(): GameConnection {
     let bannerTimer: ReturnType<typeof setTimeout> | null = null
     let hiddenAt: number | null = null
 
+    let rejoinTimer: ReturnType<typeof setTimeout> | null = null
     const rejoin = (active: ActiveRoom) => {
       const announceThis = announce
       announce = false
+      if (rejoinTimer) clearTimeout(rejoinTimer)
+      // no answer at all is never left silent
+      rejoinTimer = setTimeout(() => {
+        rejoinTimer = null
+        devLog('rejoin: no answer', { roomCode: active.roomCode })
+        if (getActiveRoom()?.roomCode === active.roomCode) setRejoinProblem('Couldn’t get back into the game.')
+      }, REJOIN_TIMEOUT_MS)
       socket.emit('room:join', { roomCode: active.roomCode, name: active.name }, (res) => {
+        if (rejoinTimer) clearTimeout(rejoinTimer)
+        rejoinTimer = null
+        devLog('rejoin: server said', res)
         if (res.ok) {
+          setRejoinProblem(null)
           if (announceThis) pushToast('Reconnected', 2000)
           return
         }
@@ -124,6 +154,12 @@ export function useGameConnection(): GameConnection {
       if (getActiveRoom()?.roomCode !== snap.roomCode) pruneGameCanvases(snap.roomCode)
       if (me) setActiveRoom({ roomCode: snap.roomCode, playerId: snap.you.playerId, name: me.name })
       youRef.current = snap.you.playerId
+      devLog('snapshot', {
+        phase: snap.phase.phase,
+        hasActed: snap.you.hasActedThisPhase,
+        waitedOn: snap.waitingOn.includes(snap.you.playerId),
+        presence: me?.presence,
+      })
       // the game is over: its canvases, and any photos in them, go now
       if (snap.phase.phase === 'scores' && snap.phase.isFinalRound) {
         const ended = `${snap.roomCode}:${snap.phase.round}`
@@ -182,6 +218,7 @@ export function useGameConnection(): GameConnection {
 
     return () => {
       if (bannerTimer) clearTimeout(bannerTimer)
+      if (rejoinTimer) clearTimeout(rejoinTimer)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('pagehide', goAway)
       window.removeEventListener('pageshow', onPageShow)
@@ -197,8 +234,26 @@ export function useGameConnection(): GameConnection {
         resolve({ ok: false, code: 'ROOM_NOT_FOUND', message: 'not connected' } as AckArg<E>)
         return
       }
-      socket.emit(event, payload, (result) => resolve(result))
+      let answered = false
+      const timer = setTimeout(() => {
+        if (answered) return
+        answered = true
+        devLog(`${event}: no answer`, payload)
+        resolve({ ok: false, code: 'INVALID_PAYLOAD', message: 'no answer' } as AckArg<E>)
+      }, ACTION_TIMEOUT_MS)
+      socket.emit(event, payload, (result) => {
+        clearTimeout(timer)
+        if (answered) return
+        answered = true
+        if (!(result as { ok: boolean }).ok) devLog(`${event}: refused`, result)
+        resolve(result)
+      })
     })
+  }, [])
+
+  const rejoinNow = useCallback(() => {
+    setRejoinProblem(null)
+    socketRef.current?.reconnect()
   }, [])
 
   const leave = useCallback(async () => {
@@ -227,6 +282,8 @@ export function useGameConnection(): GameConnection {
     lastRoomCode,
     toasts,
     dismissToast,
+    rejoinProblem,
+    rejoinNow,
     replaced,
     playHere,
     leave,

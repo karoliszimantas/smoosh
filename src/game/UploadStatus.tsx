@@ -7,21 +7,10 @@ export type UploadState =
   | { status: 'refused' }
   | { status: 'submitted' }
 
-import { Fragment } from 'react'
+import { Names } from './RoomProgress'
+import type { WaitingFor } from './waitingProgress'
 
-// someone BUILD is still waiting for — `away` if they're not here right now
-export type WaitingFor = { id: string; name: string; away: boolean }
-
-// "Bob", "Bob and Cara", "Bob, Cara and Dee" — each away one marked
-function Names({ people }: { people: WaitingFor[] }) {
-  return people.map((p, i) => (
-    <Fragment key={p.id}>
-      {i > 0 && (i === people.length - 1 ? ' and ' : ', ')}
-      {p.name}
-      {p.away && <span className="away-marker">away</span>}
-    </Fragment>
-  ))
-}
+export type { WaitingFor }
 
 // what BUILD shows over the canvas once the player has pressed Done (or the
 // timer did it for them). Once submitted, it names who the round is still

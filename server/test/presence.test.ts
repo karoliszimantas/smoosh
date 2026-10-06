@@ -21,6 +21,7 @@ import {
   optionsForPicture,
   acceptSubmission,
 } from '../src/game/phaseMachine.ts'
+import { buildSnapshot } from '../src/snapshot.ts'
 
 // Leaving is deliberate; everything else is being away, and an away player
 // keeps their seat. Pure room logic on fake timers — no sockets.
@@ -196,7 +197,29 @@ describe('away', () => {
     expectPhase(h.room, 'reveal')
   })
 
-  it('a 10-second drop: the phase goes on without them', () => {
+  it('a reload after guessing: the snapshot says so, and which option it was', () => {
+    const h = setup()
+    buildToLie(h)
+    actAll(h) // -> guess
+    const { pictureIndex } = expectPhase(h.room, 'guess')
+    const [guesser] = [...h.room.pendingActors]
+    const seat = guesser ? h.room.seats.get(guesser) : undefined
+    if (!guesser || !seat) throw new Error('no guesser')
+    const option = optionsForPicture(h.room, pictureIndex).find((o) => o.authorId !== guesser)
+    if (!option) throw new Error('no option')
+    recordGuess(h.room, pictureIndex, guesser, option.id)
+    dropPendingActor(h.room, h.deps, guesser)
+    // the reload: gone, back
+    seatAway(h.room, h.deps, seat)
+    seatArrived(h.room, h.deps, seat, 'socket-reloaded')
+    const you = buildSnapshot(h.room, seat).you
+    expect(you.hasActedThisPhase).toBe(true)
+    expect(you.ownGuessId).toBe(option.id)
+    // and not waited on again for a guess already counted
+    expect(h.room.pendingActors.has(guesser)).toBe(false)
+  })
+
+    it('a 10-second drop: the phase goes on without them', () => {
     const h = setup()
     buildToLie(h)
     actAll(h) // -> guess

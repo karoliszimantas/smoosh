@@ -1494,6 +1494,24 @@ h2,
   transform: none;
 }
 
+.notice-alert .notice-action {
+  width: auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--sys-text);
+  color: var(--sys-surface);
+  font-family: var(--sys-font);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* wraps whichever phase is showing, for the stuck-screen watchdog to look
+   inside; no box of its own */
+.phase-root {
+  display: contents;
+}
+
 .notice-toast {
   font-weight: 500;
   animation-name: toast-fade;
@@ -1639,6 +1657,35 @@ h2,
 
 .guess-option.own-lie {
   opacity: 0.35;
+}
+
+/* why an option can't be picked, inside the option itself */
+.option-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* a waiting player's view of the room: how far along, and who's left */
+.room-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.room-progress-count {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.room-progress-names {
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .guess-option:disabled {

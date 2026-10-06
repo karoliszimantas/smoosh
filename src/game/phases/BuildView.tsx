@@ -12,6 +12,8 @@ import { shrinkPicture } from '../reencode'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
 import PromptWindow from './PromptWindow'
 import { PASS_LAYER_CAP } from '@smoosh/protocol'
+import { Names } from '../RoomProgress'
+import { roomProgress } from '../waitingProgress'
 
 // freestyle gets an empty prompt from the server; the bar still shows (so
 // the layout is the same in every mode) with this instead
@@ -105,7 +107,9 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
   if (phase.phase !== 'build' && phase.phase !== 'pass') return null
   const pass = phase.phase === 'pass' ? snapshot.you.pass : null
 
-  // one picture per chain: not your turn yet
+  // one picture per chain: not your turn yet — who is adding now, by name
+  // (no count: only some players have a chain each pass)
+  const passWaiting = roomProgress(snapshot).waiting
   if (phase.phase === 'pass' && (!pass || pass.chainId === null)) {
     return (
       <div className="pass-waiting">
@@ -116,6 +120,11 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
             ? `Someone’s adding to your chain. You’re on pass ${pass.nextPass + 1} of ${phase.passCount}.`
             : 'Your part of the chain is done. The others are finishing theirs.'}
         </p>
+        {passWaiting.length > 0 && (
+          <p className="phase-status">
+            Waiting for <Names people={passWaiting} />
+          </p>
+        )}
       </div>
     )
   }

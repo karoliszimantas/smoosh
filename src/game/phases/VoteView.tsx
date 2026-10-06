@@ -5,6 +5,7 @@ import { useGameServices } from '../services'
 import DeadlineTimer from '../DeadlineTimer'
 import { titleFor } from '../gallery/galleryText'
 import { actionErrorText } from '../roomMessages'
+import RoomProgress from '../RoomProgress'
 
 // Gallery judging: the whole round hangs at once. Tap your favourite, then
 // your runner-up (tap again to take a pick back). Nobody's name is on the
@@ -66,6 +67,7 @@ export default function VoteView({ snapshot, emit }: PhaseProps) {
         </p>
         <h2 className="gallery-brief">{phase.prompt ? titleFor(phase.prompt) : 'Freestyle'}</h2>
         <p className="gallery-instructions">{done ? 'Votes cast. Waiting for the rest of the jury…' : instruction}</p>
+        {done && <RoomProgress snapshot={snapshot} verb="voted" />}
       </header>
 
       <ul className="vote-grid">

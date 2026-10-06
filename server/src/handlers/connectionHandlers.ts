@@ -1,6 +1,7 @@
 import { getRoom, findSeatBySession, touchRoom } from '../rooms/Room.ts'
 import { seatAway, type PresenceDeps } from '../rooms/presence.ts'
 import type { TypedServer, TypedSocket } from './context.ts'
+import { roomLog, who } from '../roomLog.ts'
 
 export function registerConnectionHandlers(_io: TypedServer, socket: TypedSocket, deps: PresenceDeps): void {
   // a socket going is never a player leaving — reloads, lost signal and
@@ -18,6 +19,7 @@ export function registerConnectionHandlers(_io: TypedServer, socket: TypedSocket
     seat.socketId = null
     touchRoom(room)
     seatAway(room, deps, seat)
+    roomLog(room.code, `${who(seat)} away (connection closed)`)
     deps.onSnapshot(room)
   })
 }

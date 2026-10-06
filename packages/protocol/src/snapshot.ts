@@ -25,6 +25,9 @@ export const RoomSnapshotSchema = z.object({
     // out "you can't pick your own lie" without waiting for reveal to know
     // which one that is
     ownOptionId: z.string().nullable(),
+    // during GUESS, the option this player picked, once they have — so a
+    // reload shows their guess, not a row of dead buttons
+    ownGuessId: z.string().nullable(),
     // during gallery VOTE, this player's own votes — nobody else's are ever
     // sent: votes are anonymous, only counts are shown
     ownVote: z.object({ favourite: PlayerIdSchema, runnerUp: PlayerIdSchema.nullable() }).nullable(),

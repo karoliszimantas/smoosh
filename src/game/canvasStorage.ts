@@ -1,4 +1,4 @@
-import { MIN_OPACITY, MIN_SCALE, type CropRect, type LayerItem } from '../components/layerItem'
+import { MIN_OPACITY, MIN_SCALE, type CropRect, type EraseStroke, type LayerItem } from '../components/layerItem'
 import { prunePhotos } from '../photos/photoStore'
 
 // session: the default, for a canvas that only needs to survive a reload.
@@ -104,10 +104,23 @@ export function loadCanvasItems(key: string, which: CanvasStorageArea = 'session
     if (!raw) return undefined
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return undefined
+    // duplicates saved with the same eraser strokes come back sharing one
+    // stroke list, so they share one erased canvas again (erasedFor)
+    const strokeLists = new Map<string, EraseStroke[]>()
     return parsed
       .filter(isLayerItem)
       .filter((i) => !i.src.startsWith('blob:'))
       .map(migrate)
+      .map((item) => {
+        if (!item.erase) return item
+        const key = JSON.stringify(item.erase)
+        const shared = strokeLists.get(key)
+        if (!shared) {
+          strokeLists.set(key, item.erase)
+          return item
+        }
+        return { ...item, erase: shared }
+      })
   } catch {
     return undefined
   }

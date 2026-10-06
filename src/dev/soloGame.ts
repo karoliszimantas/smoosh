@@ -558,6 +558,7 @@ export class SoloGame {
             : null,
         hasActedThisPhase: acted,
         ownOptionId: p.phase === 'guess' ? (this.options.find((o) => o.authorId === YOU_ID)?.id ?? null) : null,
+        ownGuessId: p.phase === 'guess' ? (this.guesses.get(YOU_ID) ?? null) : null,
         ownVote: p.phase === 'vote' ? (this.votes.get(YOU_ID) ?? null) : null,
         pass: null,
         chainVote: null,

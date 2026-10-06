@@ -5,7 +5,8 @@ import { buildSnapshot } from './snapshot.ts'
 import { gamePrompts } from './prompts/gamePrompts.ts'
 import { hasSubmission, deleteRoomSubmissions } from './submissions/store.ts'
 import type { PresenceDeps } from './rooms/presence.ts'
-import { deleteRoom, type Room } from './rooms/Room.ts'
+import { deleteRoom, findSeatBySession, getRoom, type Room } from './rooms/Room.ts'
+import { logPhaseChange, roomLog, who } from './roomLog.ts'
 import { registerLobbyHandlers } from './handlers/lobbyHandlers.ts'
 import { registerLieHandlers } from './handlers/lieHandlers.ts'
 import { registerGuessHandlers } from './handlers/guessHandlers.ts'
@@ -34,6 +35,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
   })
 
   function broadcastRoom(room: Room): void {
+    logPhaseChange(room)
     for (const seat of room.seats.values()) {
       // an away seat may still have a socket (a backgrounded page): it gets
       // the state too, so it's current the moment it's looked at again
@@ -59,6 +61,29 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
   }
 
   io.on('connection', (socket) => {
+    // every answered action, by whom and how it went — a refusal is the
+    // trail a "my screen froze" report needs. Wraps the ack; the handlers
+    // don't know it's there.
+    socket.use((packet, next) => {
+      const ack: unknown = packet[packet.length - 1]
+      const event = String(packet[0])
+      if (typeof ack === 'function' && event !== 'room:join' && event !== 'room:create') {
+        packet[packet.length - 1] = (res: unknown) => {
+          const code = socket.data.roomCode
+          const room = code ? getRoom(code) : undefined
+          if (room) {
+            const seat = findSeatBySession(room, socket.data.sessionId)
+            const outcome =
+              typeof res === 'object' && res !== null && 'ok' in res && res.ok === false && 'code' in res
+                ? `refused ${String(res.code)}`
+                : 'ok'
+            roomLog(room.code, `${who(seat)}: ${event} ${outcome}`)
+          }
+          ;(ack as (r: unknown) => void)(res)
+        }
+      }
+      next()
+    })
     registerLobbyHandlers(io, socket, deps)
     registerLieHandlers(io, socket, deps)
     registerGuessHandlers(io, socket, deps)
