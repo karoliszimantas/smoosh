@@ -10,13 +10,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import { TokenBucket } from '../media/tokenBucket.ts'
-import { createPoolBackend } from './backends.ts'
+import { getPromptStore as getStore } from './shared.ts'
 import {
   MAX_AUTHOR_LENGTH,
   MAX_PROMPTS,
   PromptError,
   PromptModeSchema,
-  PromptStore,
   PromptTextSchema,
 } from './store.ts'
 
@@ -24,15 +23,7 @@ const MAX_BODY_BYTES = 128_000
 const WRITES_PER_MINUTE = 30
 const MAX_WRITERS_TRACKED = 10_000
 
-let store: PromptStore | null = null
-function getStore(): PromptStore {
-  store ??= new PromptStore(createPoolBackend())
-  return store
-}
-// tests swap in a store over an in-memory backend
-export function setPromptStoreForTests(s: PromptStore): void {
-  store = s
-}
+export { setPromptStoreForTests } from './shared.ts'
 
 export const PROMPT_CORS_HEADERS = 'X-Prompt-Code, X-Prompt-Author'
 

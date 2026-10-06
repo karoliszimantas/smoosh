@@ -43,7 +43,7 @@ function setup(players = 4, rounds = 2, phase: 'lobby' | 'game' = 'game'): Harne
   const events: Harness['events'] = []
   let disposed = false
   const deps: PresenceDeps = {
-    promptPool: Array.from({ length: 50 }, (_, i) => `prompt ${i}`),
+    prompts: () => Array.from({ length: 50 }, (_, i) => `prompt ${i}`),
     hasSubmission: (_code, round, playerId) => submitted.has(`${round}:${playerId}`),
     onSnapshot: () => {},
     onEvent: (_room, event, to) => events.push({ event, to }),

@@ -150,7 +150,7 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       if (problem) throw new GameError('INVALID_SETTINGS', problem)
 
       const needed = promptsNeeded(room.settings, seatCount)
-      const available = deps.promptPool.length - room.usedPrompts.size
+      const available = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p)).length
       if (available < needed) {
         throw new GameError('INVALID_SETTINGS', 'not enough prompts left for this many rounds and players')
       }

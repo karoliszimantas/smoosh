@@ -114,7 +114,7 @@ function playGame(opts: {
   let tamper = opts.tamper
 
   const deps: PhaseMachineDeps = {
-    promptPool: Array.from({ length: 200 }, (_, i) => `prompt ${i}`),
+    prompts: () => Array.from({ length: 200 }, (_, i) => `prompt ${i}`),
     hasSubmission: (_code, round, playerId) => store.has(`${round}:${playerId}`),
     onSnapshot: (r) => onPhase(r),
     random: rng,

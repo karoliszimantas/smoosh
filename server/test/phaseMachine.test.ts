@@ -54,7 +54,7 @@ function makeRoom(
 
 function makeDeps(overrides: Partial<PhaseMachineDeps> = {}): PhaseMachineDeps {
   return {
-    promptPool: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'],
+    prompts: () => ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'],
     hasSubmission: () => false,
     onSnapshot: vi.fn(),
     ...overrides,

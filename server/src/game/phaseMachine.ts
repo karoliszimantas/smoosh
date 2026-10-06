@@ -4,6 +4,7 @@ import {
   MISSING_PHASE_SEC,
   SCORES_PHASE_SEC,
   RATE_RESULT_PHASE_SEC,
+  type GameMode,
 } from '@smoosh/protocol'
 import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
 import { presentSeats, findSeatByPlayerId } from '../rooms/Room.ts'
@@ -12,7 +13,8 @@ import { assignPrompts } from './promptAssignment.ts'
 import { scorePicture, scoreRatings } from './scoring.ts'
 
 export type PhaseMachineDeps = {
-  promptPool: readonly string[]
+  // the prompts a game in this mode can be dealt, as of now
+  prompts: (mode: GameMode) => readonly string[]
   hasSubmission: (roomCode: string, round: number, playerId: string) => boolean
   onSnapshot: (room: Room) => void
   // [0, 1) — injectable so tests can replay a game from a seed
@@ -126,7 +128,7 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   room.pictureIndex = -1
 
   const seatPlayerIds = [...room.seats.values()].map((s) => s.playerId)
-  const availablePool = deps.promptPool.filter((p) => !room.usedPrompts.has(p))
+  const availablePool = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p))
   if (room.settings.mode === 'guess') {
     const { assignments, used } = assignPrompts(seatPlayerIds, availablePool)
     room.promptByPlayer = assignments

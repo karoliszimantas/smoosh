@@ -78,6 +78,7 @@ export type BulkAction = 'archive' | 'restore' | 'delete'
 
 export class PromptStore {
   private pool: StoredPrompt[] = []
+  private loaded = false
   private ready: Promise<void> | null = null
   private queue: Promise<unknown> = Promise.resolve()
 
@@ -93,10 +94,12 @@ export class PromptStore {
     if (!this.ready) {
       this.ready = this.backend.load().then(
         (json) => {
-          if (json === null) return
-          const parsed = PoolSchema.safeParse(JSON.parse(json))
-          if (!parsed.success) throw new Error('stored prompt pool is not in the expected shape')
-          this.pool = parsed.data.prompts
+          if (json !== null) {
+            const parsed = PoolSchema.safeParse(JSON.parse(json))
+            if (!parsed.success) throw new Error('stored prompt pool is not in the expected shape')
+            this.pool = parsed.data.prompts
+          }
+          this.loaded = true
         },
         (err: unknown) => {
           throw err instanceof Error ? err : new Error(String(err))
@@ -115,6 +118,17 @@ export class PromptStore {
   async list(): Promise<StoredPrompt[]> {
     await this.ensureLoaded()
     return this.pool
+  }
+
+  // what a game can draw from right now — live prompts for that mode, or
+  // null while the pool isn't loaded (that also starts a load, so a pool
+  // that was unreachable is picked up again by a later game)
+  playable(mode: 'guess' | 'gallery'): string[] | null {
+    if (!this.loaded) {
+      this.ensureLoaded().catch(() => {})
+      return null
+    }
+    return this.pool.filter((p) => !p.archived && (p.mode === mode || p.mode === 'both')).map((p) => p.text)
   }
 
   // Every change runs alone, in arrival order, against the latest pool, and

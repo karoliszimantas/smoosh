@@ -111,4 +111,28 @@ describe('prompt store', () => {
     const s = store(memoryBackend(JSON.stringify({ version: 1, prompts })).backend)
     await expect(s.add('One too many', 'both', 'Ana')).rejects.toThrow(/full/)
   })
+
+  it('games get live prompts for their mode — never archived ones, and nothing until loaded', async () => {
+    const s = store(memoryBackend().backend)
+    expect(s.playable('guess')).toBeNull()
+    await s.add('Goat on a Unicycle', 'guess', 'Ana')
+    await s.add('Owl at the Dentist', 'gallery', 'Ana')
+    await s.add('Sloth in a Laundromat', 'both', 'Ana')
+    const gone = await s.add('Llama on a Train', 'both', 'Ana')
+    await s.edit(gone.id, { archived: true })
+    expect(s.playable('guess')).toEqual(['Goat on a Unicycle', 'Sloth in a Laundromat'])
+    expect(s.playable('gallery')).toEqual(['Owl at the Dentist', 'Sloth in a Laundromat'])
+  })
+
+  it('a pool unreachable for a game is loaded again for the next one', async () => {
+    const { backend, state } = memoryBackend(JSON.stringify({ version: 1, prompts: [] }))
+    state.failLoad = true
+    const s = store(backend)
+    expect(s.playable('guess')).toBeNull()
+    await new Promise((r) => setTimeout(r, 0))
+    state.failLoad = false
+    expect(s.playable('guess')).toBeNull() // this ask starts the retry…
+    await new Promise((r) => setTimeout(r, 0))
+    expect(s.playable('guess')).toEqual([]) // …and the next game has it
+  })
 })

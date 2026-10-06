@@ -2,7 +2,7 @@ import { Server } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
 import { HandshakeAuthSchema, type ClientToServerEvents, type ServerToClientEvents } from '@smoosh/protocol'
 import { buildSnapshot } from './snapshot.ts'
-import { PROMPT_POOL } from './game/promptPool.ts'
+import { gamePrompts } from './prompts/gamePrompts.ts'
 import { hasSubmission, deleteRoomSubmissions } from './submissions/store.ts'
 import type { PresenceDeps } from './rooms/presence.ts'
 import { deleteRoom, type Room } from './rooms/Room.ts'
@@ -41,7 +41,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
   }
 
   const deps: PresenceDeps = {
-    promptPool: PROMPT_POOL,
+    prompts: gamePrompts,
     hasSubmission,
     onSnapshot: broadcastRoom,
     onEvent: (room, event, playerId) => {
