@@ -10,6 +10,7 @@ import {
 } from './game/phaseMachine.ts'
 import { handleMediaRequest } from './media/routes.ts'
 import { handlePromptsRequest, PROMPT_CORS_HEADERS } from './prompts/routes.ts'
+import { handleLabelsRequest } from './labels/routes.ts'
 
 const MAX_UPLOAD_BYTES = 1_000_000
 
@@ -28,7 +29,7 @@ type UploadTarget = { roomCode: string; round: number; playerId: string }
 function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*')
   // PATCH/DELETE and the prompt headers are for /api/prompts
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', `Content-Type, X-Session-Id, ${PROMPT_CORS_HEADERS}`)
 }
 
@@ -62,6 +63,7 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
     }
 
     if (handlePromptsRequest(req, res, url)) return
+    if (handleLabelsRequest(req, res, url)) return
     if (handleMediaRequest(req, res, url)) return
 
     const target = parseUploadPath(url.pathname)

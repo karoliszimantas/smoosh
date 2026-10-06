@@ -9,6 +9,11 @@ export function isPromptsPath(): boolean {
   return window.location.pathname.replace(/\/+$/, '') === '/prompts'
 }
 
+// the asset labelling tool — the same three people, the same code and name
+export function isLabelsPath(): boolean {
+  return window.location.pathname.replace(/\/+$/, '') === '/labels'
+}
+
 function read(key: string): string {
   try {
     return localStorage.getItem(key) ?? ''
@@ -35,7 +40,7 @@ export const setName = (name: string) => write(NAME_KEY, name.trim().replace(/\s
 // stripped from the address bar straight away (before the first render), so
 // it isn't in a screenshot of the page
 export function captureCodeFromUrl(): void {
-  if (!isPromptsPath()) return
+  if (!isPromptsPath() && !isLabelsPath()) return
   const url = new URL(window.location.href)
   const code = url.searchParams.get('code')
   if (code === null) return

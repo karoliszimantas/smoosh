@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { getCode, getName, setCode, setName } from './access'
+import { getCode, getName, setCode } from './access'
 import { PROMPT_MODES, PromptApiError, promptApi, score, voterKey, type Prompt, type PromptMode } from './api'
 import { promptsAsTs } from './exportTs'
 import { downloadCsv, promptsAsCsv } from './exportCsv'
 import ImportPanel from './ImportPanel'
 import PromptTestView from './PromptTestView'
+import Gate from './Gate'
 
 // Past this many, the list grows by a page at a time, so a phone stays quick
 const PAGE_SIZE = 100
@@ -13,39 +14,6 @@ const MODE_LABEL: Record<PromptMode, string> = { both: 'Both', guess: 'Guess', g
 
 type Status = 'active' | 'archived' | 'all'
 type Sort = 'newest' | 'score' | 'least'
-
-// First visit only: the access code (unless a link brought it) and a name.
-// After this, never asked again.
-function Gate({ error, onDone }: { error: string | null; onDone: () => void }) {
-  const [code, setCodeDraft] = useState(getCode())
-  const [name, setNameDraft] = useState(getName())
-  const needCode = !getCode() || error !== null
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    if (needCode && !code.trim()) return
-    if (!name.trim()) return
-    if (needCode) setCode(code)
-    setName(name)
-    onDone()
-  }
-  return (
-    <form className="prompts-gate" onSubmit={submit}>
-      <h1>Prompts</h1>
-      {needCode && (
-        <label>
-          Access code
-          <input value={code} onChange={(e) => setCodeDraft(e.target.value)} autoCapitalize="off" autoComplete="off" />
-        </label>
-      )}
-      <label>
-        Your name
-        <input value={name} onChange={(e) => setNameDraft(e.target.value)} maxLength={24} autoComplete="nickname" />
-      </label>
-      {error && <p className="prompts-error">{error}</p>}
-      <button type="submit">Continue</button>
-    </form>
-  )
-}
 
 export default function PromptsView() {
   const [ready, setReady] = useState(() => getCode() !== '' && getName() !== '')
@@ -266,6 +234,7 @@ export default function PromptsView() {
     return (
       <div className="prompts-view">
         <Gate
+          title="Prompts"
           error={gateError}
           onDone={() => {
             setGateError(null)

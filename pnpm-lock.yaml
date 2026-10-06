@@ -119,6 +119,9 @@ importers:
       '@imgly/background-removal-node':
         specifier: ^1.4.5
         version: 1.4.5
+      '@smoosh/protocol':
+        specifier: workspace:*
+        version: link:../packages/protocol
       sharp:
         specifier: ^0.34.4
         version: 0.34.5

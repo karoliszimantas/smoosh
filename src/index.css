@@ -3285,3 +3285,248 @@ h2.awards-wall-title {
 .asset-sheet.keyboard-open .photo-entry {
   display: none;
 }
+
+/* ---------- /labels: labelling the asset library ---------- */
+
+.labels-title {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.labels-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 -12px;
+  padding: 0 12px 6px;
+}
+
+.labels-filters button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.labels-count {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.labels-summary,
+.labels-hint {
+  display: block;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.labels-tools {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.labels-tools select,
+.labels-tools input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Two columns at phone width: big enough to tell a toad from a frog. The
+   checkerboard shows where a cut-out ends. */
+.labels-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.prompts-view .labels-tile {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  padding: 6px;
+  text-align: left;
+  gap: 2px;
+}
+
+.labels-tile.removed {
+  opacity: 0.55;
+}
+
+.labels-thumb,
+.labels-editor-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    repeating-conic-gradient(color-mix(in srgb, var(--text) 9%, transparent) 0% 25%, transparent 0% 50%) 50% / 16px 16px,
+    var(--surface);
+}
+
+.labels-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.labels-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.labels-nothumb {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.labels-tile-label {
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.labels-tile-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* the editor takes the screen: the picture first, the fields under it */
+.labels-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px calc(16px + env(safe-area-inset-bottom));
+  background: var(--page-bg);
+}
+
+.labels-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.labels-editor-id {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labels-editor-picture {
+  flex-shrink: 0;
+  height: min(46dvh, 100vw);
+  border-radius: var(--radius);
+}
+
+.labels-editor-picture img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.labels-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.labels-field small {
+  font-size: 12px;
+}
+
+.labels-field > input {
+  color: var(--text);
+}
+
+.labels-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.labels-tags input {
+  flex: 1;
+  min-width: 140px;
+  border: none !important;
+  background: transparent !important;
+}
+
+.prompts-view .labels-tag {
+  min-height: 34px;
+  padding: 0 10px;
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+/* a tag no other asset has: probably a typo or a synonym */
+.prompts-view .labels-tag.lone {
+  background: var(--warning);
+  color: var(--warning-text);
+}
+
+.labels-lone {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.labels-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prompts-view .labels-chips button {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.prompts-view .labels-chips.suggest button {
+  border-style: dashed;
+}
+
+.labels-editor-actions {
+  position: sticky;
+  bottom: 0;
+  padding-top: 6px;
+  background: var(--page-bg);
+}
+
+.labels-editor-actions button {
+  width: 100%;
+  min-height: 50px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.labels-gaps-list {
+  list-style: none;
+}
+
+.labels-gaps-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid var(--chrome-border);
+  font-size: 16px;
+}

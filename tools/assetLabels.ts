@@ -10,6 +10,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseLabels } from '@smoosh/protocol'
 import { CATEGORIES } from './categories.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -17,7 +18,6 @@ export const LABELS_TSV = path.join(__dirname, 'asset-labels.tsv')
 const RAW_DIR = path.join(__dirname, 'raw')
 
 export const IMAGE_RE = /\.(jpe?g|png|webp)$/i
-const REQUIRED_COLUMNS = ['id', 'category', 'label', 'tags', 'remove', 'note'] as const
 
 export type AssetLabel = { label: string; tags: string[]; remove: boolean }
 
@@ -36,58 +36,20 @@ export function assetIdFor(categoryId: string, filename: string): string {
   return `${categoryId}-${slugify(filename)}`
 }
 
-// Reads and checks asset-labels.tsv. `problems` non-empty means the file
-// must be fixed before it's used — nothing is half-applied.
+// Reads and checks asset-labels.tsv, with the same reader the /labels tool
+// and the game server use (@smoosh/protocol). `problems` non-empty means the
+// file must be fixed before it's used — nothing is half-applied.
 export async function loadAssetLabels(): Promise<{ labels: Map<string, AssetLabel>; problems: string[] }> {
   const labels = new Map<string, AssetLabel>()
-  const problems: string[] = []
   let text: string
   try {
     text = await readFile(LABELS_TSV, 'utf8')
   } catch {
     console.warn(`no ${path.basename(LABELS_TSV)} — labels come from filenames`)
-    return { labels, problems }
+    return { labels, problems: [] }
   }
-
-  const lines = text.split(/\r?\n/).map((line, i) => ({ line, n: i + 1 }))
-  const rows = lines.filter(({ line }) => line.trim() !== '' && !line.startsWith('#'))
-  const headerRow = rows.shift()
-  const header = (headerRow?.line ?? '').split('\t').map((h) => h.trim())
-  const missing = REQUIRED_COLUMNS.filter((c) => !header.includes(c))
-  if (missing.length > 0) {
-    problems.push(`header is missing column(s): ${missing.join(', ')}`)
-    return { labels, problems }
-  }
-  const col = (name: (typeof REQUIRED_COLUMNS)[number]) => header.indexOf(name)
-
-  for (const { line, n } of rows) {
-    const cells = line.split('\t')
-    const at = `line ${n}`
-    // a tab typed inside a cell shifts everything after it
-    if (cells.length !== header.length) {
-      problems.push(`${at}: ${cells.length} cells, expected ${header.length} — a tab inside a cell?`)
-      continue
-    }
-    const cell = (name: (typeof REQUIRED_COLUMNS)[number]) => (cells[col(name)] ?? '').trim()
-    const id = cell('id')
-    if (!id || /\s/.test(id)) {
-      problems.push(`${at}: id "${id}" is empty or has spaces`)
-      continue
-    }
-    if (labels.has(id)) problems.push(`${at}: duplicate id ${id}`)
-    const remove = cell('remove').toLowerCase()
-    if (remove !== '' && remove !== 'yes') problems.push(`${at}: remove is "${cell('remove')}" — leave it empty or write yes`)
-    const label = cell('label')
-    if (!label && remove !== 'yes') problems.push(`${at}: ${id} has no label`)
-    const rawTags = cell('tags')
-    const tags = rawTags.split(',').map((t) => t.trim().toLowerCase())
-    // "a, b," or "a,, b" — an empty entry is a typo, not a tag
-    if (rawTags !== '' && tags.some((t) => t === '')) problems.push(`${at}: ${id} has an empty tag (stray comma?)`)
-    if (!id.startsWith(`${cell('category')}-`)) {
-      problems.push(`${at}: ${id} doesn't match its category "${cell('category')}"`)
-    }
-    labels.set(id, { label, tags: tags.filter(Boolean), remove: remove === 'yes' })
-  }
+  const { doc, problems } = parseLabels(text)
+  for (const row of doc.rows) labels.set(row.id, { label: row.label, tags: row.tags, remove: row.remove })
   return { labels, problems }
 }
 

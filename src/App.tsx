@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import GameRoot from './game/GameRoot'
 import SandboxView from './sandbox/SandboxView'
 import ErrorBoundary from './components/ErrorBoundary'
 import PromptsView from './prompts/PromptsView'
-import { isPromptsPath } from './prompts/access'
+import { isLabelsPath, isPromptsPath } from './prompts/access'
+
+// the asset labelling tool: its own page, loaded only there
+const LabelsView = lazy(() => import('./labels/LabelsView'))
 
 // Remembered per tab so a reload in the sandbox stays in the sandbox.
 const MODE_KEY = 'smoosh_mode'
@@ -32,6 +35,15 @@ export default function App() {
     return (
       <ErrorBoundary>
         <PromptsView />
+      </ErrorBoundary>
+    )
+  }
+  if (isLabelsPath()) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <LabelsView />
+        </Suspense>
       </ErrorBoundary>
     )
   }

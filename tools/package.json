@@ -9,9 +9,12 @@
     "fetch": "tsx fetch.ts",
     "publish": "tsx --env-file=.env publish.ts",
     "typecheck": "tsc --noEmit",
-    "moderate": "tsx --env-file-if-exists=.env moderate.ts"
+    "moderate": "tsx --env-file-if-exists=.env moderate.ts",
+    "labels:pull": "tsx --env-file=.env labelsSync.ts pull",
+    "labels:push": "tsx --env-file=.env labelsSync.ts push"
   },
   "dependencies": {
+    "@smoosh/protocol": "workspace:*",
     "@aws-sdk/client-s3": "^3.1133.0",
     "@imgly/background-removal-node": "^1.4.5",
     "sharp": "^0.34.4"

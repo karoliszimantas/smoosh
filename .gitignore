@@ -40,3 +40,6 @@ public/assets/*
 # tools/moderate.ts — never shipped from the repo.
 server/data/
 server/.env
+
+# labelsSync.ts: what this laptop last synced with the live labels
+tools/.labels-sync/

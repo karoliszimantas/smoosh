@@ -13,7 +13,14 @@ class R2PoolBackend implements PoolBackend {
   readonly name = 'r2'
   private readonly client: S3Client
 
-  constructor(accountId: string, accessKeyId: string, secretAccessKey: string, private readonly bucket: string) {
+  constructor(
+    accountId: string,
+    accessKeyId: string,
+    secretAccessKey: string,
+    private readonly bucket: string,
+    private readonly key: string,
+    private readonly contentType: string,
+  ) {
     this.client = new S3Client({
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -23,7 +30,7 @@ class R2PoolBackend implements PoolBackend {
 
   async load(): Promise<string | null> {
     try {
-      const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: POOL_KEY }))
+      const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: this.key }))
       return (await res.Body?.transformToString('utf8')) ?? null
     } catch (err) {
       // nothing stored yet is an empty pool; anything else is an outage
@@ -34,7 +41,7 @@ class R2PoolBackend implements PoolBackend {
 
   async save(json: string): Promise<void> {
     await this.client.send(
-      new PutObjectCommand({ Bucket: this.bucket, Key: POOL_KEY, Body: json, ContentType: 'application/json' }),
+      new PutObjectCommand({ Bucket: this.bucket, Key: this.key, Body: json, ContentType: this.contentType }),
     )
   }
 }
@@ -43,7 +50,11 @@ class R2PoolBackend implements PoolBackend {
 // private bucket configured
 class LocalPoolBackend implements PoolBackend {
   readonly name = 'local'
-  private readonly file = path.join(DATA_DIR, POOL_KEY)
+  private readonly file: string
+
+  constructor(key: string) {
+    this.file = path.join(DATA_DIR, key)
+  }
 
   async load(): Promise<string | null> {
     try {
@@ -61,10 +72,16 @@ class LocalPoolBackend implements PoolBackend {
   }
 }
 
-export function createPoolBackend(): PoolBackend {
+// One object in the private bucket (or a file in the data dir) — the
+// prompt pool, and the asset labels (see labels/).
+export function createPrivateBackend(key: string, contentType: string): PoolBackend {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PROMPTS_BUCKET } = process.env
   if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_PROMPTS_BUCKET) {
-    return new R2PoolBackend(R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PROMPTS_BUCKET)
+    return new R2PoolBackend(R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PROMPTS_BUCKET, key, contentType)
   }
-  return new LocalPoolBackend()
+  return new LocalPoolBackend(key)
+}
+
+export function createPoolBackend(): PoolBackend {
+  return createPrivateBackend(POOL_KEY, 'application/json')
 }

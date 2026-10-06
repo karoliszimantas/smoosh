@@ -1,5 +1,7 @@
 // /api/prompts — the team's shared prompt pool.
 //
+// (The helpers below are shared with /api/labels — labels/routes.ts.)
+//
 // ACCESS: one shared code (PROMPT_WRITE_KEY), sent as x-prompt-code, plus a
 // self-chosen display name in x-prompt-author. That is a shared password for
 // three people who trust each other, not an auth system — deliberately. If
@@ -33,31 +35,31 @@ export { setPromptStoreForTests } from './shared.ts'
 
 export const PROMPT_CORS_HEADERS = 'X-Prompt-Code, X-Prompt-Author'
 
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
+export function sendJson(res: ServerResponse, status: number, body: unknown): void {
   if (res.headersSent) return
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
   res.end(JSON.stringify(body))
 }
 
-function sendError(res: ServerResponse, status: number, error: string, message: string): void {
+export function sendError(res: ServerResponse, status: number, error: string, message: string): void {
   sendJson(res, status, { error, message })
 }
 
 // constant-time comparison of the shared code (hashed first, so lengths match)
-function codeMatches(given: string, expected: string): boolean {
+export function codeMatches(given: string, expected: string): boolean {
   const a = createHash('sha256').update(given).digest()
   const b = createHash('sha256').update(expected).digest()
   return timingSafeEqual(a, b)
 }
 
-function header(req: IncomingMessage, name: string): string {
+export function header(req: IncomingMessage, name: string): string {
   const v = req.headers[name]
   return typeof v === 'string' ? v : ''
 }
 
 // names travel URI-encoded, so "Karolis Bilčius" survives an HTTP header
-function authorOf(req: IncomingMessage): string | null {
+export function authorOf(req: IncomingMessage): string | null {
   let name: string
   try {
     name = decodeURIComponent(header(req, 'x-prompt-author'))
@@ -72,7 +74,7 @@ function clientKey(req: IncomingMessage): string {
   const forwarded = header(req, 'x-forwarded-for').split(',')[0]?.trim()
   return forwarded || req.socket.remoteAddress || 'unknown'
 }
-function tokenTaker(capacity: number, refillPerMs: number) {
+export function tokenTaker(capacity: number, refillPerMs: number) {
   const buckets = new Map<string, TokenBucket>()
   return (req: IncomingMessage): boolean => {
     const key = clientKey(req)
@@ -88,13 +90,13 @@ function tokenTaker(capacity: number, refillPerMs: number) {
 const takeWriteToken = tokenTaker(WRITES_PER_MINUTE, WRITES_PER_MINUTE / 60_000)
 const takeImportToken = tokenTaker(IMPORT_BURST, 1 / IMPORT_REFILL_MS)
 
-function readJson(req: IncomingMessage): Promise<unknown> {
+export function readJson(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let total = 0
     req.on('data', (chunk: Buffer) => {
       total += chunk.length
-      if (total > MAX_BODY_BYTES) {
+      if (total > maxBytes) {
         reject(new PromptError(413, 'too_large', 'That request is too big.'))
         req.destroy()
         return
@@ -114,7 +116,7 @@ function readJson(req: IncomingMessage): Promise<unknown> {
 }
 
 // a zod failure as one plain sentence — the first issue's own message
-function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value)
   if (result.success) return result.data
   throw new PromptError(400, 'invalid', result.error.issues[0]?.message ?? "That doesn't look right.")
