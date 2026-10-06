@@ -4,10 +4,12 @@ import { presentSeats } from './Room.ts'
 import {
   dropPendingActor,
   pausePhaseClock,
+  rescheduleBuild,
   restorePendingActor,
   resumePhaseClock,
   type PhaseMachineDeps,
 } from '../game/phaseMachine.ts'
+import { closeWindow } from '../game/promptSwap.ts'
 
 // Who is in the room, and what follows from it. Leaving is only ever a
 // deliberate act (room:leave); every other way of disappearing — reload,
@@ -82,6 +84,13 @@ export function seatAway(room: Room, deps: PresenceDeps, seat: Seat): void {
   seat.awayFrom = { round: room.round, pictureIndex: room.pictureIndex, phase: room.phase.phase, score: seat.score }
   if (seat.isHost) scheduleHostHandover(room, deps)
   if (room.phase.phase === 'lobby') scheduleLobbyRelease(room, deps, seat)
+  // a prompt window still open closes as they go — a swapped-in prompt is
+  // kept, as when the choice runs out — and their build clock starts now,
+  // so they come back to a build in progress rather than a stale choice
+  if (room.phase.phase === 'build' && room.buildWindows.get(seat.playerId)?.startedAt === null) {
+    closeWindow(room, seat.playerId, Date.now())
+    rescheduleBuild(room, deps)
+  }
   stopWaitingOn(room, deps, seat)
   afterDeparture(room, deps)
 }

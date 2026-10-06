@@ -4,6 +4,7 @@ import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
 import { startBuild, rescheduleBuild, type PhaseMachineDeps } from '../src/game/phaseMachine.ts'
 import { closeWindow, personalDeadline, swapPrompt, swapProblem, swapsLeft, settleWindows } from '../src/game/promptSwap.ts'
 import { buildSnapshot } from '../src/snapshot.ts'
+import { seatArrived, seatAway, type PresenceDeps } from '../src/rooms/presence.ts'
 
 const POOL = Array.from({ length: 300 }, (_, i) => `prompt ${i}`)
 
@@ -135,19 +136,46 @@ describe('the window and the clock', () => {
     keep(room, deps, 'p2', 'original')
     vi.advanceTimersByTime(3000)
     swap(room, deps, 'p1') // p1 takes their time…
-    vi.advanceTimersByTime(PROMPT_CHOICE_SEC * 1000) // …and lets the choice run out
+    vi.advanceTimersByTime(PROMPT_WINDOW_SEC * 1000) // …and lets the whole window run out
+    const p1End = start + PROMPT_WINDOW_SEC * 1000 + 60_000
     expect(personalDeadline(room, 'p2', Date.now())).toBe(start + 1000 + 60_000)
-    expect(personalDeadline(room, 'p1', Date.now())).toBe(start + 4000 + PROMPT_CHOICE_SEC * 1000 + 60_000)
+    expect(personalDeadline(room, 'p1', Date.now())).toBe(p1End)
     // the phase waits for the last clock
     const build = room.phase.phase === 'build' ? room.phase : null
-    expect(build?.deadline).toBe(start + 4000 + PROMPT_CHOICE_SEC * 1000 + 60_000)
+    expect(build?.deadline).toBe(p1End)
+  })
+
+  it('a swap late in the window still leaves time to choose', () => {
+    const { room, deps } = game()
+    const start = Date.now()
+    vi.advanceTimersByTime(PROMPT_WINDOW_SEC * 1000 - 2000)
+    swap(room, deps, 'p1')
+    expect(personalDeadline(room, 'p1', Date.now())).toBe(
+      start + PROMPT_WINDOW_SEC * 1000 - 2000 + PROMPT_CHOICE_SEC * 1000 + 60_000,
+    )
   })
 
   it('a choice left unmade keeps the swapped-in prompt', () => {
     const { room, deps } = game()
     const offered = swap(room, deps, 'p1')
-    vi.advanceTimersByTime(PROMPT_CHOICE_SEC * 1000 + 10)
+    vi.advanceTimersByTime(PROMPT_WINDOW_SEC * 1000 + 10)
     expect(room.promptByPlayer.get('p1')).toBe(offered)
+  })
+
+  it('going away closes an open window: the clock starts then, a swapped-in prompt is kept', () => {
+    const { room, deps } = game()
+    const start = Date.now()
+    const offered = swap(room, deps, 'p1')
+    vi.advanceTimersByTime(3000)
+    const seat = room.seats.get('p1')
+    if (!seat) throw new Error('no seat')
+    const presence: PresenceDeps = { ...deps, onEvent: vi.fn(), dispose: vi.fn() }
+    seatAway(room, presence, seat)
+    expect(personalDeadline(room, 'p1', Date.now())).toBe(start + 3000 + 60_000)
+    expect(room.promptByPlayer.get('p1')).toBe(offered)
+    // back a moment later: building, not choosing
+    seatArrived(room, presence, seat, 'socket-back')
+    expect(swapProblem(room, 'p1', Date.now(), room.swapPool)).toMatch(/too late/)
   })
 
   it('no swap once the window has closed — run out, tapped through, or after a reconnect', () => {

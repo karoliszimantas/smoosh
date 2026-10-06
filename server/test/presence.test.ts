@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { BUILD_GRACE_SEC, MAX_PLAYERS, type GameSettings, type PhaseState, type RoomEvent } from '@smoosh/protocol'
+import { BUILD_GRACE_SEC, MAX_PLAYERS, PROMPT_WINDOW_SEC, type GameSettings, type PhaseState, type RoomEvent } from '@smoosh/protocol'
 import { resolveSeat } from '../src/rooms/seats.ts'
 import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
 import {
@@ -25,8 +25,8 @@ import {
 // Leaving is deliberate; everything else is being away, and an away player
 // keeps their seat. Pure room logic on fake timers — no sockets.
 
-// a 60s build, after the 5s prompt window nobody here taps through
-const BUILD_MS = 65_000
+// a 60s build, after the prompt window nobody here taps through
+const BUILD_MS = (PROMPT_WINDOW_SEC + 60) * 1000
 const ANSWER_MS = 120_000
 
 type Harness = {
@@ -494,8 +494,9 @@ describe('host', () => {
 describe('empty rooms', () => {
   it('everyone away: the clock stops and the room is held for 10 minutes', () => {
     const h = setup()
-    const deadline = expectPhase(h.room, 'build').deadline
     for (const n of [1, 2, 3, 4]) seatAway(h.room, h.deps, h.seat(n))
+    // their prompt windows closed as they went: 60s of build each, from now
+    const deadline = expectPhase(h.room, 'build').deadline
     vi.advanceTimersByTime(EMPTY_ROOM_HOLD_MS - 60_000)
     // the game didn't play on without them
     expectPhase(h.room, 'build')
@@ -504,7 +505,7 @@ describe('empty rooms', () => {
     seatArrived(h.room, h.deps, h.seat(2), 'socket-back')
     // the clock picks up where it stopped
     expect(expectPhase(h.room, 'build').deadline).toBe(deadline + EMPTY_ROOM_HOLD_MS - 60_000)
-    vi.advanceTimersByTime(BUILD_MS - 1)
+    vi.advanceTimersByTime(60_000 - 1)
     expectPhase(h.room, 'build')
     vi.advanceTimersByTime(EMPTY_ROOM_HOLD_MS) // well past: no disposal now someone is back
     expect(h.disposed()).toBe(false)

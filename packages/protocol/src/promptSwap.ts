@@ -10,7 +10,10 @@ export function swapAllowance(rounds: number): number {
 }
 
 // the window at the start of BUILD, before that player's clock runs: their
-// prompt, and the choice to swap it
-export const PROMPT_WINDOW_SEC = 5
-// after a swap: long enough to read both prompts and pick one
+// prompt, and the choice to swap it. A ceiling, not a wait — it ends the
+// moment they commit, and their build clock only starts when it does, so a
+// long one costs nobody but the player using it
+export const PROMPT_WINDOW_SEC = 60
+// after a swap late in the window: at least this long to read both prompts
+// and pick one
 export const PROMPT_CHOICE_SEC = 5
