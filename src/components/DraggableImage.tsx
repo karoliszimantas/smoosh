@@ -224,7 +224,11 @@ const DraggableImage = memo(function DraggableImage({
       shadowForStrokeEnabled={false}
       visible={!hidden}
       opacity={item.opacity * (dimmed ? 0.4 : 1)}
-      draggable
+      // the one place a lock acts: a node that doesn't listen isn't in Konva's
+      // hit test, so a tap, drag, pinch or long-press finds the layer beneath
+      // it instead (Canvas takes every gesture's target from that hit test)
+      listening={!item.locked}
+      draggable={!item.locked}
       hitFunc={hitFunc}
       stroke={isSelected ? theme.selectionColor : undefined}
       strokeWidth={isSelected ? 3 : 0}

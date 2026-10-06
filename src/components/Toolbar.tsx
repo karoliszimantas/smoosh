@@ -19,6 +19,8 @@ const ICONS = {
   cancel: 'M6 6l12 12M18 6L6 18',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   duplicate: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  lock: 'M8 11V7a4 4 0 0 1 8 0v4M5 11h14v10H5z',
+  unlock: 'M8 11V7a4 4 0 0 1 7.9-1M5 11h14v10H5z',
 } as const
 type IconName = keyof typeof ICONS
 
@@ -85,7 +87,8 @@ function ToolButton({
   )
 }
 
-export type ToolbarMode = 'idle' | 'layer' | 'crop' | 'erase'
+// 'locked': a locked layer, selected from the strip — unlocking is all it offers
+export type ToolbarMode = 'idle' | 'layer' | 'locked' | 'crop' | 'erase'
 
 // Live while dragging (onPreview touches the Konva node only), committed to
 // layer state once on release — the same split as drag and pinch.
@@ -156,6 +159,7 @@ export default function Toolbar({
   onErase,
   onDelete,
   onDuplicate,
+  onToggleLock,
   onReport,
   onOpacityPreview,
   onOpacityCommit,
@@ -190,6 +194,7 @@ export default function Toolbar({
   onErase: () => void
   onDelete: () => void
   onDuplicate: () => void
+  onToggleLock: () => void
   // only for layers that came from Pixabay — curated assets aren't reportable
   onReport?: () => void
   onOpacityPreview: (v: number) => void
@@ -249,6 +254,24 @@ export default function Toolbar({
         <ToolButton icon="undo" label="Undo" onClick={onEraseUndo} disabled={!canUndoErase} ariaLabel="Undo last stroke" />
         <ToolButton icon="reset" label="Reset" onClick={onEraseReset} disabled={!canUndoErase} ariaLabel="Restore the whole layer" />
         <ToolButton icon="done" label="Done" onClick={onEraseDone} variant="primary" ariaLabel="Done erasing" />
+      </>
+    )
+  } else if (mode === 'locked') {
+    // a locked layer: nothing to do to it but unlock it. Add and Done stay —
+    // they're the picture's, not the layer's
+    buttons = (
+      <>
+        <ToolButton
+          icon="add"
+          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
+          disabled={full}
+          onClick={onAdd}
+          variant="primary"
+          buttonRef={addButtonRef}
+        />
+        <ToolButton icon="unlock" label="Unlock" onClick={onToggleLock} ariaLabel="Unlock this layer" />
+        <ToolButton icon="done" label={doneLabel} onClick={onDone} />
       </>
     )
   } else if (mode === 'layer') {
@@ -319,6 +342,15 @@ export default function Toolbar({
               onClick={onDuplicate}
               disabled={full}
               ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : 'Duplicate this layer'}
+            />
+            <ToolButton
+              icon="lock"
+              label="Lock"
+              onClick={() => {
+                setMoreOpen(false)
+                onToggleLock()
+              }}
+              ariaLabel="Lock this layer — taps pass through it"
             />
             <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
             <ToolButton

@@ -608,7 +608,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (!source || items.length >= layerCapRef.current) return
     // step back the other way rather than off the edge of the frame
     const step = (v: number) => (v + DUPLICATE_OFFSET > CANVAS_SIZE * 0.95 ? v - DUPLICATE_OFFSET : v + DUPLICATE_OFFSET)
-    const copy: LayerItem = { ...source, id: generateId(), x: step(source.x), y: step(source.y) }
+    // a copy of a locked layer comes out unlocked, ready to move
+    const copy: LayerItem = { ...source, id: generateId(), x: step(source.x), y: step(source.y), locked: false }
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === source.id)
       if (idx === -1 || prev.length >= layerCapRef.current) return prev
@@ -618,9 +619,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   }, [items, selectedId])
 
   const deleteSelected = useCallback(() => {
-    setItems((prev) => prev.filter((i) => i.id !== selectedId))
+    // a locked layer can't be deleted by accident any more than moved
+    if (items.find((i) => i.id === selectedId)?.locked) return
+    setItems((prev) => prev.filter((i) => i.id !== selectedId || i.locked === true))
     setSelectedId(null)
-  }, [selectedId])
+  }, [items, selectedId])
 
   // z-order lives only in the items array's index (0 = back). The toolbar
   // moves the selected layer one step at a time — swapping it with its
@@ -645,6 +648,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   )
   const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
   const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
+
+  const toggleLockSelected = useCallback(() => {
+    setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, locked: !i.locked } : i)))
+  }, [selectedId])
 
   const mirrorSelected = useCallback(() => {
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, mirrored: !i.mirrored } : i)))
@@ -843,9 +850,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     ? 'crop'
     : erasingItem
       ? 'erase'
-      : isSelected
-        ? 'layer'
-        : 'idle'
+      : selectedItem?.locked
+        ? 'locked'
+        : isSelected
+          ? 'layer'
+          : 'idle'
   // during a long-press reorder the stack previews the new order live
   const shownItems = depth ? moveToIndex(items, depth.id, depth.to) : items
 
@@ -946,7 +955,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           )}
         </Stage>
         {/* hidden with nothing selected, so what they act on is never a question */}
-        {selectedItem && !editing && !depth && (
+        {selectedItem && !selectedItem.locked && !editing && !depth && (
           <LayerSliders
             key={selectedItem.id}
             rotation={selectedItem.rotation}
@@ -995,6 +1004,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         onErase={startErase}
         onDelete={deleteSelected}
         onDuplicate={duplicateSelected}
+        onToggleLock={toggleLockSelected}
         onReport={selectedPixabayId !== undefined ? () => setReportTarget(selectedPixabayId) : undefined}
         onOpacityPreview={previewOpacity}
         onOpacityCommit={commitOpacity}

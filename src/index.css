@@ -429,6 +429,32 @@ h2,
   border-color: var(--selection);
 }
 
+.layer-chip {
+  position: relative;
+}
+
+/* a locked layer: a padlock badge in the corner, in the system colours so
+   it reads over any thumbnail in any theme */
+.layer-chip-lock {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--sys-text);
+  border-radius: 50%;
+  background: var(--sys-surface);
+  color: var(--sys-text);
+}
+
+.layer-chip-lock svg {
+  width: 12px;
+  height: 12px;
+}
+
 .layer-chip img {
   width: 100%;
   height: 100%;

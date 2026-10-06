@@ -21,6 +21,18 @@ function Thumb({ src }: { src: string }) {
   return shown ? <img src={shown} alt="" loading="lazy" /> : null
 }
 
+// a locked layer's mark: fixed colours, not the theme's, so it reads on
+// any thumbnail in any theme
+function Padlock() {
+  return (
+    <span className="layer-chip-lock" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 11V7a4 4 0 0 1 8 0v4M5 11h14v10H5z" />
+      </svg>
+    </span>
+  )
+}
+
 // selection and a depth readout only — reordering happens on the canvas
 // itself (long-press a layer, slide up/down), so there's one way to do it
 export default function LayerStrip({
@@ -36,7 +48,9 @@ export default function LayerStrip({
   // "what's in front"
   const displayItems = useMemo(() => [...items].reverse(), [items])
 
-  if (items.length < 2) return null
+  // with one layer there's nothing to choose between — unless it's locked:
+  // the strip is the only way to select a locked layer, and so to unlock it
+  if (items.length < 2 && !items.some((i) => i.locked)) return null
 
   return (
     <div className="layer-strip">
@@ -46,10 +60,11 @@ export default function LayerStrip({
           <button
             key={item.id}
             className={`layer-chip${item.id === selectedId ? ' selected' : ''}`}
-            aria-label={`Layer ${index + 1} of ${displayItems.length}, ${item.label}`}
+            aria-label={`Layer ${index + 1} of ${displayItems.length}, ${item.label}${item.locked ? ', locked' : ''}`}
             onClick={() => onSelect(item.id)}
           >
             <Thumb src={item.thumb} />
+            {item.locked && <Padlock />}
           </button>
         ))}
       </div>

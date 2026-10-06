@@ -69,7 +69,8 @@ function isLayerItem(value: unknown): value is StoredLayerItem {
     (v.flipY === undefined || typeof v.flipY === 'boolean') &&
     (v.crop === undefined || isCropRect(v.crop)) &&
     (v.erase === undefined || (Array.isArray(v.erase) && v.erase.every(isEraseStroke))) &&
-    (v.pixabayId === undefined || typeof v.pixabayId === 'number')
+    (v.pixabayId === undefined || typeof v.pixabayId === 'number') &&
+    (v.locked === undefined || typeof v.locked === 'boolean')
   )
 }
 

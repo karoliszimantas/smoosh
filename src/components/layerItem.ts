@@ -34,6 +34,10 @@ export type LayerItem = {
   crop?: CropRect
   // set for anything that came from Pixabay, so the layer can be reported
   pixabayId?: number
+  // locked: taps, drags, pinches and long-presses pass straight through it
+  // to whatever is underneath, and it can't be transformed or deleted.
+  // Selected only from the layer strip, to unlock it. Absent = unlocked.
+  locked?: boolean
 }
 
 export type EraseStroke = {
