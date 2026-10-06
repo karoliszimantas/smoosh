@@ -147,7 +147,9 @@ function playGame(opts: {
   }
 
   function planBuild(round: number): void {
-    const deadlineAt = Date.now() + BUILD_SEC * 1000
+    // each phone auto-submits at its own deadline; nobody here taps through
+    // the prompt window, so that's the phase's
+    const deadlineAt = room.phase.phase === 'build' ? room.phase.deadline : Date.now() + BUILD_SEC * 1000
     for (const seat of room.seats.values()) {
       const offset = opts.upload(round, seat.playerId, rng)
       if (offset === null) continue

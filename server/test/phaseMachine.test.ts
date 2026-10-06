@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   BUILD_GRACE_SEC,
+  PROMPT_WINDOW_SEC,
   MISSING_PHASE_SEC,
   REVEAL_PHASE_SEC,
   type GameSettings,
@@ -72,8 +73,11 @@ function expectPhase<T extends PhaseState['phase']>(room: Room, phase: T): Extra
   return room.phase as Extract<PhaseState, { phase: T }>
 }
 
-// a 60s BUILD closes after its deadline plus the grace window for late uploads
-const BUILD_END_MS = (60 + BUILD_GRACE_SEC) * 1000
+// A 60s BUILD closes after its deadline plus the grace window for late
+// uploads. In Guess, a player who never taps through their prompt window
+// starts their clock when it runs out, so the phase runs that much longer.
+const GALLERY_BUILD_END_MS = (60 + BUILD_GRACE_SEC) * 1000
+const BUILD_END_MS = (PROMPT_WINDOW_SEC + 60 + BUILD_GRACE_SEC) * 1000
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -110,7 +114,7 @@ describe('BUILD phase', () => {
     const room = makeRoom(3, 3, 60)
     const deps = makeDeps({ hasSubmission: () => false })
     startBuild(room, deps)
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime((PROMPT_WINDOW_SEC + 60) * 1000)
     expect(expectPhase(room, 'build').collecting).toBe(true)
     vi.advanceTimersByTime(BUILD_GRACE_SEC * 1000)
     expect(room.phase.phase).not.toBe('build')
@@ -367,7 +371,7 @@ describe('GALLERY mode', () => {
 
   it('goes build -> one vote on the whole round, everyone voting', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     const phase = expectPhase(room, 'vote')
     expect(phase.pictures.map((p) => p.authorId).sort()).toEqual(['player-1', 'player-2', 'player-3'])
     expect(phase.pictures.every((p) => p.imagePath !== null)).toBe(true)
@@ -376,17 +380,17 @@ describe('GALLERY mode', () => {
 
   it('carries the shared prompt into the vote — empty in freestyle', () => {
     const prompted = buildToRate(true)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     expect(expectPhase(prompted.room, 'vote').prompt).toBe([...prompted.room.promptByPlayer.values()][0])
 
     const freestyle = buildToRate(false)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     expect(expectPhase(freestyle.room, 'vote').prompt).toBe('')
   })
 
   it('refuses a vote for your own picture, a repeat, an unknown picture, and a missing required runner-up', () => {
     const { room } = buildToRate(true, 4)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     expectPhase(room, 'vote')
     expect(voteProblem(room, 'player-1', 'player-1', 'player-2')).toMatch(/own/)
     expect(voteProblem(room, 'player-1', 'player-2', 'player-1')).toMatch(/own/)
@@ -399,14 +403,14 @@ describe('GALLERY mode', () => {
 
   it('three players: the runner-up is optional — two of two is not a judgement', () => {
     const { room } = buildToRate(true, 3)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     expect(voteProblem(room, 'player-1', 'player-2', null)).toBeNull()
     expect(voteProblem(room, 'player-1', 'player-2', 'player-3')).toBeNull()
   })
 
   it('3 players, optional runner-up: favourite 2 points, runner-up 1, early-advance once all voted', () => {
     const { room, deps } = buildToRate(true, 3)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     recordVote(room, 'player-1', 'player-2', 'player-3')
     dropPendingActor(room, deps, 'player-1')
     recordVote(room, 'player-2', 'player-3', null) // no runner-up
@@ -429,7 +433,7 @@ describe('GALLERY mode', () => {
 
   it('the 3-player reveal fits in 15 seconds; the host can cut it short', () => {
     const { room, deps } = buildToRate(true, 3)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     recordVote(room, 'player-1', 'player-2', 'player-3')
     recordVote(room, 'player-2', 'player-3', 'player-1')
     recordVote(room, 'player-3', 'player-1', 'player-2')
@@ -447,7 +451,7 @@ describe('GALLERY mode', () => {
   it('the final scores hang every round’s Best in Show', () => {
     const { room, deps } = buildToRate(true, 3)
     for (let round = 1; round <= 2; round++) {
-      vi.advanceTimersByTime(BUILD_END_MS)
+      vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
       recordVote(room, 'player-1', 'player-2', null)
       recordVote(room, 'player-3', 'player-2', null)
       recordVote(room, 'player-2', 'player-1', null)
@@ -467,7 +471,7 @@ describe('GALLERY mode', () => {
     const room = makeRoom(4, 1, 60, 'gallery', true)
     const deps = makeDeps({ hasSubmission: (_c, _r, id) => id !== 'player-4' })
     startBuild(room, deps)
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     const phase = expectPhase(room, 'vote')
     expect(phase.pictures.find((p) => p.authorId === 'player-4')?.imagePath).toBeNull()
     expect(voteProblem(room, 'player-1', 'player-4', 'player-2')).toMatch(/not up for a vote/)
@@ -477,7 +481,7 @@ describe('GALLERY mode', () => {
 
   it('nobody votes: the wall is shown with no awards, nobody scores', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(BUILD_END_MS) // -> vote
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS) // -> vote
     vi.advanceTimersByTime(120_000) // nobody votes
     const awards = expectPhase(room, 'awards')
     expect(awards.announcements).toEqual([])
@@ -486,7 +490,7 @@ describe('GALLERY mode', () => {
 
   it('a round goes vote -> awards -> scores -> next build, and votes do not leak into the next round', () => {
     const { room } = buildToRate()
-    vi.advanceTimersByTime(BUILD_END_MS)
+    vi.advanceTimersByTime(GALLERY_BUILD_END_MS)
     recordVote(room, 'player-1', 'player-2', null)
     vi.advanceTimersByTime(120_000)
     // the reveal runs as long as its announcements need, no longer

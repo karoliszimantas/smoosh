@@ -24,7 +24,8 @@ import {
 // Leaving is deliberate; everything else is being away, and an away player
 // keeps their seat. Pure room logic on fake timers — no sockets.
 
-const BUILD_MS = 60_000
+// a 60s build, after the 5s prompt window nobody here taps through
+const BUILD_MS = 65_000
 const ANSWER_MS = 120_000
 
 type Harness = {

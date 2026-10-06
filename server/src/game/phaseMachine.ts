@@ -17,6 +17,7 @@ import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
 import { presentSeats, findSeatByPlayerId } from '../rooms/Room.ts'
 import { submissionPath } from '../submissions/store.ts'
 import { assignPrompts } from './promptAssignment.ts'
+import { buildEndsAt, openBuildWindows, settleWindows } from './promptSwap.ts'
 
 export type PhaseMachineDeps = {
   // the prompts a game in this mode can be dealt, as of now
@@ -48,6 +49,11 @@ function clearRoomTimer(room: Room): void {
   room.phaseEnd = null
 }
 
+function clearWindowTimer(room: Room): void {
+  if (room.windowTimer) clearTimeout(room.windowTimer)
+  room.windowTimer = null
+}
+
 function schedulePhaseEnd(room: Room, durationMs: number, onEnd: () => void): void {
   clearRoomTimer(room)
   room.phaseEnd = { at: Date.now() + durationMs, onEnd }
@@ -63,6 +69,7 @@ export function pausePhaseClock(room: Room): void {
   room.pausedAt = Date.now()
   if (room.timer) clearTimeout(room.timer)
   room.timer = null
+  clearWindowTimer(room)
 }
 
 // someone is back: the clock picks up where it stopped, deadline and all
@@ -75,6 +82,18 @@ export function resumePhaseClock(room: Room): void {
   end.at += pausedFor
   if ('deadline' in room.phase && typeof room.phase.deadline === 'number') {
     room.phase = { ...room.phase, deadline: room.phase.deadline + pausedFor }
+  }
+  // every player's prompt window and build clock waited too
+  if (room.phase.phase === 'build') {
+    if (room.buildStartedAt !== null) room.buildStartedAt += pausedFor
+    for (const [id, w] of room.buildWindows) {
+      room.buildWindows.set(id, {
+        ...w,
+        closesAt: w.closesAt + pausedFor,
+        startedAt: w.startedAt === null ? null : w.startedAt + pausedFor,
+      })
+    }
+    room.rearmWindows?.()
   }
   room.timer = setTimeout(end.onEnd, Math.max(0, end.at - Date.now()))
 }
@@ -125,7 +144,11 @@ export function dropPendingActor(room: Room, deps: PhaseMachineDeps, playerId: s
 
 export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
+  clearWindowTimer(room)
   room.round += 1
+  // a new game: everyone's swaps are back (burned prompts return with
+  // usedPrompts, cleared when the game is set up)
+  if (room.round === 1) room.swapsUsed.clear()
   room.liesByPictureIndex.clear()
   room.guessesByPictureIndex.clear()
   room.optionsByPictureIndex.clear()
@@ -156,10 +179,44 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   // is in. An away player isn't done — they may be back with one before the
   // deadline, and the room has nothing to move on to meanwhile anyway.
   room.pendingActors = new Set([...room.seats.values()].filter((s) => s.presence !== 'left').map((s) => s.playerId))
-  const deadline = deadlineIn(room.settings.buildTimeSec)
-  room.phase = { phase: 'build', round: room.round, totalRounds: room.settings.rounds, deadline, collecting: false }
-  schedulePhaseEnd(room, room.settings.buildTimeSec * 1000, () => closeBuild(room, deps))
+  // each player's clock starts when their prompt window closes; the phase
+  // closes when the last one runs out
+  const now = Date.now()
+  room.buildStartedAt = now
+  room.swapPool = deps.prompts(room.settings.mode)
+  openBuildWindows(room, now)
+  room.rearmWindows = () => armWindowTimer(room, deps)
+  room.phase = { phase: 'build', round: room.round, totalRounds: room.settings.rounds, deadline: buildEndsAt(room, now), collecting: false }
+  rescheduleBuild(room, deps)
   deps.onSnapshot(room)
+}
+
+// After any window opens, closes or stretches: settle the ones that have
+// run out, and move the phase's close to the last player's deadline.
+export function rescheduleBuild(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'build' || room.phase.collecting) return
+  const now = Date.now()
+  settleWindows(room, now)
+  const deadline = buildEndsAt(room, now)
+  room.phase = { ...room.phase, deadline }
+  schedulePhaseEnd(room, Math.max(0, deadline - now), () => closeBuild(room, deps))
+  armWindowTimer(room, deps)
+}
+
+// wake when the next open window runs out, so the room hears about it
+function armWindowTimer(room: Room, deps: PhaseMachineDeps): void {
+  clearWindowTimer(room)
+  if (room.pausedAt !== null || room.phase.phase !== 'build') return
+  const open = [...room.buildWindows.values()].filter((w) => w.startedAt === null).map((w) => w.closesAt)
+  if (open.length === 0) return
+  room.windowTimer = setTimeout(
+    () => {
+      room.windowTimer = null
+      rescheduleBuild(room, deps)
+      deps.onSnapshot(room)
+    },
+    Math.max(0, Math.min(...open) - Date.now()),
+  )
 }
 
 // the BUILD deadline. A phone that hasn't submitted auto-submits when its own
@@ -167,6 +224,8 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
 // for those (ending sooner if they all arrive) rather than cutting them off
 function closeBuild(room: Room, deps: PhaseMachineDeps): void {
   if (room.phase.phase !== 'build') return
+  clearWindowTimer(room)
+  settleWindows(room, Date.now())
   room.phase = { ...room.phase, collecting: true }
   schedulePhaseEnd(room, BUILD_GRACE_SEC * 1000, () => endBuild(room, deps))
   deps.onSnapshot(room)
@@ -174,6 +233,10 @@ function closeBuild(room: Room, deps: PhaseMachineDeps): void {
 
 function endBuild(room: Room, deps: PhaseMachineDeps): void {
   clearRoomTimer(room)
+  clearWindowTimer(room)
+  // a window still open (everyone submitted early) settles on its prompt
+  settleWindows(room, Number.POSITIVE_INFINITY)
+  room.rearmWindows = null
   // every player gets a slot, picture or not, so nobody can be skipped
   // silently: a missing picture comes up as a placeholder everyone sees.
   // Except someone who chose to leave — their absence is no news, unless

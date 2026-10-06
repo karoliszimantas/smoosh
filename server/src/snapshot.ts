@@ -2,6 +2,7 @@ import type { RoomSnapshot } from '@smoosh/protocol'
 import type { Room, Seat } from './rooms/Room.ts'
 import { hasSubmission } from './submissions/store.ts'
 import { optionsForPicture, votablePictures } from './game/phaseMachine.ts'
+import { effectivePrompt, personalDeadline, swapProblem, swapsLeft, windowView } from './game/promptSwap.ts'
 
 function computeOwnOptionId(room: Room, seat: Seat): string | null {
   const phase = room.phase
@@ -47,7 +48,10 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
     score: s.score,
   }))
 
-  const secretPrompt = room.phase.phase === 'build' ? (room.promptByPlayer.get(seat.playerId) ?? null) : null
+  const now = Date.now()
+  const building = room.phase.phase === 'build'
+  const secretPrompt = building ? (effectivePrompt(room, seat.playerId, now) ?? null) : null
+  const window = building ? windowView(room, seat.playerId, now) : null
 
   return {
     roomCode: room.code,
@@ -62,6 +66,15 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
       hasActedThisPhase: computeHasActed(room, seat),
       ownOptionId: computeOwnOptionId(room, seat),
       ownVote: computeOwnVote(room, seat),
+      build: building
+        ? {
+            windowEndsAt: window && window.startedAt === null ? window.closesAt : null,
+            deadline: personalDeadline(room, seat.playerId, now),
+            swapsLeft: swapsLeft(room, seat.playerId),
+            canSwap: swapProblem(room, seat.playerId, now, room.swapPool) === null,
+            offered: window && window.startedAt === null ? window.offered : null,
+          }
+        : null,
     },
   }
 }

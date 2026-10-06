@@ -33,6 +33,11 @@ export const SubmitVoteSchema = z.object({
   favourite: PlayerIdSchema,
   runnerUp: PlayerIdSchema.nullable(),
 })
+// guess, the start of BUILD: swap the prompt (once, inside the window), pick
+// which of the two to build, or start building as it is
+export const SwapPromptSchema = z.object({ round: z.number().int().positive() })
+export const KeepPromptSchema = z.object({ round: z.number().int().positive(), keep: z.enum(['original', 'swapped']) })
+export const BeginBuildSchema = z.object({ round: z.number().int().positive() })
 // the host cuts the awards short: straight to the full wall
 export const SkipAwardsSchema = z.object({ round: z.number().int().positive() })
 
@@ -57,6 +62,9 @@ export interface ClientToServerEvents {
   'presence:away': (payload: z.infer<typeof AwaySchema>, ack: (r: AckResult) => void) => void
   'lie:submit': (payload: z.infer<typeof SubmitLieSchema>, ack: (r: AckResult) => void) => void
   'guess:submit': (payload: z.infer<typeof SubmitGuessSchema>, ack: (r: AckResult) => void) => void
+  'prompt:swap': (payload: z.infer<typeof SwapPromptSchema>, ack: (r: AckResult) => void) => void
+  'prompt:keep': (payload: z.infer<typeof KeepPromptSchema>, ack: (r: AckResult) => void) => void
+  'build:begin': (payload: z.infer<typeof BeginBuildSchema>, ack: (r: AckResult) => void) => void
   'vote:submit': (payload: z.infer<typeof SubmitVoteSchema>, ack: (r: AckResult) => void) => void
   'awards:skip': (payload: z.infer<typeof SkipAwardsSchema>, ack: (r: AckResult) => void) => void
 }

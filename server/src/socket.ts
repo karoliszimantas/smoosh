@@ -10,6 +10,7 @@ import { registerLobbyHandlers } from './handlers/lobbyHandlers.ts'
 import { registerLieHandlers } from './handlers/lieHandlers.ts'
 import { registerGuessHandlers } from './handlers/guessHandlers.ts'
 import { registerVoteHandlers } from './handlers/voteHandlers.ts'
+import { registerBuildHandlers } from './handlers/buildHandlers.ts'
 import { registerConnectionHandlers } from './handlers/connectionHandlers.ts'
 import type { TypedServer, SocketData } from './handlers/context.ts'
 
@@ -61,6 +62,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
     registerLieHandlers(io, socket, deps)
     registerGuessHandlers(io, socket, deps)
     registerVoteHandlers(io, socket, deps)
+    registerBuildHandlers(io, socket, deps)
     registerConnectionHandlers(io, socket, deps)
   })
 

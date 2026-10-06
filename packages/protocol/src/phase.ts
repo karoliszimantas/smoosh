@@ -36,6 +36,8 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     phase: z.literal('build'),
     round: z.number().int().positive(),
     totalRounds: z.number().int().positive(),
+    // when the phase closes: the latest of every player's own deadline (see
+    // the snapshot's you.build — that's the one a player's clock shows)
     deadline: z.number(),
     // the deadline has passed and the server is waiting a few seconds for
     // the last uploads — a client that hasn't submitted should do so now

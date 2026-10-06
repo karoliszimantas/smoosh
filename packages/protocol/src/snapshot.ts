@@ -28,6 +28,19 @@ export const RoomSnapshotSchema = z.object({
     // during gallery VOTE, this player's own votes — nobody else's are ever
     // sent: votes are anonymous, only counts are shown
     ownVote: z.object({ favourite: PlayerIdSchema, runnerUp: PlayerIdSchema.nullable() }).nullable(),
+    // during BUILD, this player's own clock. `windowEndsAt` is set while
+    // their prompt window is open (the clock hasn't started); `deadline` is
+    // when their build ends — each player's is their own. `offered`: the
+    // prompt a swap brought up, while they choose between the two
+    build: z
+      .object({
+        windowEndsAt: z.number().nullable(),
+        deadline: z.number(),
+        swapsLeft: z.number().int().nonnegative(),
+        canSwap: z.boolean(),
+        offered: z.string().nullable(),
+      })
+      .nullable(),
   }),
   // who the current phase is still waiting on — in BUILD, whoever hasn't
   // sent a picture in yet, away players included

@@ -1,6 +1,7 @@
 import type { GameSettings, PhaseState, PointsBreakdown, Presence } from '@smoosh/protocol'
 import { DEFAULT_SETTINGS } from '@smoosh/protocol'
 import { generateRoomCode } from './roomCode.ts'
+import type { BuildWindow } from '../game/promptSwap.ts'
 
 // A player is their seat, not their socket: sockets come and go (reloads,
 // lost signal, a phone in a pocket) and attach to the seat they belong to.
@@ -62,6 +63,17 @@ export type Room = {
   votes: Map<string, { favourite: string; runnerUp: string | null }>
   // gallery: every round's Best in Show so far, for the final exhibition
   exhibition: { round: number; prompt: string; authorId: string; imagePath: string }[]
+  // guess: swaps spent this game, per player — reset when a game starts
+  swapsUsed: Map<string, number>
+  // this BUILD's per-player prompt windows and clocks (see promptSwap.ts)
+  buildWindows: Map<string, BuildWindow>
+  buildStartedAt: number | null
+  // the prompts this game draws from, as of this BUILD's start
+  swapPool: readonly string[]
+  // wakes the room when the next open prompt window runs out
+  windowTimer: NodeJS.Timeout | null
+  // re-arms windowTimer after the clock was paused (set up by startBuild)
+  rearmWindows: (() => void) | null
   // guess: each player's points by source — this round, and the game so far
   roundPoints: Map<string, PointsBreakdown>
   gamePoints: Map<string, PointsBreakdown>
@@ -92,6 +104,12 @@ export function createRoom(code: string): Room {
     optionsByPictureIndex: new Map(),
     votes: new Map(),
     exhibition: [],
+    swapsUsed: new Map(),
+    buildWindows: new Map(),
+    buildStartedAt: null,
+    swapPool: [],
+    windowTimer: null,
+    rearmWindows: null,
     roundPoints: new Map(),
     gamePoints: new Map(),
     lastActivityAt: Date.now(),
