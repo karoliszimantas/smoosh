@@ -9,8 +9,9 @@ type Imgly = typeof import('@imgly/background-removal')
 type ImglyConfig = NonNullable<Parameters<Imgly['removeBackground']>[1]>
 
 // Feeding a full-resolution photo into the model is how an iOS tab dies.
-// Pixabay's webformat images are 640px so this is usually a no-op, but the
-// cap holds whatever the source.
+// Search results are Pixabay's 640px copies, which pass straight through;
+// the cap holds whatever the source. (The model itself always works at
+// 1024×1024, so a smaller source saves decoding and memory, not inference.)
 const MAX_INPUT_PX = 1024
 // alpha at or below this counts as background when trimming
 const TRIM_ALPHA = 10
@@ -45,8 +46,15 @@ function canvas2d(w: number, h: number): OffscreenCanvasRenderingContext2D {
 async function fetchDownscaled(url: string): Promise<Blob> {
   const res = await fetch(url)
   if (!res.ok) throw new ImageError("Couldn't load this image.")
-  const bitmap = await createImageBitmap(await res.blob())
+  const blob = await res.blob()
+  const bitmap = await createImageBitmap(blob)
   const scale = Math.min(1, MAX_INPUT_PX / Math.max(bitmap.width, bitmap.height))
+  // already small enough (search results are 640px): the model takes the
+  // file as it came, rather than a redrawn, re-encoded copy of it
+  if (scale === 1) {
+    bitmap.close()
+    return blob
+  }
   const w = Math.round(bitmap.width * scale)
   const h = Math.round(bitmap.height * scale)
   const ctx = canvas2d(w, h)
