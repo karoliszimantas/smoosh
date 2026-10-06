@@ -694,7 +694,10 @@ h2,
   transform: translateY(100%);
   transition: transform 200ms ease-out;
   padding-bottom: env(safe-area-inset-bottom);
-  z-index: 21;
+  /* above the theme switcher and the game menu (40): with the keyboard up
+     the sheet reaches the top of the screen, where they'd sit over the
+     search input. Below the photo lasso (45) and the notice region (50). */
+  z-index: 42;
   color: var(--chrome-text);
 }
 
@@ -774,7 +777,7 @@ h2,
 
 .asset-sheet-search {
   flex-shrink: 0;
-  padding: 0 10px 8px;
+  padding: 0 10px 6px;
 }
 
 .asset-sheet-search input {
@@ -790,7 +793,7 @@ h2,
 
 .asset-sheet-search input:focus {
   outline: 2px solid var(--selection);
-  outline-offset: -1px;
+  outline-offset: -2px;
 }
 
 .asset-sheet-grid {
@@ -3324,16 +3327,28 @@ h2.awards-wall-title {
 }
 
 /* keyboard up: the sheet is sized to what's left of the screen (in JS, from
-   visualViewport) and gives the grid every row it can — the photo row and
-   its note step aside while typing */
+   visualViewport) and gives the grid every row it can — the photo row, its
+   note and the library's category chips (browsing, not searching) step
+   aside while typing */
 .asset-sheet.keyboard-open {
   border-radius: 0;
   transition: none;
 }
 
 .asset-sheet.keyboard-open .sheet-handle,
-.asset-sheet.keyboard-open .photo-entry {
+.asset-sheet.keyboard-open .photo-entry,
+.asset-sheet.keyboard-open .asset-sheet-categories {
   display: none;
+}
+
+/* with the handle gone the input would sit flush against the top edge */
+.asset-sheet.keyboard-open .asset-sheet-search {
+  padding-top: 6px;
+}
+
+.asset-sheet.keyboard-open .asset-sheet-tabs {
+  padding-top: 0;
+  padding-bottom: 6px;
 }
 
 /* ---------- /labels: labelling the asset library ---------- */
