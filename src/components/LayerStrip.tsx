@@ -33,16 +33,27 @@ function Padlock() {
   )
 }
 
-// selection and a depth readout only — reordering happens on the canvas
-// itself (long-press a layer, slide up/down), so there's one way to do it
+// the stack: select a layer, see what's locked, and move the selected one a
+// step toward the front or back with the strip's own two ends. (Long-press
+// on the canvas still jumps a layer to an exact depth.)
 export default function LayerStrip({
   items,
   selectedId,
   onSelect,
+  canFront,
+  canBack,
+  onFront,
+  onBack,
 }: {
   items: LayerItem[]
   selectedId: string | null
   onSelect: (id: string) => void
+  // the strip's two ends move the selected layer one step that way — the
+  // stack is right here, so this is where moving within it belongs
+  canFront: boolean
+  canBack: boolean
+  onFront: () => void
+  onBack: () => void
 }) {
   // front (top of stack, last array index) first — reading order matches
   // "what's in front"
@@ -54,7 +65,9 @@ export default function LayerStrip({
 
   return (
     <div className="layer-strip">
-      <span className="layer-strip-label">Front</span>
+      <button className="layer-strip-end" onClick={onFront} disabled={!canFront} aria-label="Move layer forward one step">
+        <span aria-hidden="true">◀</span> Front
+      </button>
       <div className="layer-strip-scroll">
         {displayItems.map((item, index) => (
           <button
@@ -68,7 +81,9 @@ export default function LayerStrip({
           </button>
         ))}
       </div>
-      <span className="layer-strip-label">Back</span>
+      <button className="layer-strip-end" onClick={onBack} disabled={!canBack} aria-label="Move layer backward one step">
+        Back <span aria-hidden="true">▶</span>
+      </button>
     </div>
   )
 }

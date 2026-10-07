@@ -67,9 +67,15 @@ export function replayStroke(ctx: CanvasRenderingContext2D, stroke: EraseStroke,
 
 // Erased images, by stroke list and then source image: duplicates of a
 // layer share its stroke array (until one of them is erased further), and
-// so share one erased canvas rather than each building its own. Weak on
-// both keys — a stroke list replaced by the next stroke lets its canvas go.
-const erasedCache = new WeakMap<readonly EraseStroke[], WeakMap<HTMLImageElement, HTMLCanvasElement>>()
+// so share one erased canvas rather than each building its own. Undo
+// history keeps old stroke lists alive, so this isn't left to the garbage
+// collector: keepErasedFor drops every list no longer on the canvas.
+const erasedCache = new Map<readonly EraseStroke[], WeakMap<HTMLImageElement, HTMLCanvasElement>>()
+
+export function keepErasedFor(live: readonly (readonly EraseStroke[])[]): void {
+  const keep = new Set(live)
+  for (const strokes of erasedCache.keys()) if (!keep.has(strokes)) erasedCache.delete(strokes)
+}
 
 export function erasedFor(image: HTMLImageElement, strokes: readonly EraseStroke[]): HTMLCanvasElement {
   let byImage = erasedCache.get(strokes)

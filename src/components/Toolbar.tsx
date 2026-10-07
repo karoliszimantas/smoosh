@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useRef, useState, type ReactNode, type Ref } from 'react'
 import { MIN_OPACITY } from './layerItem'
 import type { BrushSize } from './erase'
 
@@ -17,7 +17,7 @@ const ICONS = {
   reset: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4',
   cancel: 'M6 6l12 12M18 6L6 18',
-  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  opacity: 'M12 3a9 9 0 1 0 0 18zM12 3a9 9 0 0 1 0 18',
   duplicate: 'M9 9h11v11H9zM5 15H4V4h11v1',
   lock: 'M8 11V7a4 4 0 0 1 8 0v4M5 11h14v10H5z',
   unlock: 'M8 11V7a4 4 0 0 1 7.9-1M5 11h14v10H5z',
@@ -31,8 +31,7 @@ function Icon({ name }: { name: IconName }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      // the "more" dots are zero-length lines: their size is the stroke
-      strokeWidth={name === 'more' ? 4 : 2}
+      strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -135,23 +134,18 @@ function OpacitySlider({
   )
 }
 
-// Contextual: the controls for what's selected, in one fixed-height row that
-// scrolls sideways if a narrow phone can't fit it — never a second row,
-// which would come out of the canvas. Less-used layer tools live behind
-// More, in a popover that floats above the row and so never resizes it.
-// Add stays first and primary whenever it's shown; Done stays last.
+// The selected layer's controls, in one fixed-height row — Add first, then
+// every layer action, no menu to open. A narrow phone that can't fit them all
+// scrolls the row sideways rather than growing a second one, which would
+// come out of the canvas. Picture actions (undo, submit) live in the top
+// row (PromptBar), not here. Crop, erase and opacity take the row over while
+// they're in use, each with its own way back.
 export default function Toolbar({
   mode,
   selectedId,
   addButtonRef,
   onAdd,
   addLimit,
-  onDone,
-  doneLabel = 'Done',
-  canMoveFront,
-  canMoveBack,
-  onFront,
-  onBack,
   mirrored,
   opacity,
   onMirror,
@@ -168,25 +162,20 @@ export default function Toolbar({
   onCropApply,
   brush,
   onBrush,
-  canUndoErase,
-  onEraseUndo,
+  canUndo,
+  onUndo,
+  hasStrokes,
   onEraseReset,
   onEraseDone,
 }: {
   mode: ToolbarMode
-  // the selected layer — the More popover's slider starts fresh for each
+  // the selected layer — the opacity slider starts fresh for each
   selectedId: string | null
   addButtonRef: Ref<HTMLButtonElement>
   onAdd: () => void
   // at the layer limit, Add stays where it is, greyed, saying so — and
   // Duplicate greys with it. `perPass`: a chain pass's limit, not the canvas's
   addLimit: { used: number; max: number; perPass: boolean }
-  onDone: () => void
-  doneLabel?: string
-  canMoveFront: boolean
-  canMoveBack: boolean
-  onFront: () => void
-  onBack: () => void
   mirrored: boolean
   opacity: number
   onMirror: () => void
@@ -204,29 +193,33 @@ export default function Toolbar({
   onCropApply: () => void
   brush: BrushSize
   onBrush: (size: BrushSize) => void
-  canUndoErase: boolean
-  onEraseUndo: () => void
+  // the picture's undo — while erasing, it takes back the last stroke
+  canUndo: boolean
+  onUndo: () => void
+  // the layer being erased has strokes to reset
+  hasStrokes: boolean
   onEraseReset: () => void
   onEraseDone: () => void
 }) {
-  // the popover is open for one toolbar state: entering crop or erase, or
+  // the opacity slider is open for one layer: selecting another, or
   // deselecting, closes it without an effect having to
-  const [moreOpenIn, setMoreOpenIn] = useState<ToolbarMode | null>(null)
-  const moreOpen = moreOpenIn === mode && mode === 'layer'
-  const setMoreOpen = (open: boolean) => setMoreOpenIn(open ? mode : null)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const [opacityFor, setOpacityFor] = useState<string | null>(null)
+  const opacityOpen = mode === 'layer' && selectedId !== null && opacityFor === selectedId
   // at the layer limit nothing more goes on, by Add or by Duplicate
   const full = addLimit.used >= addLimit.max
+  const limitLabel = `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}`
 
-  // …and any tap outside it
-  useEffect(() => {
-    if (!moreOpen) return
-    const close = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setMoreOpenIn(null)
-    }
-    window.addEventListener('pointerdown', close)
-    return () => window.removeEventListener('pointerdown', close)
-  }, [moreOpen])
+  const add = (
+    <ToolButton
+      icon="add"
+      label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
+      ariaLabel={full ? limitLabel : undefined}
+      disabled={full}
+      onClick={onAdd}
+      variant="primary"
+      buttonRef={addButtonRef}
+    />
+  )
 
   let buttons: ReactNode
   if (mode === 'crop') {
@@ -251,126 +244,48 @@ export default function Toolbar({
             <span className={`brush-dot brush-dot-${size}`} aria-hidden="true" />
           </ToolButton>
         ))}
-        <ToolButton icon="undo" label="Undo" onClick={onEraseUndo} disabled={!canUndoErase} ariaLabel="Undo last stroke" />
-        <ToolButton icon="reset" label="Reset" onClick={onEraseReset} disabled={!canUndoErase} ariaLabel="Restore the whole layer" />
+        <ToolButton icon="undo" label="Undo" onClick={onUndo} disabled={!canUndo} ariaLabel="Undo last stroke" />
+        <ToolButton icon="reset" label="Reset" onClick={onEraseReset} disabled={!hasStrokes} ariaLabel="Restore the whole layer" />
         <ToolButton icon="done" label="Done" onClick={onEraseDone} variant="primary" ariaLabel="Done erasing" />
       </>
     )
-  } else if (mode === 'locked') {
-    // a locked layer: nothing to do to it but unlock it. Add and Done stay —
-    // they're the picture's, not the layer's
+  } else if (opacityOpen) {
     buttons = (
       <>
-        <ToolButton
-          icon="add"
-          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
-          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
-          disabled={full}
-          onClick={onAdd}
-          variant="primary"
-          buttonRef={addButtonRef}
-        />
+        <OpacitySlider key={selectedId} value={opacity} onPreview={onOpacityPreview} onCommit={onOpacityCommit} />
+        <ToolButton icon="done" label="Done" onClick={() => setOpacityFor(null)} variant="primary" ariaLabel="Done with opacity" />
+      </>
+    )
+  } else if (mode === 'locked') {
+    // a locked layer: nothing to do to it but unlock it
+    buttons = (
+      <>
+        {add}
         <ToolButton icon="unlock" label="Unlock" onClick={onToggleLock} ariaLabel="Unlock this layer" />
-        <ToolButton icon="done" label={doneLabel} onClick={onDone} />
       </>
     )
   } else if (mode === 'layer') {
+    // instant actions first, then the ones that open a mode. Front/Back are
+    // on the layer strip's ends, beside the stack they move within
     buttons = (
       <>
-        <ToolButton
-          icon="add"
-          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
-          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
-          disabled={full}
-          onClick={onAdd}
-          variant="primary"
-          buttonRef={addButtonRef}
-        />
-        <ToolButton
-          icon="front"
-          label="Front"
-          onClick={onFront}
-          disabled={!canMoveFront}
-          ariaLabel="Move layer forward one step"
-        />
-        <ToolButton
-          icon="back"
-          label="Back"
-          onClick={onBack}
-          disabled={!canMoveBack}
-          ariaLabel="Move layer backward one step"
-        />
-        <ToolButton icon="erase" label="Erase" onClick={onErase} />
+        {add}
         <ToolButton icon="delete" label="Delete" onClick={onDelete} variant="danger" />
-        <ToolButton
-          icon="more"
-          label="More"
-          onClick={() => setMoreOpen(!moreOpen)}
-          pressed={moreOpen}
-          expanded={moreOpen}
-          ariaLabel="More layer tools"
-        />
-        <ToolButton icon="done" label={doneLabel} onClick={onDone} />
+        <ToolButton icon="duplicate" label="Copy" onClick={onDuplicate} disabled={full} ariaLabel={full ? limitLabel : 'Duplicate this layer'} />
+        <ToolButton icon="lock" label="Lock" onClick={onToggleLock} ariaLabel="Lock this layer — taps pass through it" />
+        <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
+        <ToolButton icon="crop" label="Crop" onClick={onCrop} />
+        <ToolButton icon="erase" label="Erase" onClick={onErase} />
+        <ToolButton icon="opacity" label="Fade" onClick={() => setOpacityFor(selectedId)} ariaLabel="Opacity" />
+        {onReport && <ToolButton icon="report" label="Report" onClick={onReport} ariaLabel="Report this image" />}
       </>
     )
   } else {
-    buttons = (
-      <>
-        <ToolButton
-          icon="add"
-          label={full ? `${addLimit.used} of ${addLimit.max}` : 'Add'}
-          ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : undefined}
-          disabled={full}
-          onClick={onAdd}
-          variant="primary"
-          buttonRef={addButtonRef}
-        />
-        <ToolButton icon="done" label={doneLabel} onClick={onDone} />
-      </>
-    )
+    buttons = add
   }
 
   return (
-    <div className="toolbar-wrap" ref={wrapRef}>
-      {mode === 'layer' && moreOpen && (
-        <div className="toolbar-more" role="group" aria-label="More layer tools">
-          <div className="toolbar-more-row">
-            {/* stays open after a tap: five taps, five copies */}
-            <ToolButton
-              icon="duplicate"
-              label="Duplicate"
-              onClick={onDuplicate}
-              disabled={full}
-              ariaLabel={full ? `Layer limit reached: ${addLimit.max}${addLimit.perPass ? ' a pass' : ''}` : 'Duplicate this layer'}
-            />
-            <ToolButton
-              icon="lock"
-              label="Lock"
-              onClick={() => {
-                setMoreOpen(false)
-                onToggleLock()
-              }}
-              ariaLabel="Lock this layer — taps pass through it"
-            />
-            <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
-            <ToolButton
-              icon="crop"
-              label="Crop"
-              onClick={() => {
-                setMoreOpen(false)
-                onCrop()
-              }}
-            />
-            {onReport && <ToolButton icon="report" label="Report" onClick={onReport} ariaLabel="Report this image" />}
-          </div>
-          <OpacitySlider
-            key={selectedId ?? ''}
-            value={opacity}
-            onPreview={onOpacityPreview}
-            onCommit={onOpacityCommit}
-          />
-        </div>
-      )}
+    <div className="toolbar-wrap">
       <div className="toolbar">{buttons}</div>
     </div>
   )

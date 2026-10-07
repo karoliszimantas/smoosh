@@ -22,7 +22,7 @@ import {
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
 import PromptBar from './PromptBar'
 import Toolbar, { type ToolbarMode } from './Toolbar'
-import { BRUSH_PX, type BrushSize } from './erase'
+import { BRUSH_PX, keepErasedFor, type BrushSize } from './erase'
 import EraseOverlay from './EraseOverlay'
 import { loadImage } from './imageCache'
 import LayerStrip from './LayerStrip'
@@ -31,6 +31,7 @@ import CropOverlay from './CropOverlay'
 import CanvasFrame from './CanvasFrame'
 import LayerSliders from './LayerSliders'
 import { pivotAround, turnBetween, type Point } from './transformMath'
+import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
 import { useTheme } from '../themes/useTheme'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
 
@@ -166,7 +167,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   },
   ref,
 ) {
-  const [items, setItems] = useState<LayerItem[]>(() => initialItems ?? [])
+  // the layers and their undo history, changed together in one update so
+  // every change is exactly one step (history.ts)
+  const [doc, setDoc] = useState<Doc<LayerItem[]>>(() => ({ items: initialItems ?? [], past: [] }))
+  const items = doc.items
+  // every change to the layers goes through here, and so into history
+  const setItems = useCallback((change: (prev: LayerItem[]) => LayerItem[]) => setDoc((d) => commitDoc(d, change)), [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [reportTarget, setReportTarget] = useState<number | null>(null)
@@ -248,6 +254,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     saveCanvasItems(storageKey, items, storageArea)
   }, [items, storageKey, storageArea])
 
+  // erased images only for what's on the canvas now: undo history holds old
+  // stroke lists, and their images (one image-sized canvas each) mustn't
+  // stay alive with them — an undo redraws an older one on demand
+  useEffect(() => {
+    keepErasedFor(items.flatMap((i) => (i.erase ? [i.erase] : [])))
+  }, [items])
+
   const theme = useTheme()
   // read at placement time without making addItem change identity on every
   // theme switch
@@ -321,23 +334,33 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       ]
     })
     setSelectedId(id)
-  }, [])
+  }, [setItems])
 
   // A cut made on this device is placed straight away from a blob: URL; once
   // its upload lands, point the layer at the shared copy instead, so the
   // canvas still restores after a reload (blob: URLs die with the page).
   // DraggableImage keeps showing the old image until the new one decodes.
+  // Not an undo step, and applied to history too — so undo can never bring
+  // back the dead blob: URL.
   const handleCutShared = useCallback((localSrc: string, shared: ImageVariant) => {
-    setItems((prev) =>
-      prev.map((i) => (i.src === localSrc ? { ...i, src: shared.full, thumb: shared.thumb } : i)),
+    setDoc((d) =>
+      rewriteDoc(d, (list) => list.map((i) => (i.src === localSrc ? { ...i, src: shared.full, thumb: shared.thumb } : i))),
     )
   }, [])
 
   // stable identities: DraggableImage is memoized, so these must not be
   // recreated every render or every layer re-renders on any single commit
-  const updateItem = useCallback((id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
-  }, [])
+  const updateItem = useCallback(
+    (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => {
+      setItems((prev) => {
+        const item = prev.find((i) => i.id === id)
+        // a tap that moved nothing, a slider let go where it started: no step
+        if (!item || (Object.keys(patch) as (keyof typeof patch)[]).every((k) => item[k] === patch[k])) return prev
+        return prev.map((i) => (i.id === id ? { ...i, ...patch } : i))
+      })
+    },
+    [setItems],
+  )
 
   // crop and erase modes own the selection until they're closed
   const selectItem = useCallback(
@@ -616,14 +639,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)]
     })
     setSelectedId(copy.id)
-  }, [items, selectedId])
+  }, [items, selectedId, setItems])
 
   const deleteSelected = useCallback(() => {
     // a locked layer can't be deleted by accident any more than moved
     if (items.find((i) => i.id === selectedId)?.locked) return
     setItems((prev) => prev.filter((i) => i.id !== selectedId || i.locked === true))
     setSelectedId(null)
-  }, [items, selectedId])
+  }, [items, selectedId, setItems])
 
   // z-order lives only in the items array's index (0 = back). The toolbar
   // moves the selected layer one step at a time — swapping it with its
@@ -644,18 +667,18 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         return next
       })
     },
-    [selectedId],
+    [selectedId, setItems],
   )
   const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
   const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
 
   const toggleLockSelected = useCallback(() => {
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, locked: !i.locked } : i)))
-  }, [selectedId])
+  }, [selectedId, setItems])
 
   const mirrorSelected = useCallback(() => {
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, mirrored: !i.mirrored } : i)))
-  }, [selectedId])
+  }, [selectedId, setItems])
 
   // Opacity: the slider previews on the Konva node directly and commits to
   // state once, on release — the same split as drag and pinch
@@ -728,7 +751,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         return next
       }),
     )
-  }, [])
+  }, [setItems])
 
   // one finger-down to finger-up is one stroke, and one undo step
   const addEraseStroke = useCallback(
@@ -737,13 +760,23 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     },
     [erasing, setErase],
   )
-  const undoErase = useCallback(() => {
-    if (erasing) setErase(erasing.id, (s) => s.slice(0, -1))
-  }, [erasing, setErase])
   const resetErase = useCallback(() => {
     if (erasing) setErase(erasing.id, () => [])
   }, [erasing, setErase])
   const finishErase = useCallback(() => setErasing(null), [])
+
+  // Undo: the layers as they were before the last change. Not mid-crop —
+  // nothing there is committed until Apply or Cancel. A step that takes away
+  // the layer being erased (or the selected one) ends that too.
+  const canUndo = doc.past.length > 0 && cropping === null
+  const undo = useCallback(() => {
+    if (cropping) return
+    const prev = doc.past[doc.past.length - 1]
+    if (!prev) return
+    setDoc(undoDoc)
+    if (erasing && !prev.some((i) => i.id === erasing.id)) setErasing(null)
+    if (selectedId && !prev.some((i) => i.id === selectedId)) setSelectedId(null)
+  }, [doc, cropping, erasing, selectedId])
 
   const setCropDraft = useCallback(
     (draft: CropRect) => setCropping((prev) => (prev ? { ...prev, draft } : prev)),
@@ -771,7 +804,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       }),
     )
     setCropping(null)
-  }, [cropping])
+  }, [cropping, setItems])
 
   const openSheet = useCallback(() => setSheetOpen(true), [])
   const closeSheet = useCallback(() => {
@@ -860,7 +893,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   return (
     <div className="app">
-      <PromptBar text={promptText} />
+      <PromptBar
+        text={promptText}
+        canUndo={canUndo}
+        onUndo={undo}
+        submitLabel={doneLabel ?? 'Done'}
+        onSubmit={() => void exportImage()}
+        holdToSubmit={onSubmit !== undefined}
+      />
 
       <div className="canvas-container" ref={containerRef}>
         <Stage
@@ -983,7 +1023,15 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         )}
       </div>
 
-      <LayerStrip items={shownItems} selectedId={selectedId} onSelect={selectItem} />
+      <LayerStrip
+        items={shownItems}
+        selectedId={selectedId}
+        onSelect={selectItem}
+        canFront={canMoveFront && !selectedItem?.locked && !editing}
+        canBack={canMoveBack && !selectedItem?.locked && !editing}
+        onFront={moveSelectedForward}
+        onBack={moveSelectedBackward}
+      />
 
       <Toolbar
         mode={toolbarMode}
@@ -991,12 +1039,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         addButtonRef={addButtonRef}
         onAdd={openSheet}
         addLimit={{ used: items.length, max: layerCap, perPass: maxLayers !== undefined }}
-        onDone={exportImage}
-        doneLabel={doneLabel}
-        canMoveFront={canMoveFront}
-        canMoveBack={canMoveBack}
-        onFront={moveSelectedForward}
-        onBack={moveSelectedBackward}
         mirrored={selectedItem?.mirrored ?? false}
         opacity={selectedItem?.opacity ?? 1}
         onMirror={mirrorSelected}
@@ -1013,8 +1055,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         onCropApply={applyCrop}
         brush={erasing?.brush ?? 'M'}
         onBrush={setBrush}
-        canUndoErase={(erasingItem?.erase?.length ?? 0) > 0}
-        onEraseUndo={undoErase}
+        canUndo={canUndo}
+        onUndo={undo}
+        hasStrokes={(erasingItem?.erase?.length ?? 0) > 0}
         onEraseReset={resetErase}
         onEraseDone={finishErase}
       />
