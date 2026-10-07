@@ -12,21 +12,8 @@ export type Theme = {
 
   // surfaces
   canvasBg: string
-  canvasTexture?: string // optional image (data-URI) tiled over canvasBg
-  // a decorative border drawn on the canvas itself, inside the frame and
-  // under the layers — so it's in the export, never covers a layer, and
-  // doesn't move or shrink anything. Absent = { pattern: 'none' }.
-  // `width` is the band's thickness in theme px (see top of file)
-  canvasFrame?: {
-    pattern: 'meander' | 'none'
-    color: string
-    width: number
-  }
   chromeBg: string
   chromeBorder: string
-  // text sitting directly on chromeBg (prompt bar, sheet, strip labels) —
-  // for a theme whose chrome is too dark for textPrimary. Absent = textPrimary
-  chromeText?: string
 
   // text
   textPrimary: string
@@ -37,24 +24,24 @@ export type Theme = {
   displayTracking: string
 
   // layers on canvas
-  layerBorderColor: string | null
-  layerBorderWidth: number
   layerShadowColor: string
+  // whether a cut-out (any layer with transparency) gets the shadow too. A
+  // soft drop shadow reads as depth, so it does; a glow traces the cut's
+  // edge into a coloured halo, so it doesn't — only rectangular layers,
+  // where it reads as a frame
+  cutoutShadow: boolean
   layerShadowBlur: number
   layerShadowOffset: { x: number; y: number }
-  layerJitterDegrees: number // 0 = no random rotation on placement
   selectionColor: string
 
   // controls
   buttonRadius: number
-  buttonJitterDegrees: number
   primaryBg: string
   primaryText: string
 
   // reveal phase
   revealBg: string
   revealFilter: string | null // CSS filter applied to submissions
-  revealLetterbox: boolean
 
   // ---- beyond the core set: what the rest of the UI needs so that nothing
   // outside themes/ has to pick a colour of its own

@@ -16,22 +16,18 @@ export const clean: Theme = {
   displayTransform: 'none',
   displayTracking: '0px',
 
-  layerBorderColor: null,
-  layerBorderWidth: 0,
+  cutoutShadow: true,
   layerShadowColor: 'rgba(0,0,0,0.16)',
   layerShadowBlur: 10,
   layerShadowOffset: { x: 0, y: 4 },
-  layerJitterDegrees: 0,
   selectionColor: '#2563EB',
 
   buttonRadius: 12,
-  buttonJitterDegrees: 0,
   primaryBg: '#2563EB',
   primaryText: '#FFFFFF',
 
   revealBg: '#E7E5E4',
   revealFilter: null,
-  revealLetterbox: false,
 
   pageBg: '#E7E5E4',
   surface: '#FFFFFF',

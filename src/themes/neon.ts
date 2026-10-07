@@ -16,23 +16,19 @@ export const neon: Theme = {
   displayTransform: 'uppercase',
   displayTracking: '4px',
 
-  layerBorderColor: null,
-  layerBorderWidth: 0,
-  // a glow, not a drop shadow
+  // a glow, not a drop shadow — on rectangular layers only (cutoutShadow)
+  cutoutShadow: false,
   layerShadowColor: 'rgba(255,43,214,0.75)',
   layerShadowBlur: 14,
   layerShadowOffset: { x: 0, y: 0 },
-  layerJitterDegrees: 0,
   selectionColor: '#22F0FF',
 
   buttonRadius: 20,
-  buttonJitterDegrees: 0,
   primaryBg: '#FF2BD6',
   primaryText: '#0D0326',
 
   revealBg: '#07011A',
   revealFilter: 'saturate(1.4) contrast(1.05)',
-  revealLetterbox: false,
 
   pageBg: '#07011A',
   surface: '#22094F',

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ThemeProvider from './themes/ThemeProvider'
-import { applyThemeToDocument, loadThemeId, themeById } from './themes'
+import { applyThemeToDocument, initialTheme } from './themes'
 import { captureCodeFromUrl } from './prompts/access'
 import { prunePhotos } from './photos/photoStore'
 import { defaultServices, GameServicesProvider, type GameServices } from './game/services'
@@ -15,7 +15,7 @@ captureCodeFromUrl()
 void prunePhotos()
 
 // before the first render, so the page never flashes the wrong theme
-applyThemeToDocument(themeById(loadThemeId()))
+applyThemeToDocument(initialTheme())
 
 function render(services: GameServices, DevPanel?: ComponentType): void {
   createRoot(document.getElementById('root')!).render(

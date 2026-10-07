@@ -1,75 +1,55 @@
-import { useEffect, useRef, useState } from 'react'
-import { THEMES } from './index'
+import { DARK, LIGHT } from './index'
 import { useThemeControl } from './useTheme'
 
-// Numbered swatches, each painted in its own theme's canvas and primary
-// colour — a visual choice, not a list of names. Switching is a context
-// update: no reload, nothing remounts, no canvas state is touched.
-function Swatches({ onPicked }: { onPicked?: () => void }) {
-  const { theme, setThemeId } = useThemeControl()
+const SUN = 'M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10z'
+const MOON = 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z'
+
+function Icon({ d }: { d: string }) {
   return (
-    <div className="theme-swatches" role="radiogroup" aria-label="Style">
-      {THEMES.map((t, i) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  )
+}
+
+// Light or dark — Clean or Neon. Until the player taps, it's whatever the
+// device is set to; after, their pick, remembered on this device. Switching
+// is a context update: no reload, nothing remounts, no canvas state touched.
+//
+// inline (the lobby): both choices side by side. compact (in a round, in a
+// corner): one button that flips it.
+export default function ThemeSwitcher({ variant }: { variant: 'inline' | 'compact' }) {
+  const { theme, setThemeId } = useThemeControl()
+  const dark = theme.id === DARK.id
+
+  if (variant === 'compact') {
+    return (
+      <button
+        className="theme-toggle"
+        role="switch"
+        aria-checked={dark}
+        aria-label="Dark mode"
+        onClick={() => setThemeId(dark ? LIGHT.id : DARK.id)}
+      >
+        <Icon d={dark ? MOON : SUN} />
+      </button>
+    )
+  }
+
+  return (
+    <div className="theme-choice" role="radiogroup" aria-label="Light or dark">
+      {[LIGHT, DARK].map((t) => (
         <button
           key={t.id}
           role="radio"
           aria-checked={t.id === theme.id}
-          aria-label={t.name}
-          title={t.name}
-          className={`theme-swatch${t.id === theme.id ? ' active' : ''}`}
-          // a swatch shows its own theme, not the active one
-          style={{ background: t.canvasBg, borderColor: t.chromeBorder }}
-          onClick={() => {
-            setThemeId(t.id)
-            onPicked?.()
-          }}
+          className={`theme-choice-option${t.id === theme.id ? ' active' : ''}`}
+          onClick={() => setThemeId(t.id)}
         >
-          <span className="theme-swatch-number" style={{ background: t.primaryBg, color: t.primaryText }}>
-            {i + 1}
-          </span>
+          <Icon d={t.id === DARK.id ? MOON : SUN} />
+          {t.id === DARK.id ? 'Dark' : 'Light'}
         </button>
       ))}
-    </div>
-  )
-}
-
-// inline: the swatch row itself (lobby). compact: one swatch-sized button
-// that opens the row (inside a round, where there's no room to keep it out)
-export default function ThemeSwitcher({ variant }: { variant: 'inline' | 'compact' }) {
-  const { theme } = useThemeControl()
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    window.addEventListener('pointerdown', close)
-    return () => window.removeEventListener('pointerdown', close)
-  }, [open])
-
-  if (variant === 'inline') return <Swatches />
-
-  const index = THEMES.findIndex((t) => t.id === theme.id)
-  return (
-    <div className="theme-switcher-compact" ref={rootRef}>
-      <button
-        className="theme-swatch active"
-        aria-label={`Style: ${theme.name}`}
-        aria-expanded={open}
-        style={{ background: theme.canvasBg, borderColor: theme.chromeBorder }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className="theme-swatch-number" style={{ background: theme.primaryBg, color: theme.primaryText }}>
-          {index + 1}
-        </span>
-      </button>
-      {open && (
-        <div className="theme-popover">
-          <Swatches onPicked={() => setOpen(false)} />
-        </div>
-      )}
     </div>
   )
 }

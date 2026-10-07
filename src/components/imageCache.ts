@@ -2,7 +2,7 @@ import { isPhotoSrc, photoUrl } from '../photos/photoStore'
 
 // Decoding, downscaling and caching of layer images, shared by every layer
 // and by crop/erase modes — which need the original image, not whatever the
-// layer's node currently draws (a themed paper canvas, an erased copy).
+// layer's node currently draws (an erased copy).
 
 // pipeline assets cap at 800px on their longest side (see tools/cut.ts), so
 // this never fires for local assets today — kept for when a remote/search

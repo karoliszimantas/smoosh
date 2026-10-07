@@ -1,20 +1,32 @@
 import type { Theme } from './types'
-import { scrapbook } from './scrapbook'
 import { clean } from './clean'
-import { noir } from './noir'
 import { neon } from './neon'
-import { newsprint } from './newsprint'
-import { fresco } from './fresco'
 
 export type { Theme } from './types'
 
-// switcher order — a new theme is a new file plus one line here
-export const THEMES: readonly Theme[] = [scrapbook, clean, noir, neon, newsprint, fresco]
+// Two themes: Clean, light, and Neon, dark. Which one is the device's own
+// light/dark setting until the player picks — then theirs, remembered.
+export const LIGHT: Theme = clean
+export const DARK: Theme = neon
+export const THEMES: readonly Theme[] = [LIGHT, DARK]
+export const DEFAULT_THEME: Theme = LIGHT
 
-export const DEFAULT_THEME: Theme = scrapbook
+export function themeById(id: string | null): Theme | undefined {
+  return THEMES.find((t) => t.id === id)
+}
 
-export function themeById(id: string | null): Theme {
-  return THEMES.find((t) => t.id === id) ?? DEFAULT_THEME
+// the device's light/dark setting
+export function systemTheme(): Theme {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK : LIGHT
+  } catch {
+    return DEFAULT_THEME
+  }
+}
+
+// what to show: the player's own pick if they've made one, else the device's
+export function initialTheme(): Theme {
+  return themeById(loadThemeId()) ?? systemTheme()
 }
 
 // The theme as CSS custom properties, for plain CSS to read. Set on the
@@ -24,13 +36,9 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--canvas-bg': theme.canvasBg,
     '--chrome-bg': theme.chromeBg,
     '--chrome-border': theme.chromeBorder,
-    // text on the chrome. A theme without its own chromeText keeps exactly
-    // the colours it always had: textPrimary, textMuted, danger
-    '--chrome-text': theme.chromeText ?? theme.textPrimary,
-    '--chrome-text-muted': theme.chromeText
-      ? `color-mix(in srgb, ${theme.chromeText} 62%, ${theme.chromeBg})`
-      : theme.textMuted,
-    '--chrome-danger': theme.chromeText ?? theme.danger,
+    '--chrome-text': theme.textPrimary,
+    '--chrome-text-muted': theme.textMuted,
+    '--chrome-danger': theme.danger,
     '--text': theme.textPrimary,
     '--text-muted': theme.textMuted,
     '--font-display': theme.fontDisplay,
@@ -39,14 +47,10 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--display-tracking': theme.displayTracking,
     '--selection': theme.selectionColor,
     '--radius': `${theme.buttonRadius}px`,
-    '--jitter': `${theme.buttonJitterDegrees}deg`,
     '--primary-bg': theme.primaryBg,
     '--primary-text': theme.primaryText,
     '--reveal-bg': theme.revealBg,
     '--reveal-filter': theme.revealFilter ?? 'none',
-    // letterboxed: the picture sits in a full-width band with bars above and below
-    '--reveal-letterbox': theme.revealLetterbox ? '28px' : '0px',
-    '--reveal-width': theme.revealLetterbox ? '100vw' : 'var(--picture-size)',
     '--page-bg': theme.pageBg,
     '--surface': theme.surface,
     '--scrim': theme.scrim,
@@ -83,10 +87,17 @@ export function applyThemeToDocument(theme: Theme): void {
 
 const STORAGE_KEY = 'smoosh_theme'
 
-// per player, per device — never sent over the socket
+// per player, per device — never sent over the socket. A stored pick that
+// names no theme (one since removed: Scrapbook, Noir, Newsprint, Fresco) is
+// no pick at all — forgotten, and the device's setting applies
 export function loadThemeId(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY)
+    const id = localStorage.getItem(STORAGE_KEY)
+    if (id !== null && !themeById(id)) {
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    return id
   } catch {
     return null
   }

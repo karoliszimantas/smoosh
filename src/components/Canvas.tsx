@@ -28,7 +28,6 @@ import { loadImage } from './imageCache'
 import LayerStrip from './LayerStrip'
 import DraggableImage from './DraggableImage'
 import CropOverlay from './CropOverlay'
-import CanvasFrame from './CanvasFrame'
 import LayerSliders from './LayerSliders'
 import { pivotAround, turnBetween, type Point } from './transformMath'
 import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
@@ -262,30 +261,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   }, [items])
 
   const theme = useTheme()
-  // read at placement time without making addItem change identity on every
-  // theme switch
-  const themeRef = useRef(theme)
-  useEffect(() => {
-    themeRef.current = theme
-  }, [theme])
-
-  // the theme's canvas texture, decoded once per theme
-  const [texture, setTexture] = useState<HTMLImageElement | null>(null)
-  useEffect(() => {
-    if (!theme.canvasTexture) {
-      setTexture(null)
-      return
-    }
-    let cancelled = false
-    const image = new window.Image()
-    image.onload = () => {
-      if (!cancelled) setTexture(image)
-    }
-    image.src = theme.canvasTexture
-    return () => {
-      cancelled = true
-    }
-  }, [theme.canvasTexture])
 
   // a chain pass's own cap, or the canvas-wide one
   const layerCap = Math.min(maxLayers ?? MAX_LAYERS, MAX_LAYERS)
@@ -323,10 +298,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         x: CANVAS_SIZE / 2 + jitter(),
         y: CANVAS_SIZE / 2 + jitter(),
         scale: 1,
-        // a theme with jitter drops each new layer a little off true —
-        // within ±jitter/2. Only on placement: switching theme later
-        // never re-rotates anything already placed
-        rotation: (Math.random() - 0.5) * themeRef.current.layerJitterDegrees,
+        rotation: 0,
         mirrored: false,
         opacity: 1,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
@@ -718,8 +690,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   )
 
   // Crop and erase work on the ORIGINAL image, from the shared image cache —
-  // not on whatever the layer's node currently draws (a themed paper
-  // canvas, an erased copy)
+  // not on whatever the layer's node currently draws (an erased copy)
   const startCrop = useCallback(() => {
     const item = items.find((i) => i.id === selectedId)
     if (!item) return
@@ -919,17 +890,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         >
           <Layer listening={false} ref={backgroundRef}>
             <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={theme.canvasBg} />
-            {texture && (
-              <Rect
-                x={0}
-                y={0}
-                width={CANVAS_SIZE}
-                height={CANVAS_SIZE}
-                fillPatternImage={texture}
-                fillPatternRepeat="repeat"
-              />
-            )}
-            <CanvasFrame frame={theme.canvasFrame} />
             {underlay && underlayImage && (
               <>
                 <KonvaImage image={underlayImage} x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} />
