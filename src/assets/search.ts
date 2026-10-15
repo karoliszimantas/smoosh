@@ -20,17 +20,39 @@ const STOPWORDS = new Set([
 
 export type PromptTab = { label: string; term: string }
 
+// The prompt as it reads, cut into the words that get a tab (their chips)
+// and the text between them ("as a", "performing"): what the prompt card and
+// the build row show. A word's `term` is its tab's key, so a chip always
+// opens the tab it matches. Repeats stay in place, sharing one term.
+export type PromptSegment =
+  | { kind: 'word'; text: string; label: string; term: string }
+  | { kind: 'connector'; text: string }
+
+export function promptSegments(prompt: string): PromptSegment[] {
+  const segments: PromptSegment[] = []
+  for (const raw of prompt.match(/[\p{L}\p{N}']+/gu) ?? []) {
+    const word = raw.replace(/'s$/i, '').replace(/^'+|'+$/g, '')
+    const term = word.toLowerCase()
+    if (term.length < 2 || STOPWORDS.has(term)) {
+      const last = segments[segments.length - 1]
+      if (last?.kind === 'connector') last.text = `${last.text} ${raw}`
+      else segments.push({ kind: 'connector', text: raw })
+      continue
+    }
+    segments.push({ kind: 'word', text: raw, label: word.charAt(0).toUpperCase() + word.slice(1), term })
+  }
+  return segments
+}
+
 // "Vampire Bunny Hotel Reception" → Vampire | Bunny | Hotel | Reception,
 // in prompt order, each word once
 export function promptTabs(prompt: string): PromptTab[] {
   const tabs: PromptTab[] = []
   const seen = new Set<string>()
-  for (const raw of prompt.split(/[^\p{L}\p{N}']+/u)) {
-    const word = raw.replace(/'s$/i, '').replace(/^'+|'+$/g, '')
-    const term = word.toLowerCase()
-    if (term.length < 2 || STOPWORDS.has(term) || seen.has(term)) continue
-    seen.add(term)
-    tabs.push({ label: word.charAt(0).toUpperCase() + word.slice(1), term })
+  for (const segment of promptSegments(prompt)) {
+    if (segment.kind !== 'word' || seen.has(segment.term)) continue
+    seen.add(segment.term)
+    tabs.push({ label: segment.label, term: segment.term })
   }
   return tabs
 }

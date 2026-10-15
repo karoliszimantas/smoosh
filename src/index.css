@@ -4366,3 +4366,65 @@ select.field {
   transform: rotate(-3deg);
   pointer-events: none;
 }
+
+/* ---------- prompt chips ----------
+   The secret prompt in torn paper (game/PromptChips.tsx), as Prompt.dc.html
+   draws it: words in Archivo Black caps on yellow, blue and pink chips,
+   tipped in turn; the words between typed small and muted. The chips are
+   torn along the top and bottom by one fixed polygon. */
+.prompt-chips {
+  --chip-torn: polygon(
+    0% 2.7px, 7.1% 3.4px, 14.3% 5.5px, 21.4% 2.8px, 28.6% 3px, 35.7% 3.5px, 42.9% 1.1px, 50% 3.1px,
+    57.1% 3.8px, 64.3% 4.8px, 71.4% 0.6px, 78.6% 1.8px, 85.7% 0.5px, 92.9% 4.9px, 100% 4.2px,
+    100% calc(100% - 0.3px), 92.9% calc(100% - 5.9px), 85.7% calc(100% - 5.8px), 78.6% calc(100% - 3.9px),
+    71.4% calc(100% - 3.7px), 64.3% calc(100% - 0.9px), 57.1% calc(100% - 0.1px), 50% calc(100% - 3.2px),
+    42.9% calc(100% - 0.4px), 35.7% calc(100% - 1.1px), 28.6% calc(100% - 1.5px), 21.4% calc(100% - 0.2px),
+    14.3% calc(100% - 2.8px), 7.1% calc(100% - 2.6px), 0% calc(100% - 5.1px)
+  );
+  /* the chips size against the line they sit on */
+  container-type: inline-size;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 8px;
+  margin: 0;
+}
+
+.prompt-chip {
+  max-width: 100%;
+  padding: 6px 10px 7px;
+  background: var(--prompt-chip-0);
+  color: var(--line);
+  font-family: var(--font-display);
+  font-weight: 400;
+  /* 28/32 as drawn; a word too long for the line shrinks (Archivo Black
+     caps run about 0.8em a letter) and, as a last resort, breaks */
+  font-size: 28px;
+  font-size: min(28px, calc((100cqi - 20px) / (var(--chars, 1) * 0.8)));
+  line-height: 1.15;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  clip-path: var(--chip-torn);
+  transform: rotate(-1.5deg);
+}
+
+.prompt-chip-1 {
+  background: var(--prompt-chip-1);
+  transform: rotate(1.5deg);
+}
+
+.prompt-chip-2 {
+  background: var(--prompt-chip-2);
+  transform: rotate(-1deg);
+}
+
+html[data-torn='false'] .prompt-chip {
+  clip-path: none;
+}
+
+.prompt-connector {
+  padding: 0 2px;
+  color: var(--surface-text-muted);
+  font: 700 16px/16px var(--font-label);
+  text-transform: lowercase;
+}
