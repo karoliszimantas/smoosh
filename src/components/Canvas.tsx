@@ -310,6 +310,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         mirrored: false,
         opacity: 1,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
+        ...(placement.fromWord ? { fromWord: placement.fromWord } : {}),
       },
       ]
     })

@@ -297,16 +297,31 @@ export default function AssetSheet({
       return next
     })
 
-  const place = (result: SearchResult, image: ImageVariant) => {
+  // the prompt word what's showing was searched for: its tab, or a search
+  // typed for exactly that word. Read when the player taps, since a cut
+  // lands later, after they may have moved on
+  const currentWord = (): string | undefined => {
+    if (activeTab?.kind === 'word') return activeTab.key
+    const typed = input.trim().toLowerCase()
+    return tabIndex === null ? tabs.find((t) => t.kind === 'word' && t.key === typed)?.key : undefined
+  }
+
+  const place = (result: SearchResult, image: ImageVariant, fromWord: string | undefined) => {
     // curated assets carry a Pixabay id only for deduping — they aren't
     // reportable (the blocklist can't touch the manifest), so the layer
     // mustn't offer a report control either
-    onPlace({ ...image, label: result.label, pixabayId: result.tier === 1 ? null : result.pixabayId })
+    onPlace({
+      ...image,
+      label: result.label,
+      pixabayId: result.tier === 1 ? null : result.pixabayId,
+      ...(fromWord ? { fromWord } : {}),
+    })
     onClose() // one-line to remove if adding should leave the sheet open
   }
 
   const cutOnDevice = (result: SearchResult) => {
     const { pixabayId, rect, key } = result
+    const fromWord = currentWord()
     if (pixabayId === null || !rect) return
     setStatus(key, { kind: 'download', pct: 0 })
 
@@ -322,7 +337,7 @@ export default function AssetSheet({
       (output) => {
         setStatus(key, null)
         const localUrl = URL.createObjectURL(output.place)
-        place(result, { full: localUrl, thumb: localUrl })
+        place(result, { full: localUrl, thumb: localUrl }, fromWord)
 
         // the player never waits on this — the cut is already on their canvas
         if (!output.upload) return
@@ -343,7 +358,7 @@ export default function AssetSheet({
   }
 
   const handleCut = (result: SearchResult) => {
-    if (result.cut) place(result, result.cut)
+    if (result.cut) place(result, result.cut, currentWord())
     else cutOnDevice(result)
   }
 
@@ -504,7 +519,7 @@ export default function AssetSheet({
                 status={cardStatus[result.key] ?? null}
                 cutAvailable={cutAvailable}
                 onCut={handleCut}
-                onFull={(r) => r.rect && place(r, r.rect)}
+                onFull={(r) => r.rect && place(r, r.rect, currentWord())}
                 onReport={setReportTarget}
               />
             ))
