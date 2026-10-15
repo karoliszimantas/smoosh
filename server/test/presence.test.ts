@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { BUILD_GRACE_SEC, MAX_PLAYERS, PROMPT_WINDOW_SEC, type GameSettings, type PhaseState, type RoomEvent } from '@smoosh/protocol'
+import { BUILD_GRACE_SEC, MARK_COUNT, MAX_PLAYERS, PROMPT_WINDOW_SEC, type GameSettings, type PhaseState, type RoomEvent } from '@smoosh/protocol'
 import { resolveSeat } from '../src/rooms/seats.ts'
 import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
 import {
@@ -58,6 +58,7 @@ function setup(players = 4, rounds = 2, phase: 'lobby' | 'game' = 'game'): Harne
     const seat: Seat = {
       sessionId: `session-${n}`,
       playerId: `player-${n}`,
+      seat: room.nextSeat++,
       name: `P${n}`,
       isHost: n === 1,
       presence: 'away',
@@ -387,6 +388,52 @@ describe('lobby seats', () => {
     seatLeft(h.room, h.deps, [...h.room.seats.values()].find((s) => s.sessionId === 'session-new') ?? h.seat(1))
     const again = resolveSeat(h.room, 'session-5', 'P5', true)
     expect(again.playerId).not.toBe('player-5')
+  })
+
+  it('seat numbers are never reused, so nobody’s mark shifts when someone leaves', () => {
+    const h = setup(0, 2, 'lobby')
+    const room = h.room
+    const a = resolveSeat(room, 'session-a', 'A', true)
+    const b = resolveSeat(room, 'session-b', 'B', true)
+    const c = resolveSeat(room, 'session-c', 'C', true)
+    expect([a.seat, b.seat, c.seat]).toEqual([0, 1, 2])
+    seatLeft(room, h.deps, b)
+    expect(room.seats.has(b.playerId)).toBe(false)
+    const d = resolveSeat(room, 'session-d', 'D', true)
+    expect(c.seat).toBe(2)
+    expect(d.seat).toBe(3)
+    // coming back on the same session keeps the seat
+    expect(resolveSeat(room, 'session-c', 'C', true).seat).toBe(2)
+    const players = buildSnapshot(room, a).players
+    expect(players.map((p) => [p.name, p.seat])).toEqual([
+      ['A', 0],
+      ['C', 2],
+      ['D', 3],
+    ])
+  })
+
+  it('a new seat number never wears a mark someone in the room has on', () => {
+    const fill = () => {
+      const h = setup(0, 2, 'lobby')
+      const seats = Array.from({ length: MAX_PLAYERS }, (_, i) => resolveSeat(h.room, `session-${i}`, `P${i}`, true))
+      expect(seats.map((s) => s.seat)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+      return { h, seats }
+    }
+
+    // seat 0 goes: mark 0 is free, so the next joiner is seat 8 (mark 0)
+    const first = fill()
+    seatLeft(first.h.room, first.h.deps, first.seats[0] as Seat)
+    expect(resolveSeat(first.h.room, 'session-new', 'New', true).seat).toBe(8)
+
+    // seat 3 goes while seat 0 stays: 8 would share seat 0's mark, so 11
+    const second = fill()
+    seatLeft(second.h.room, second.h.deps, second.seats[3] as Seat)
+    const joiner = resolveSeat(second.h.room, 'session-new', 'New', true)
+    expect(joiner.seat).toBe(11)
+    expect(joiner.seat % MARK_COUNT).toBe(3)
+    // and nothing below 12 is handed out again
+    seatLeft(second.h.room, second.h.deps, joiner)
+    expect(resolveSeat(second.h.room, 'session-again', 'Again', true).seat).toBe(19)
   })
 
   it('a released host hands the role on', () => {

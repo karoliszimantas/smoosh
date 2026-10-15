@@ -37,6 +37,7 @@ function makeSeat(n: number): Seat {
   return {
     sessionId: `session-${n}`,
     playerId: `player-${n}`,
+    seat: n - 1,
     name: `Player ${n}`,
     isHost: n === 1,
     presence: 'present',

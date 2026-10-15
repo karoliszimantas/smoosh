@@ -33,7 +33,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
     const player = playerById.get(playerId)
     return (
       player && (
-        <PlayerDot player={player} players={snapshot.players} away={player.presence === 'away'} labelled />
+        <PlayerDot player={player} away={player.presence === 'away'} labelled />
       )
     )
   }

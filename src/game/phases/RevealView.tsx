@@ -38,7 +38,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
                     return (
                       player && (
                         <li key={id}>
-                          <PlayerDot player={player} players={snapshot.players} labelled />
+                          <PlayerDot player={player} labelled />
                         </li>
                       )
                     )
@@ -55,7 +55,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
           const player = playerById.get(playerId)
           return (
             <li key={playerId} className="dot-name">
-              {player && <PlayerDot player={player} players={snapshot.players} labelled />}
+              {player && <PlayerDot player={player} labelled />}
               {nameById.get(playerId) ?? '?'}: +{points}
             </li>
           )

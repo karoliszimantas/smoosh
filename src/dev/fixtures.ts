@@ -50,10 +50,10 @@ function CHAINS(base: { players: Player[] }) {
 }
 
 export const FIXTURE_PLAYERS: Player[] = [
-  { id: YOU_ID, name: 'Sam', isHost: true, presence: 'present', score: 1500 },
-  { id: 'alice', name: 'Alice', isHost: false, presence: 'present', score: 2000 },
-  { id: 'bob', name: 'Bob', isHost: false, presence: 'present', score: 500 },
-  { id: 'cara', name: 'Cara', isHost: false, presence: 'present', score: 1000 },
+  { id: YOU_ID, seat: 0, name: 'Sam', isHost: true, presence: 'present', score: 1500 },
+  { id: 'alice', seat: 1, name: 'Alice', isHost: false, presence: 'present', score: 2000 },
+  { id: 'bob', seat: 2, name: 'Bob', isHost: false, presence: 'present', score: 500 },
+  { id: 'cara', seat: 3, name: 'Cara', isHost: false, presence: 'present', score: 1000 },
 ]
 
 const SAMPLE_PICTURES = ['/assets/test.jpg', '/assets/test2.jpg', '/assets/test3.jpg']

@@ -108,7 +108,7 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
         <ul className="seat-grid" aria-label="Players">
           {seated.map((p) => (
             <li key={p.id}>
-              <PlayerChip player={p} players={players} youId={you.playerId} />
+              <PlayerChip player={p} youId={you.playerId} />
             </li>
           ))}
           {/* one empty seat while there's room — "n of 8" above says it */}

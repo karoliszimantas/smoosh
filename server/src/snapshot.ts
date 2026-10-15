@@ -71,6 +71,7 @@ function computePass(room: Room, seat: Seat) {
 export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
   const players = [...room.seats.values()].map((s) => ({
     id: s.playerId,
+    seat: s.seat,
     name: s.name,
     isHost: s.isHost,
     presence: s.presence,

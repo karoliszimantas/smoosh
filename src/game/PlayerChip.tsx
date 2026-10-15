@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Player } from '@smoosh/protocol'
 import { useTheme } from '../themes/useTheme'
-import { initialOf, markFor, seatOf, type Shape } from './playerMark'
+import { initialOf, markOf, type Shape } from './playerMark'
 
 // a seat's shape, drawn in a 10×10 box and filled with the current colour.
 // `size` is the drawn size in px: 9 on a chip's badge, 7 on a dot's (the
@@ -26,18 +26,16 @@ export function ShapeGlyph({ shape, size }: { shape: Shape; size: number }) {
 // lobby, so it replaces the other two; a host who is you is You.
 export default function PlayerChip({
   player,
-  players,
   youId,
   onPaper = false,
 }: {
   player: Player
-  players: readonly Player[]
   youId: string
   // sitting on a paper card rather than the desk: the You ring is drawn in ink
   onPaper?: boolean
 }) {
   const theme = useTheme()
-  const { shape, colour } = markFor(seatOf(players, player.id))
+  const { shape, colour } = markOf(player)
   const seat = theme.players[colour] ?? theme.players[0]
   const style = { '--p-bg': seat?.bg, '--p-fg': seat?.fg } as CSSProperties
 

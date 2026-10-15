@@ -12,6 +12,7 @@ function seat(n: number, presence: Seat['presence'] = 'present'): Seat {
   return {
     sessionId: `s${n}`,
     playerId: `p${n}`,
+    seat: n - 1,
     name: `P${n}`,
     isHost: n === 1,
     presence,
