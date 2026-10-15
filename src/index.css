@@ -4254,6 +4254,13 @@ select.field {
   height: auto;
 }
 
+/* in a round the notices drop below the strip, clear of the timer tag */
+.game-screen:not(.bare) ~ .notice-region {
+  top: calc(92px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+}
+
 /* the strip leaves the corners free: no room to keep clear for buttons */
 .game-screen:not(.bare) .chain-reveal {
   padding-top: 16px;
