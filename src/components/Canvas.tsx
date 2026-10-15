@@ -35,6 +35,9 @@ import { pivotAround, turnBetween, type Point } from './transformMath'
 import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
 import { useTheme } from '../themes/useTheme'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
+import FrameDecor from './FrameDecor'
+import { hideForExport } from './canvasExport'
+import Tape from './Tape'
 
 Konva.hitOnDragEnabled = true
 
@@ -46,9 +49,12 @@ const AssetSheet = lazy(loadAssetSheet)
 const ReportDialog = lazy(() => import('./ReportDialog'))
 
 // the square frame: only what's inside it is exported and submitted. It's
-// fitted into the stage with this much room around it, so layers can still
-// be parked just outside it.
-const FRAME_PADDING = 12
+// fitted into the stage with this much room around it — the screen's gutter
+// — so layers can still be parked just outside it, and the paper's tape and
+// shadow have somewhere to fall.
+const FRAME_PADDING = 16
+// the tape holding the paper down, off its top-left corner (screen px)
+const TAPE_OFFSET = { x: -12, y: -10 }
 // The rotate and zoom sliders float over the frame's edges rather than
 // taking room beside it: they show only while a layer is selected, so the
 // frame never gives way to them and never changes size. They sit clear of
@@ -57,11 +63,6 @@ const FRAME_PADDING = 12
 const SLIDER_SPAN = 0.72
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
-// how much of the page colour covers whatever hangs outside the frame
-const OUTSIDE_DIM_OPACITY = 0.62
-// far enough past the frame to cover any visible part of the stage
-const OUTSIDE = 20000
-
 
 // long-press a layer to change its depth: hold still this long…
 const LONG_PRESS_MS = 400
@@ -209,7 +210,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   }, [stageSize])
 
   const stageRef = useRef<Konva.Stage>(null)
-  const frameDecorRef = useRef<Konva.Layer>(null)
   const backgroundRef = useRef<Konva.Layer>(null)
   const itemsLayerRef = useRef<Konva.Layer>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -816,7 +816,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (!stage) return null
 
     const selectedNode = selectedId ? stage.findOne<Konva.Image>(`#${selectedId}`) : null
-    const frameDecor = frameDecorRef.current
     // a round can end mid-crop: export the layer as last applied, without
     // the crop mode's dimming and handles
     const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
@@ -824,12 +823,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const editedId = cropping?.id ?? erasing?.id
     const croppingNode = editedId ? stage.findOne<Konva.Image>(`#${editedId}`) : null
 
+    // hide the selection outline and everything else that isn't the picture
+    // (the frame's shadow and dimming) for the capture without touching
+    // React state — avoids the setState+sleep race that could bake them in
+    let restoreChrome: (() => void) | null = null
     try {
-      // hide the selection outline and the frame's border/dimming for the
-      // capture without touching React state — avoids the setState+sleep
-      // race that could bake them in
       selectedNode?.strokeWidth(0)
-      frameDecor?.visible(false)
+      restoreChrome = hideForExport(stage)
       // a chain pass sends only its own layers
       if (transparentExport) backgroundRef.current?.visible(false)
       cropOverlay?.visible(false)
@@ -857,7 +857,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       return null
     } finally {
       selectedNode?.strokeWidth(3)
-      frameDecor?.visible(true)
+      restoreChrome?.()
       backgroundRef.current?.visible(true)
       cropOverlay?.visible(true)
       eraseOverlay?.visible(true)
@@ -947,23 +947,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               />
             ))}
           </Layer>
-          {/* above the images: dims whatever hangs outside the frame, so it
-              reads as "not in the picture"; never takes a tap */}
-          <Layer listening={false} ref={frameDecorRef}>
-            <Rect x={-OUTSIDE} y={-OUTSIDE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
-            <Rect x={-OUTSIDE} y={CANVAS_SIZE} width={2 * OUTSIDE + CANVAS_SIZE} height={OUTSIDE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
-            <Rect x={-OUTSIDE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
-            <Rect x={CANVAS_SIZE} y={0} width={OUTSIDE} height={CANVAS_SIZE} fill={theme.pageBg} opacity={OUTSIDE_DIM_OPACITY} />
-            <Rect
-              x={0}
-              y={0}
-              width={CANVAS_SIZE}
-              height={CANVAS_SIZE}
-              stroke={theme.chromeBorder}
-              strokeWidth={1.5}
-              strokeScaleEnabled={false}
-            />
-          </Layer>
+          {/* above the images: the frame's dimmed surround and its shadow */}
+          <FrameDecor scale={frame.scale} pageBg={theme.pageBg} shadow={theme.shadow.card} />
           {erasing && erasingItem && (
             <EraseOverlay
               item={erasingItem}
@@ -983,6 +968,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             />
           )}
         </Stage>
+        {/* DOM, so the export (which only sees the stage) can never catch it */}
+        {stageSize.w > 0 && <Tape x={frame.x + TAPE_OFFSET.x} y={frame.y + TAPE_OFFSET.y} />}
         {/* hidden with nothing selected, so what they act on is never a question */}
         {selectedItem && !selectedItem.locked && !editing && !depth && (
           <LayerSliders
