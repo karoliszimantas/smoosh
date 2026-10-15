@@ -105,6 +105,7 @@ export type Theme = {
   // seat colours, indexed by seat; fg is the initial on bg. Not CSS vars:
   // PlayerChip sets --p-bg/--p-fg inline
   players: readonly { bg: string; fg: string }[]
+  markBadge: string // the white badge that carries a seat's shape
   promptChips: readonly string[] // the torn prompt-word chips, in turn
   // a sticker edge round cut-outs, in theme px on a 400px frame; null draws none
   stickerEdge: { color: string; width: number } | null
