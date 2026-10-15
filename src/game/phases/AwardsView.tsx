@@ -3,6 +3,7 @@ import { AWARD_TITLES, AWARDS, awardsTimeline, type Award } from '@smoosh/protoc
 import type { PhaseProps } from '../types'
 import Exhibit from '../gallery/Exhibit'
 import { titleFor } from '../gallery/galleryText'
+import { serverNow } from '../serverClock'
 
 // The awards, announced one at a time, lowest first, building to Best in
 // Show — then the whole wall. Every phone plays the same timeline from the
@@ -23,13 +24,13 @@ function stepAt(elapsed: number, starts: readonly number[], wallAt: number): Ste
 // the step the timeline is on now, re-rendering exactly at each change
 function useStep(startsAt: number, order: readonly Award[], skipped: boolean): Step {
   const { starts, wallAt } = awardsTimeline(order)
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
     if (skipped) return
     const elapsed = now - startsAt
     const next = [...starts, wallAt].find((t) => t > elapsed)
     if (next === undefined) return
-    const timer = setTimeout(() => setNow(Date.now()), next - elapsed + 20)
+    const timer = setTimeout(() => setNow(serverNow()), next - elapsed + 20)
     return () => clearTimeout(timer)
   }, [now, startsAt, starts, wallAt, skipped])
   return skipped ? { kind: 'wall' } : stepAt(now - startsAt, starts, wallAt)

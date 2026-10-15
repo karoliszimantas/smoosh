@@ -3,6 +3,7 @@ import type { ClientToServerEvents, RoomSnapshot } from '@smoosh/protocol'
 import { useGameServices, type AckArg, type EmitPayload, type GameTransport } from './services'
 import { clearActiveRoom, getActiveRoom, getSessionId, setActiveRoom, type ActiveRoom } from './session'
 import { pruneGameCanvases } from './canvasStorage'
+import { noteServerTime } from './serverClock'
 import { leftText, rejoinFailedText, roomEventText } from './roomMessages'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting'
@@ -149,6 +150,8 @@ export function useGameConnection(): GameConnection {
     socket.on('reconnect_attempt', onDrop)
 
     socket.onSnapshot((snap) => {
+      // first, before anything renders against its deadlines
+      noteServerTime(snap.serverNow)
       if (replacedRef.current) return
       const me = snap.players.find((p) => p.id === snap.you.playerId)
       if (getActiveRoom()?.roomCode !== snap.roomCode) pruneGameCanvases(snap.roomCode)
