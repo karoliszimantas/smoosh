@@ -93,6 +93,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--focus': theme.focus,
     '--ghost': theme.ghost,
     '--away-chip': theme.awayChip,
+    '--mark-badge': theme.markBadge,
     '--font-label': theme.fontLabel,
     '--label-tracking': theme.labelTracking,
     '--shadow': theme.shadow.card,

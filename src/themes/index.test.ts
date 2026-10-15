@@ -81,6 +81,7 @@ describe('cssVars', () => {
     '--focus',
     '--ghost',
     '--away-chip',
+    '--mark-badge',
     '--font-label',
     '--label-tracking',
     '--shadow',
@@ -164,12 +165,20 @@ describe('text contrast', () => {
     ['danger', (t) => [t.dangerText, t.danger]],
     ['error text on the desk', (t) => [t.dangerOnDesk, t.pageBg]],
     ['warning', (t) => [t.warningText, t.warning]],
+    ['a seat badge’s shape', (t) => [t.line, t.markBadge]],
   ]
 
   for (const theme of THEMES) {
     it.each(PAIRS)(`${theme.id}: %s is at least 4.5:1`, (_, pair) => {
       const [fg, bg] = pair(theme)
       expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+
+  // the initial on each seat's avatar
+  for (const theme of THEMES) {
+    it.each(theme.players.map((p, i) => [i, p] as const))(`${theme.id}: seat %i's initial is at least 4.5:1`, (_, p) => {
+      expect(contrast(p.fg, p.bg)).toBeGreaterThanOrEqual(4.5)
     })
   }
 })
