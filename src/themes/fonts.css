@@ -1,0 +1,87 @@
+/* The three web fonts the themes name (src/themes/night.ts), self-hosted so
+   the URLs are exact for the preloads (vite.config.ts) and same-origin under
+   COEP credentialless (public/_headers). Google's latin subsets, unmodified:
+   Archivo Black 400, Archivo variable (wght axis only; the file covers
+   100–900, we claim the 400–800 we use), Courier Prime 700 (every label is
+   bold, so no 400). Licence: ../assets/fonts/OFL.txt */
+
+@font-face {
+  font-family: 'Archivo Black';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-black-latin-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-wght.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/courier-prime-latin-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Metric-matched fallbacks, shown until the web fonts arrive, so the swap
+   barely moves anything. Computed, not tuned, the way fontaine and next/font
+   do it: @capsizecss/unpack read the vendored woff2 files and the macOS
+   system fonts for their hhea ascent/descent/lineGap and xWidthAvg (average
+   advance weighted by English letter frequency), then
+     size-adjust     = (font xWidthAvg / font upm) / (local xWidthAvg / local upm)
+     ascent-override = font ascent / (font upm × size-adjust)
+   and descent and line gap the same way. Archivo is variable, so fontTools
+   instanced it first: the 400–500 face is matched at wght 400 against Arial,
+   the 600–800 face at wght 600 (the weight most of the UI is set in) against
+   Arial Bold, a real bold, so the browser never fakes one from Arial. Where
+   the local font is missing (Android, most Linux) the face is skipped and the
+   stack falls through to the next family. */
+
+@font-face {
+  font-family: 'Archivo Black Fallback';
+  font-weight: 400;
+  src: local('Arial Black'), local('Arial-Black');
+  size-adjust: 99.96%;
+  ascent-override: 87.84%;
+  descent-override: 21.01%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Archivo Fallback';
+  font-weight: 400 500;
+  src: local('Arial'), local('ArialMT');
+  size-adjust: 98.7%;
+  ascent-override: 88.96%;
+  descent-override: 21.28%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Archivo Fallback';
+  font-weight: 600 800;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 95%;
+  ascent-override: 92.42%;
+  descent-override: 22.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Courier Prime Fallback';
+  font-weight: 700;
+  src: local('Courier New Bold'), local('CourierNewPS-BoldMT');
+  size-adjust: 99.92%;
+  ascent-override: 78.19%;
+  descent-override: 34.21%;
+  line-gap-override: 0%;
+}
