@@ -31,9 +31,21 @@ body,
 #root {
   height: 100dvh;
   overflow: hidden;
-  background: var(--page-bg);
   color: var(--text);
   font-family: var(--font-ui);
+}
+
+/* the desk: a dot grid, painted once, on body. html carries the plain desk
+   colour for overscroll; #root and full-page views stay transparent so the
+   grid shows through them */
+html {
+  background-color: var(--page-bg);
+}
+
+body {
+  background-color: var(--page-bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 12px 12px;
 }
 
 /* form controls don't inherit the page font by default */
@@ -1138,7 +1150,6 @@ h2,
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: var(--page-bg);
   color: var(--text);
   text-align: center;
   padding: 24px;
