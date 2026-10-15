@@ -38,6 +38,7 @@ import { buildUnderlay, passImageUrl } from './chainUnderlay'
 import FrameDecor from './FrameDecor'
 import { hideForExport } from './canvasExport'
 import Tape from './Tape'
+import SelectionOverlay from './SelectionOverlay'
 
 Konva.hitOnDragEnabled = true
 
@@ -815,7 +816,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const stage = stageRef.current
     if (!stage) return null
 
-    const selectedNode = selectedId ? stage.findOne<Konva.Image>(`#${selectedId}`) : null
     // a round can end mid-crop: export the layer as last applied, without
     // the crop mode's dimming and handles
     const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
@@ -823,12 +823,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const editedId = cropping?.id ?? erasing?.id
     const croppingNode = editedId ? stage.findOne<Konva.Image>(`#${editedId}`) : null
 
-    // hide the selection outline and everything else that isn't the picture
-    // (the frame's shadow and dimming) for the capture without touching
-    // React state — avoids the setState+sleep race that could bake them in
+    // hide everything that isn't the picture (the selection's outline and
+    // handles, the frame's shadow and dimming) for the capture without
+    // touching React state — avoids the setState+sleep race that could bake
+    // them in
     let restoreChrome: (() => void) | null = null
     try {
-      selectedNode?.strokeWidth(0)
       restoreChrome = hideForExport(stage)
       // a chain pass sends only its own layers
       if (transparentExport) backgroundRef.current?.visible(false)
@@ -856,7 +856,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       console.error('export failed', err)
       return null
     } finally {
-      selectedNode?.strokeWidth(3)
       restoreChrome?.()
       backgroundRef.current?.visible(true)
       cropOverlay?.visible(true)
@@ -864,7 +863,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       croppingNode?.visible(false)
       stage.batchDraw()
     }
-  }, [selectedId, onSubmit, frame, cropping, erasing, transparentExport])
+  }, [onSubmit, frame, cropping, erasing, transparentExport])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
@@ -938,7 +937,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               <DraggableImage
                 key={item.id}
                 item={item}
-                isSelected={item.id === selectedId}
                 hidden={item.id === croppingItem?.id || item.id === erasingItem?.id}
                 // the layer being reordered stands out from the rest
                 dimmed={depth !== null && item.id !== depth.id}
@@ -946,6 +944,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
                 onChange={updateItem}
               />
             ))}
+            {selectedItem && (
+              <SelectionOverlay
+                targetId={selectedItem.id}
+                stageScale={frame.scale}
+                color={theme.selectionColor}
+                handles={!selectedItem.locked}
+              />
+            )}
           </Layer>
           {/* above the images: the frame's dimmed surround and its shadow */}
           <FrameDecor scale={frame.scale} pageBg={theme.pageBg} shadow={theme.shadow.card} />

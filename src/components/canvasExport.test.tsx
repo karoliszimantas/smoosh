@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { hideForExport, NOT_IN_EXPORT } from './canvasExport'
 import FrameDecor from './FrameDecor'
+import SelectionOverlay from './SelectionOverlay'
 import { parseHardShadow } from './hardShadow'
 import { CANVAS_SIZE } from './layerItem'
 
@@ -49,6 +50,14 @@ describe('the export leaves the chrome out', () => {
       { x: CANVAS_SIZE, y: 8, width: 6, height: CANVAS_SIZE },
       { x: 6, y: CANVAS_SIZE, width: CANVAS_SIZE - 6, height: 8 },
     ])
+  })
+})
+
+describe('the selection’s outline and handles', () => {
+  it('take no taps and are hidden from the export', () => {
+    const overlay = SelectionOverlay({ targetId: 'a', stageScale: 0.4, color: '#B8320A', handles: true }) as ReactElement<Props>
+    expect(overlay.props.name?.split(' ')).toContain(NOT_IN_EXPORT)
+    expect(overlay.props.listening).toBe(false)
   })
 })
 
