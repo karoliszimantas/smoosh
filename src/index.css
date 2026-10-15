@@ -1304,30 +1304,12 @@ h2,
 
 /* ---------- lobby view ---------- */
 
-.player-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 200px;
-}
-
-.player-list li {
-  padding: 8px 14px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--surface-text);
-  font-size: 14px;
-}
-
 .lobby-away-note {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
 }
 
-.player-list li.away,
 .scoreboard li.away {
   color: var(--surface-text-muted);
 }
@@ -2322,29 +2304,14 @@ button.theme-choice-option.active {
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  /* 5px more below, for the dots' badges */
+  padding: 6px 8px calc(11px + env(safe-area-inset-bottom));
   list-style: none;
   pointer-events: none;
 }
 
 .presence-strip li {
-  padding: 3px 8px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 12px;
-}
-
-.presence-strip li.away {
-  color: var(--surface-text-muted);
-}
-
-.presence-strip .away-marker {
-  margin-left: 4px;
-  padding: 0;
-  background: none;
-  color: var(--surface-text-muted);
+  display: flex;
 }
 
 /* room at the bottom for the player strip */
@@ -4091,4 +4058,63 @@ select.field {
 
 .dot-row li {
   display: flex;
+}
+
+/* the lobby's seats: two columns of chips, then one empty seat */
+.lobby-seats {
+  width: min(100%, 400px);
+  display: flex;
+  flex-direction: column;
+  /* 14px to the chips, less the grid's 5px of air */
+  gap: 9px;
+}
+
+.lobby-seats-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+}
+
+/* 5px of air all round for the You ring; pulled out sideways so the chips
+   still line up with the label row */
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 14px 12px;
+  margin: 0 -5px;
+  padding: 5px;
+  list-style: none;
+}
+
+.seat-grid > li {
+  display: flex;
+  min-width: 0;
+}
+
+.seat-grid .player-chip {
+  width: 100%;
+}
+
+.seat-waiting {
+  height: 52px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border: 2px dashed var(--surface-sunken-text);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
+  font: 600 16px/22px var(--font-ui);
+}
+
+.seat-waiting-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  border: 2px dashed currentColor;
+  border-radius: 50%;
 }

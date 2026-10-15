@@ -145,8 +145,8 @@ describe('the player strip', () => {
       p.id === 'bob' ? { ...p, presence: 'away' } : p.id === 'cara' ? { ...p, presence: 'left' } : p,
     )
     const html = renderToStaticMarkup(<PresenceStrip snapshot={snapshot} />)
-    expect(textOf(html)).toBe('You Alice Bob away')
-    expect(html).toContain('<li class="away">Bob')
+    expect([...html.matchAll(/aria-label="([^"]*)"/g)].map((m) => m[1])).toEqual(['Players', 'You', 'Alice', 'Bob, away'])
+    expect(html).toContain('class="player-dot away"')
     expect(snapshot.you.playerId).toBe(YOU_ID)
   })
 })
