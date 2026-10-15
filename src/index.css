@@ -523,81 +523,90 @@ h2,
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ---------- layer strip ---------- */
+/* ---------- layer strip ----------
+   On the desk, no strip behind it (Build.dc.html): a typed "Layers" label,
+   the two step buttons, and 52px paper thumbnails, the selected one laid
+   on a scrap of yellow tape. */
 
 .layer-strip {
   flex-shrink: 0;
-  height: 72px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--surface-text);
+  gap: 8px;
+  padding: 0 16px;
 }
 
-.layer-strip-label,
+.layer-strip-label {
+  flex-shrink: 0;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .layer-strip-end {
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--surface-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
-/* the strip's ends: move the selected layer a step toward that end. With
-   nothing movable they read as the plain labels they used to be */
-.layer-strip-end {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 4px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 2px var(--line);
-  color: var(--surface-text);
-}
-
+/* nothing to move: a dashed outline on the desk */
 .layer-strip-end:disabled {
+  border-style: dashed;
+  border-color: var(--text-muted);
   background: transparent;
   box-shadow: none;
-  color: var(--surface-text-muted);
+  color: var(--text-muted);
+  transform: none;
+  cursor: default;
 }
 
 .layer-strip-scroll {
   flex: 1;
   min-width: 0;
-  height: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  /* room for the tape scrap round the selected chip, which the scroll
+     would otherwise clip */
+  padding: 6px;
   overflow-x: auto;
+  scrollbar-width: none;
   touch-action: pan-x;
+  /* the scrap tucks behind its chip, not behind the desk */
+  isolation: isolate;
 }
 
-.layer-chip {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border: 2px solid transparent;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  padding: 2px;
-  overflow: hidden;
-  transition:
-    transform 120ms ease-out,
-    border-color 120ms ease-out;
-}
-
-.layer-chip.selected {
-  border-color: var(--selection);
+.layer-strip-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .layer-chip {
   position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  padding: 6px;
+  border: none;
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease-out;
+}
+
+/* the selected one sits on a scrap of tape, a little larger and askew */
+.layer-chip.selected::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  background: var(--picked);
+  transform: rotate(-3deg);
+}
+
+.layer-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 5px;
 }
 
 /* a locked layer: a padlock badge in the corner, in the system colours so

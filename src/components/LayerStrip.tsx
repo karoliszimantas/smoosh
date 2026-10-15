@@ -33,9 +33,18 @@ function Padlock() {
   )
 }
 
-// the stack: select a layer, see what's locked, and move the selected one a
-// step toward the front or back with the strip's own two ends. (Long-press
-// on the canvas still jumps a layer to an exact depth.)
+function Chevron({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  )
+}
+
+// the stack, on the desk: select a layer, see what's locked, and move the
+// selected one a step toward the front or back with the strip's own two
+// ends. (Long-press on the canvas still jumps a layer to an exact depth.)
+// The selected thumbnail sits on a scrap of yellow tape.
 export default function LayerStrip({
   items,
   selectedId,
@@ -65,24 +74,32 @@ export default function LayerStrip({
 
   return (
     <div className="layer-strip">
-      <button className="layer-strip-end" onClick={onFront} disabled={!canFront} aria-label="Move layer forward one step">
-        <span aria-hidden="true">◀</span> Front
+      <span className="layer-strip-label" aria-hidden="true">
+        Layers
+      </span>
+      <button className="icon-btn icon-btn-sm layer-strip-end" onClick={onFront} disabled={!canFront} aria-label="Move layer forward one step">
+        <Chevron d="M15 6l-6 6 6 6" />
       </button>
-      <div className="layer-strip-scroll">
-        {displayItems.map((item, index) => (
-          <button
-            key={item.id}
-            className={`layer-chip${item.id === selectedId ? ' selected' : ''}`}
-            aria-label={`Layer ${index + 1} of ${displayItems.length}, ${item.label}${item.locked ? ', locked' : ''}`}
-            onClick={() => onSelect(item.id)}
-          >
-            <Thumb src={item.thumb} />
-            {item.locked && <Padlock />}
-          </button>
-        ))}
+      <div className="layer-strip-scroll" role="listbox" aria-label="Layers, front to back" aria-orientation="horizontal">
+        {displayItems.map((item, index) => {
+          const selected = item.id === selectedId
+          return (
+            <button
+              key={item.id}
+              role="option"
+              aria-selected={selected}
+              className={`layer-chip${selected ? ' selected' : ''}`}
+              aria-label={`Layer ${index + 1} of ${displayItems.length}, ${item.label}${item.locked ? ', locked' : ''}`}
+              onClick={() => onSelect(item.id)}
+            >
+              <Thumb src={item.thumb} />
+              {item.locked && <Padlock />}
+            </button>
+          )
+        })}
       </div>
-      <button className="layer-strip-end" onClick={onBack} disabled={!canBack} aria-label="Move layer backward one step">
-        Back <span aria-hidden="true">▶</span>
+      <button className="icon-btn icon-btn-sm layer-strip-end" onClick={onBack} disabled={!canBack} aria-label="Move layer backward one step">
+        <Chevron d="M9 6l6 6-6 6" />
       </button>
     </div>
   )
