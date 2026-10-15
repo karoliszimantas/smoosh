@@ -4264,3 +4264,30 @@ select.field {
     transform: translate(-0.5px, 0.5px) rotate(1.5deg);
   }
 }
+
+/* who's done: 28px dots in seat order, 6px apart while they fit. Past that
+   each dot's slot shrinks (down to a 4px sliver) and the dot spills over
+   the next slot, so later dots sit over earlier ones and the last is
+   always whole. The badge pokes out 3px. */
+.done-dots {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 3px 3px 0;
+}
+
+.done-dot {
+  display: flex;
+  flex: 0 1 34px;
+  min-width: 4px;
+}
+
+.done-dot:last-child {
+  flex: none;
+  width: 28px;
+}
+
+/* a ghost over a dot shouldn't show the dot through it */
+.done-dot .player-dot.pending {
+  background: var(--page-bg);
+}
