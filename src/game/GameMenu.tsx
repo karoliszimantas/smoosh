@@ -15,17 +15,22 @@ export default function GameMenu({
   return (
     <div className="game-menu">
       <button
-        className="game-menu-button"
+        className="icon-btn game-menu-button"
         aria-label="Game menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        ⋯
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
       </button>
       {open && (
-        <div className="game-menu-popover" role="menu">
-          <p className="game-menu-code">Game {roomCode}</p>
+        <div className="paper-card game-menu-popover" role="menu">
+          <p className="field-label on-paper">Game {roomCode}</p>
           <button
+            className="btn btn-secondary btn-inset btn-block"
             role="menuitem"
             onClick={() => {
               setOpen(false)

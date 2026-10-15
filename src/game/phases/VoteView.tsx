@@ -107,7 +107,7 @@ export default function VoteView({ snapshot, emit }: PhaseProps) {
       {eligible.length > 0 && !done && (
         <div className="vote-bar">
           {error && <p className="form-error">{error}</p>}
-          <button className="vote-submit" onClick={() => void submit()} disabled={!ready || sending}>
+          <button className="btn btn-primary btn-block vote-submit" onClick={() => void submit()} disabled={!ready || sending}>
             {sending ? 'Casting…' : picks.length === 0 ? 'Pick a favourite' : !ready ? 'Now a runner-up' : 'Cast votes'}
           </button>
         </div>

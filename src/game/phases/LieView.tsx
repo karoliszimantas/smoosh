@@ -46,13 +46,14 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
       ) : (
         <div className="lie-form">
           <input
+            className="field"
             placeholder="Write a convincing fake prompt"
             maxLength={80}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
           {error && <p className="form-error">{error}</p>}
-          <button onClick={() => void handleSubmit()} disabled={!text.trim()}>
+          <button className="btn btn-primary btn-block" onClick={() => void handleSubmit()} disabled={!text.trim()}>
             Submit
           </button>
         </div>
