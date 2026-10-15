@@ -33,7 +33,9 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="error-fallback">
           <p>Something went wrong.</p>
-          <button onClick={() => window.location.reload()}>Reload</button>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>
+            Reload
+          </button>
         </div>
       )
     }

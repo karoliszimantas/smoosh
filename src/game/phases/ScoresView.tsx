@@ -32,7 +32,9 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
   const playAgain =
     phase.isFinalRound &&
     (snapshot.you.isHost ? (
-      <button onClick={() => void emit('room:playAgain', {})}>Play again</button>
+      <button className="btn btn-primary" onClick={() => void emit('room:playAgain', {})}>
+        Play again
+      </button>
     ) : (
       <p className="phase-status">Waiting for the host to start a new game…</p>
     ))

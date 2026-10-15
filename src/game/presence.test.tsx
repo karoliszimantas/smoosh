@@ -130,7 +130,9 @@ describe('leaving', () => {
 
   it('sits behind a menu, not out in the open', () => {
     const html = renderToStaticMarkup(<GameMenu roomCode="ABCD" isLobby={false} onLeave={noop} />)
-    expect(textOf(html)).toBe('⋯')
+    // three dots, drawn, with nothing to read but the button's label
+    expect(textOf(html)).toBe('')
+    expect(html).toMatch(/<svg[^>]*aria-hidden="true"/)
     expect(html).toContain('aria-label="Game menu"')
     expect(html).not.toContain('Leave')
   })
