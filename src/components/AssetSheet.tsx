@@ -78,6 +78,7 @@ export default function AssetSheet({
   onClose,
   onPlace,
   onCutShared,
+  tabRequest = null,
 }: {
   open: boolean
   promptText: string
@@ -89,9 +90,13 @@ export default function AssetSheet({
   // a cut made on this device finished uploading — the canvas swaps its
   // local blob: URL for the shared one so the layer survives a reload
   onCutShared: (localSrc: string, shared: ImageVariant) => void
+  // open on this prompt word's tab (a word chip was tapped). A new `seq`
+  // is a new request, even for the same word
+  tabRequest?: { key: string; seq: number } | null
 }) {
   const [tabIndex, setTabIndex] = useState<number | null>(0)
-  const lastTabIndex = useRef(0)
+  // the tab to go back to when the search box is emptied
+  const [lastTabIndex, setLastTabIndex] = useState(0)
   const [input, setInput] = useState('')
   const [debouncedInput, setDebouncedInput] = useState('')
   const [terms, setTerms] = useState<Record<string, TermState>>({})
@@ -116,6 +121,20 @@ export default function AssetSheet({
     return [...words, ALL_TAB]
   }, [freestyle, promptText])
   const activeTab = tabIndex === null ? undefined : tabs[tabIndex]
+
+  // a word chip asked for its tab: switch to it as the sheet opens (state
+  // adjusted while rendering, so the sheet never shows the old tab first)
+  const [handledRequest, setHandledRequest] = useState(tabRequest?.seq ?? 0)
+  if (tabRequest && tabRequest.seq !== handledRequest) {
+    setHandledRequest(tabRequest.seq)
+    const index = tabs.findIndex((t) => t.kind === 'word' && t.key === tabRequest.key)
+    if (index !== -1) {
+      setLastTabIndex(index)
+      setTabIndex(index)
+      setInput('')
+      setDebouncedInput('')
+    }
+  }
 
   // the library's categories, in manifest order — browsed inside All
   const categories = useMemo(() => {
@@ -277,7 +296,7 @@ export default function AssetSheet({
   }, [open])
 
   const selectTab = (index: number) => {
-    lastTabIndex.current = index
+    setLastTabIndex(index)
     setTabIndex(index)
     setInput('')
     setDebouncedInput('')
@@ -286,7 +305,7 @@ export default function AssetSheet({
   const handleInput = (value: string) => {
     setInput(value)
     if (value.trim()) setTabIndex(null)
-    else setTabIndex(lastTabIndex.current)
+    else setTabIndex(lastTabIndex)
   }
 
   const setStatus = (key: string, status: CardStatus | null) =>

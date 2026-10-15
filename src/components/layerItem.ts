@@ -44,6 +44,13 @@ export type LayerItem = {
   fromWord?: string
 }
 
+// the prompt words with a layer on the canvas placed from their search tab:
+// their chips show as used. Derived from the layers alone, so undoing an add
+// (or deleting the layer) un-uses the word again
+export function usedPromptWords(items: readonly Pick<LayerItem, 'fromWord'>[]): ReadonlySet<string> {
+  return new Set(items.flatMap((i) => (i.fromWord ? [i.fromWord] : [])))
+}
+
 export type EraseStroke = {
   // brush radius, as a fraction of the full image's width
   r: number

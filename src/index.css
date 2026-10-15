@@ -68,7 +68,6 @@ button {
 
 /* the theme's display face: the prompt, titles. Set in caps with tracking
    in themes that want the delivery deadpan */
-.prompt-bar-text,
 h1,
 h2,
 .scores-winner {
@@ -325,94 +324,167 @@ h2,
   }
 }
 
-/* ---------- prompt bar ---------- */
+/* ---------- prompt bar ----------
+   The Build row, on the desk with nothing behind it (Build.dc.html): Undo,
+   the prompt's words as paper chips that open their search tab, and the
+   Done tag. It grows a line when the words wrap; the canvas gives way. */
 
 .prompt-bar {
   flex-shrink: 0;
-  height: 56px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 6px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--surface-text);
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 16px 0;
 }
 
-.prompt-bar-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  line-height: 1.25;
-  text-align: center;
-  max-width: 100%;
-  /* up to three lines inside the bar's fixed height, between undo and
-     submit: a tracked-out display face (Neon's) doesn't fit
-     a whole prompt on one line, and a cut-off prompt is unreadable */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-}
-
-@media (max-width: 359px) {
-  .prompt-bar-text {
-    font-size: 12.5px;
-  }
-}
-
-/* the picture's own actions, either side of the prompt: undo, submit */
-.prompt-bar-btn {
-  position: relative;
+.prompt-bar-undo {
   flex: none;
-  width: 56px;
-  height: 44px;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 3px;
-  overflow: hidden;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 2px var(--line);
-  color: var(--surface-text);
-  font-size: 11px;
-  font-weight: 600;
-  touch-action: manipulation;
-  -webkit-touch-callout: none;
+  box-shadow: var(--shadow-sm);
 }
 
-.prompt-bar-btn > :not(.hold-fill) {
-  position: relative;
-}
-
-/* nothing to undo: clearly off, not dead — the toolbar's disabled look */
-.prompt-bar-btn:disabled {
+/* nothing to undo: a dashed cut-out, like a disabled button */
+.prompt-bar-undo:disabled {
+  border-style: dashed;
+  border-color: var(--surface-sunken-text);
   background: var(--surface-sunken);
   box-shadow: none;
   color: var(--surface-sunken-text);
+  transform: none;
+  cursor: default;
 }
 
+/* no words to search (freestyle, a blind chain pass): the line, read */
+.prompt-bar-text {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--text);
+  font: 650 15px/1.25 var(--font-ui);
+  overflow-wrap: anywhere;
+}
+
+.prompt-words {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.prompt-word {
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
+  font: 650 15px/1.15 var(--font-ui);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.prompt-word:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+.prompt-word:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* a layer from this word's tab is on the canvas */
+.prompt-word.used {
+  background: var(--success-tint);
+}
+
+.prompt-word-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--success-ink);
+  color: #ffffff;
+}
+
+.prompt-words-connector {
+  color: var(--text-muted);
+  font: 700 13px/1.2 var(--font-label);
+}
+
+/* Done: a paper tag on an ink ledge, "hold" typed under the word */
 .prompt-bar-submit {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  position: relative;
+  flex: none;
+  min-width: 76px;
+  height: 52px;
+  padding: 0 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--ledge-sm);
+  color: var(--surface-text);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.prompt-bar-submit:not(:disabled) {
-  box-shadow: inset 0 0 0 2px var(--line);
+.prompt-bar-submit:active {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
 }
 
-/* hold to submit: a fill sweeps up from the bottom while it's held; let go
-   early and it drains away */
+.prompt-bar-submit:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.prompt-bar-submit-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 400 15px/1 var(--font-display);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.prompt-bar-hold {
+  position: relative;
+  color: var(--surface-text-muted);
+  font: 700 12px/1 var(--font-label);
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+/* hold to submit: the riso red sweeps up from the bottom while it's held;
+   let go early and it drains away */
 .hold-fill {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--primary-text) 35%, transparent);
+  background: var(--primary-bg);
   transform: scaleY(0);
   transform-origin: bottom;
   transition: transform 150ms ease-out;
@@ -421,6 +493,11 @@ h2,
 .prompt-bar-submit.holding .hold-fill {
   transform: scaleY(1);
   transition: transform var(--hold-ms) linear;
+}
+
+/* ink on the red as it fills */
+.prompt-bar-submit.holding .prompt-bar-hold {
+  color: var(--primary-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -616,10 +693,6 @@ h2,
     min-width: 36px;
     padding: 4px 1px;
     font-size: 10px;
-  }
-
-  .prompt-bar-btn {
-    width: 48px;
   }
 }
 
