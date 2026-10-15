@@ -11,12 +11,7 @@ export default function PresenceStrip({ snapshot }: { snapshot: RoomSnapshot }) 
     <ul className="presence-strip" aria-label="Players">
       {players.map((p) => (
         <li key={p.id}>
-          <PlayerDot
-            player={p}
-            players={snapshot.players}
-            away={p.presence === 'away'}
-            youId={snapshot.you.playerId}
-          />
+          <PlayerDot player={p} away={p.presence === 'away'} youId={snapshot.you.playerId} />
         </li>
       ))}
     </ul>

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { Player } from '@smoosh/protocol'
 import { useTheme } from '../themes/useTheme'
 import { ShapeGlyph } from './PlayerChip'
-import { initialOf, markFor, seatOf } from './playerMark'
+import { initialOf, markOf } from './playerMark'
 
 // A player, small: their seat's coloured avatar with its shape badge, for
 // rows and strips. `pending` is someone the room is still waiting on — a
@@ -12,14 +12,12 @@ import { initialOf, markFor, seatOf } from './playerMark'
 // pass `labelled` when their name follows it, and it stays out of the way.
 export default function PlayerDot({
   player,
-  players,
   pending = false,
   away = false,
   labelled = false,
   youId,
 }: {
   player: Player
-  players: readonly Player[]
   pending?: boolean
   away?: boolean
   labelled?: boolean
@@ -27,7 +25,7 @@ export default function PlayerDot({
   youId?: string
 }) {
   const theme = useTheme()
-  const { shape, colour } = markFor(seatOf(players, player.id))
+  const { shape, colour } = markOf(player)
   const seat = theme.players[colour] ?? theme.players[0]
   const style = { '--p-bg': seat?.bg, '--p-fg': seat?.fg } as CSSProperties
 

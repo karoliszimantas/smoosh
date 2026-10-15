@@ -1,25 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { initialOf, markFor, seatOf, SHAPES } from './playerMark'
-
-const players = [
-  { id: 'sam', presence: 'present' },
-  { id: 'alice', presence: 'left' },
-  { id: 'bob', presence: 'away' },
-  { id: 'cara', presence: 'present' },
-]
+import { MARK_COUNT } from '@smoosh/protocol'
+import { initialOf, markFor, markOf, SHAPES } from './playerMark'
 
 describe('seats', () => {
-  it('is the position in the player list, whatever the presence', () => {
-    expect(seatOf(players, 'sam')).toBe(0)
-    expect(seatOf(players, 'alice')).toBe(1)
-    // Alice left, and still holds seat 1: nobody after her shifts
-    expect(seatOf(players, 'bob')).toBe(2)
-    expect(seatOf(players, 'cara')).toBe(3)
-  })
-
-  it('is -1 for someone not in the room', () => {
-    expect(seatOf(players, 'zed')).toBe(-1)
-    expect(seatOf([], 'sam')).toBe(-1)
+  it('is the seat number the server handed out, not the place in the list', () => {
+    // Bob joined third; whoever sat between went, and he keeps his mark
+    expect(markOf({ seat: 2 })).toEqual({ shape: 'triangle', colour: 2 })
+    expect(markOf({ seat: 0 })).toEqual(markFor(0))
   })
 })
 
@@ -39,13 +26,13 @@ describe('marks', () => {
     expect(markFor(7)).toEqual({ shape: 'sparkle', colour: 7 })
   })
 
-  it('draws an absent player as seat 0 rather than failing', () => {
+  it('draws a bad seat number as seat 0 rather than failing', () => {
     expect(markFor(-1)).toEqual(markFor(0))
-    expect(markFor(seatOf(players, 'zed'))).toEqual({ shape: 'square', colour: 0 })
+    expect(markFor(Number.NaN)).toEqual({ shape: 'square', colour: 0 })
   })
 
   it('has eight different shapes', () => {
-    expect(SHAPES).toHaveLength(8)
+    expect(SHAPES).toHaveLength(MARK_COUNT)
     expect(new Set(SHAPES).size).toBe(8)
   })
 })

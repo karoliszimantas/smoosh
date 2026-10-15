@@ -92,7 +92,7 @@ describe('the vote and its prize', () => {
 
 function seat(id: string, presence: Seat['presence'] = 'present'): Seat {
   const n = Number(id.slice(1))
-  return { sessionId: `s${id}`, playerId: id, name: id, isHost: n === 1, presence, socketId: `k${id}`, score: 0, joinedAt: n, presentSince: n, awayFrom: null }
+  return { sessionId: `s${id}`, playerId: id, seat: n - 1, name: id, isHost: n === 1, presence, socketId: `k${id}`, score: 0, joinedAt: n, presentSince: n, awayFrom: null }
 }
 
 function chainGame(n: number, structure: ChainStructure = 'rotate', away: string[] = []) {

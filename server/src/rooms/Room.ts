@@ -9,6 +9,10 @@ export type Seat = {
   // the player's secret reconnect credential — never sent to anyone
   sessionId: string
   playerId: string
+  // the seat number, handed out in join order and never reused in this
+  // room: it picks the player's colour and shape, so nobody's mark shifts
+  // when someone before them leaves
+  seat: number
   name: string
   isHost: boolean
   presence: Presence
@@ -36,6 +40,7 @@ export type Room = {
   code: string
   settings: GameSettings
   seats: Map<string, Seat> // keyed by playerId
+  nextSeat: number // no seat number below this is handed out again
   usedPrompts: Set<string>
   phase: PhaseState
   timer: NodeJS.Timeout | null
@@ -95,6 +100,7 @@ export function createRoom(code: string): Room {
     code,
     settings: DEFAULT_SETTINGS,
     seats: new Map(),
+    nextSeat: 0,
     usedPrompts: new Set(),
     phase: { phase: 'lobby' },
     timer: null,

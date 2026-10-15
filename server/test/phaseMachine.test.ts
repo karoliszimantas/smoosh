@@ -27,6 +27,7 @@ function makeSeat(n: number, connected = true): Seat {
   return {
     sessionId: `session-${n}`,
     playerId: `player-${n}`,
+    seat: n - 1,
     name: `Player ${n}`,
     isHost: n === 1,
     presence: connected ? 'present' : 'away',
