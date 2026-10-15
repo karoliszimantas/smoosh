@@ -1,14 +1,19 @@
-const submissions = new Map<string, Buffer>()
+import type { PictureType } from './imageType.ts'
+
+// the picture, and what its bytes were found to be — it's served as that
+export type StoredPicture = { buffer: Buffer; type: PictureType }
+
+const submissions = new Map<string, StoredPicture>()
 
 function key(roomCode: string, round: number, playerId: string): string {
   return `${roomCode}:${round}:${playerId}`
 }
 
-export function putSubmission(roomCode: string, round: number, playerId: string, buffer: Buffer): void {
-  submissions.set(key(roomCode, round, playerId), buffer)
+export function putSubmission(roomCode: string, round: number, playerId: string, picture: StoredPicture): void {
+  submissions.set(key(roomCode, round, playerId), picture)
 }
 
-export function getSubmission(roomCode: string, round: number, playerId: string): Buffer | undefined {
+export function getSubmission(roomCode: string, round: number, playerId: string): StoredPicture | undefined {
   return submissions.get(key(roomCode, round, playerId))
 }
 
