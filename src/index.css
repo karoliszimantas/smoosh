@@ -2949,8 +2949,10 @@ button.theme-choice-option.active {
   outline-offset: 6px;
 }
 
-.vote-tile.yours .exhibit-frame {
-  opacity: 0.5;
+/* your own picture can't be picked; if it ever were, the picked ring wins */
+.vote-tile.yours:not(.picked) .exhibit-frame {
+  outline: 2px dashed var(--text-muted);
+  outline-offset: 6px;
 }
 
 .vote-tag {
