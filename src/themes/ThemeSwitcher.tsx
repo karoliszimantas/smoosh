@@ -16,16 +16,16 @@ function Icon({ d }: { d: string }) {
 // device is set to; after, their pick, remembered on this device. Switching
 // is a context update: no reload, nothing remounts, no canvas state touched.
 //
-// inline (the lobby): both choices side by side. compact (in a round, in a
-// corner): one button that flips it.
-export default function ThemeSwitcher({ variant }: { variant: 'inline' | 'compact' }) {
+// inline (the lobby): both choices side by side. compact (in a corner): one
+// button that flips it. strip (in a round's status strip): the same, small.
+export default function ThemeSwitcher({ variant }: { variant: 'inline' | 'compact' | 'strip' }) {
   const { theme, setThemeId } = useThemeControl()
   const dark = theme.id === DARK.id
 
-  if (variant === 'compact') {
+  if (variant !== 'inline') {
     return (
       <button
-        className="theme-toggle"
+        className={variant === 'strip' ? 'icon-btn icon-btn-sm' : 'theme-toggle'}
         role="switch"
         aria-checked={dark}
         aria-label="Dark mode"

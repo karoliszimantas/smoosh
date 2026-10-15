@@ -1,5 +1,4 @@
 import type { PhaseProps } from '../types'
-import DeadlineTimer from '../DeadlineTimer'
 import PicturePlaceholder from '../PicturePlaceholder'
 import { NO_PICTURE_TEXT, YOUR_PICTURE_MISSING_TEXT } from '../roomMessages'
 
@@ -13,7 +12,6 @@ export default function MissingView({ snapshot }: PhaseProps) {
 
   return (
     <div className="missing-view">
-      <DeadlineTimer deadline={phase.deadline} calm />
       <PicturePlaceholder text={isYou ? YOUR_PICTURE_MISSING_TEXT : NO_PICTURE_TEXT} />
     </div>
   )

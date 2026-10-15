@@ -18,14 +18,16 @@ import MissingView from './phases/MissingView'
 import GameMenu from './GameMenu'
 import LeaveDialog from './LeaveDialog'
 import NoticeRegion from './NoticeRegion'
-import PresenceStrip from './PresenceStrip'
+import StatusStrip from './StatusStrip'
+import { statusLine } from './statusLine'
 import ReplacedView from './ReplacedView'
 import { useStuckWatchdog } from './stuckWatchdog'
 import { STUCK_TEXT } from './roomMessages'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
 
-// everywhere but the lobby (which shows the full swatch row): one swatch in
-// the corner. The theme never leaves this device — nothing goes over the socket.
+// on Home and on screens without a status strip (but not the lobby, which
+// shows the full swatch row): one swatch in the corner. In a round it's in
+// the strip. The theme never leaves this device — nothing goes over the socket.
 function FloatingThemeSwitcher() {
   return (
     <div className="theme-switcher-float">
@@ -49,11 +51,6 @@ function useBackGuard(active: boolean, onBack: () => void): void {
     return () => window.removeEventListener('popstate', onPop)
   }, [active, onBack])
 }
-
-// phases with players' names on screen and room at the bottom for them —
-// not BUILD (the toolbar lives there), the lobby (it lists everyone) or the
-// awards (the room's attention belongs on the wall)
-const STRIP_PHASES = new Set(['lie', 'guess', 'reveal', 'missing', 'vote', 'chainVote', 'scores'])
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const game = useGameConnection()
@@ -100,14 +97,19 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   }
 
   const isLobby = snapshot.phase.phase === 'lobby'
+  // in a round: the status strip over the phase's screen, holding the clock,
+  // who's done, the theme switch and the menu
+  const status = statusLine(snapshot)
   return (
     <>
-      {!isLobby && <FloatingThemeSwitcher />}
-      <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />
-      <div className="phase-root" ref={phaseRoot}>
-        <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+      {!status && !isLobby && <FloatingThemeSwitcher />}
+      {!status && <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />}
+      <div className={status ? 'game-screen' : 'game-screen bare'}>
+        {status && <StatusStrip snapshot={snapshot} status={status} onLeave={openLeave} />}
+        <div className="phase-root" ref={phaseRoot}>
+          <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+        </div>
       </div>
-      {STRIP_PHASES.has(snapshot.phase.phase) && <PresenceStrip snapshot={snapshot} />}
       <NoticeRegion
         reconnecting={game.showReconnecting}
         // a problem with a way out comes first; then news to dismiss

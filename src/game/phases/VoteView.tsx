@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { runnerUpRequired } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
-import DeadlineTimer from '../DeadlineTimer'
 import { titleFor } from '../gallery/galleryText'
 import { actionErrorText } from '../roomMessages'
 import RoomProgress from '../RoomProgress'
@@ -60,7 +59,6 @@ export default function VoteView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="vote-view">
-      <DeadlineTimer deadline={phase.deadline} />
       <header className="gallery-head">
         <p className="gallery-kicker">
           Round {phase.round} of {phase.totalRounds} · Judging
