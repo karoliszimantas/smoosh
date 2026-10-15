@@ -1386,7 +1386,7 @@ h2,
 
 .player-list li.away,
 .scoreboard li.away {
-  opacity: 0.55;
+  color: var(--surface-text-muted);
 }
 
 /* someone away: said quietly, next to their name */
@@ -1886,7 +1886,12 @@ h2,
 .reveal-option-label,
 .reveal-picked-by {
   font-size: 11px;
-  opacity: 0.75;
+  color: var(--surface-text-muted);
+}
+
+.reveal-option.truth .reveal-option-label,
+.reveal-option.truth .reveal-picked-by {
+  color: inherit;
 }
 
 .reveal-points {
@@ -1963,7 +1968,7 @@ h2,
 }
 
 .score-breakdown .zero {
-  opacity: 0.5;
+  color: var(--surface-text-muted);
 }
 
 
@@ -2476,7 +2481,7 @@ button.theme-choice-option.active {
 }
 
 .presence-strip li.away {
-  opacity: 0.55;
+  color: var(--surface-text-muted);
 }
 
 .presence-strip .away-marker {
@@ -2979,7 +2984,7 @@ button.theme-choice-option.active {
   justify-content: center;
   padding: 12px;
   border: 1px dashed currentColor;
-  opacity: 0.6;
+  color: var(--text-muted); /* on the wall, which is the desk */
   font-size: 12px;
   text-align: center;
 }
@@ -3116,7 +3121,7 @@ h2.awards-wall-title {
   font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  opacity: 0.55;
+  color: var(--text-muted); /* the wall is the desk */
   pointer-events: none;
 }
 
