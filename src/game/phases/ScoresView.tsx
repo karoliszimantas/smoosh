@@ -1,6 +1,7 @@
 import { breakdownTotal, type PointsBreakdown } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import Exhibit from '../gallery/Exhibit'
+import PlayerDot from '../PlayerDot'
 
 // where a player's points came from, in a line that adds up to the number
 // beside it
@@ -26,6 +27,16 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
 
   const nameById = new Map(snapshot.players.map((p) => [p.id, p.name]))
   const presenceById = new Map(snapshot.players.map((p) => [p.id, p.presence]))
+  const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
+  // a player's dot, before their name
+  const dot = (playerId: string) => {
+    const player = playerById.get(playerId)
+    return (
+      player && (
+        <PlayerDot player={player} players={snapshot.players} away={player.presence === 'away'} labelled />
+      )
+    )
+  }
   const ranked = [...phase.scoreboard].sort((a, b) => b.total - a.total)
   const winner = phase.isFinalRound ? ranked[0] : undefined
 
@@ -69,9 +80,12 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
           <ol>
             {ranked.map((entry) => (
               <li key={entry.playerId} className={entry.total === top ? 'grand' : ''}>
-                <span className="prize-name">
-                  {nameById.get(entry.playerId) ?? '?'}
-                  {entry.total === top && <span className="prize-grand">Grand Prize</span>}
+                <span className="prize-name dot-name">
+                  {dot(entry.playerId)}
+                  <span>
+                    {nameById.get(entry.playerId) ?? '?'}
+                    {entry.total === top && <span className="prize-grand">Grand Prize</span>}
+                  </span>
                 </span>
                 <span className="prize-points">{entry.total}</span>
               </li>
@@ -97,10 +111,13 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
           return (
             <li key={entry.playerId} className={presenceById.get(entry.playerId) === 'away' ? 'away' : ''}>
               <span className="score-line">
-                <span>
-                  {nameById.get(entry.playerId) ?? '?'}
-                  {presenceById.get(entry.playerId) === 'away' && <span className="away-marker">away</span>}
-                  {presenceById.get(entry.playerId) === 'left' && <span className="away-marker">left</span>}
+                <span className="dot-name">
+                  {dot(entry.playerId)}
+                  <span>
+                    {nameById.get(entry.playerId) ?? '?'}
+                    {presenceById.get(entry.playerId) === 'away' && <span className="away-marker">away</span>}
+                    {presenceById.get(entry.playerId) === 'left' && <span className="away-marker">left</span>}
+                  </span>
                 </span>
                 <span className="score-total">{entry.total}</span>
               </span>
