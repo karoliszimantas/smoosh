@@ -71,8 +71,7 @@ button {
 .prompt-bar-text,
 h1,
 h2,
-.scores-winner,
-.lobby-mode-readonly {
+.scores-winner {
   font-family: var(--font-display);
   text-transform: var(--display-transform);
   letter-spacing: var(--display-tracking);
@@ -1285,6 +1284,24 @@ h2,
   font-weight: 600;
 }
 
+/* the form keeps to a phone's width, even on a big screen */
+.home-tabs,
+.home-field,
+.home-view > .home-go {
+  width: min(320px, 100%);
+}
+
+.home-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.home-view > .home-sandbox {
+  margin-top: 16px;
+}
+
 /* ---------- lobby view ---------- */
 
 .player-list {
@@ -1327,42 +1344,88 @@ h2,
   vertical-align: middle;
 }
 
+/* the paper cards make the host's lobby tall: on a short screen it scrolls
+   rather than cutting off the room code */
+.lobby-view {
+  justify-content: safe center;
+  overflow-y: auto;
+}
+
+/* the room code, on its own paper card */
+.lobby-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 20px 22px;
+}
+
+.lobby-view .lobby-code h1 {
+  margin-bottom: 0;
+}
+
+/* the settings, on one paper card: the host's controls, or the summary
+   everyone else reads */
+.lobby-card {
+  width: min(100%, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lobby-card.readonly {
+  padding: 8px 8px 8px 16px;
+  gap: 0;
+  text-align: left;
+}
+
+.lobby-view > .lobby-start {
+  width: min(100%, 400px);
+}
+
 .lobby-settings {
   display: flex;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.lobby-settings .field {
+  padding-left: 12px;
 }
 
 .lobby-settings label {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: 6px;
+  text-align: left;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--surface-text-muted);
 }
 
 .lobby-settings-readonly,
 .lobby-estimate {
-  font-size: 13px;
-  color: var(--text);
+  font: 400 15px/22px var(--font-ui);
+  color: var(--surface-text-muted);
 }
 
 /* host's game-mode picker, and the read-only line everyone else sees */
 .lobby-mode {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .lobby-mode-blurb {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 13px;
+  color: var(--surface-text-muted);
 }
 
 .lobby-mode-readonly {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
+  font: 700 15px/22px var(--font-ui);
 }
 
 /* ---------- build view ---------- */
@@ -3139,6 +3202,10 @@ h2.awards-wall-title {
   font-size: 14px;
 }
 
+.lobby-photos .segmented {
+  flex: 1;
+}
+
 /* ---------- guess: the prompt window before the build clock ---------- */
 
 .prompt-window {
@@ -3777,7 +3844,7 @@ h2.awards-wall-title {
   content: '';
   position: absolute;
   top: 50%;
-  right: 16px;
+  right: 14px;
   width: 7px;
   height: 7px;
   border-right: 2px solid currentColor;
@@ -3787,7 +3854,7 @@ h2.awards-wall-title {
 }
 
 select.field {
-  padding-right: 36px;
+  padding-right: 32px;
   cursor: pointer;
 }
 
