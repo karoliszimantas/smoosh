@@ -74,7 +74,7 @@ export const night: Theme = {
     ledge: `0 5px 0 ${INK}, 3px 9px 0 ${HARD}`,
     ledgeSmall: `0 4px 0 ${INK}, 2px 7px 0 ${HARD}`,
     ledgeInner: `0 5px 0 ${INK}`,
-    ledgePressed: `0 1px 0 ${INK}, 1px 2px 0 ${HARD}`,
+    ledgePressed: `0 2px 0 ${INK}, 1px 4px 0 ${HARD}`,
     burst: '4px 5px 0 rgba(0,0,0,.6)',
   },
 

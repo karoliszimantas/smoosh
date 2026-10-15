@@ -1182,18 +1182,6 @@ h2,
   padding: 24px;
 }
 
-.error-fallback button {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-weight: 600;
-  font-size: 14px;
-}
-
 /* ---------- multiplayer shared ---------- */
 
 .phase-status,
@@ -1291,68 +1279,6 @@ h2,
   font-size: 13px;
 }
 
-.home-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.home-tabs button,
-.home-view > button {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 18px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.home-tabs button.active {
-  background: var(--primary-bg);
-  color: var(--primary-text);
-}
-
-.home-view > button:not(:disabled),
-.home-view > button {
-  background: var(--primary-bg);
-  color: var(--primary-text);
-}
-
-.home-view > button:disabled {
-  background: var(--surface-sunken);
-  box-shadow: none;
-  color: var(--surface-sunken-text);
-}
-
-/* quiet, straight on the desk */
-.home-view > button.home-secondary {
-  margin-top: 16px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
-  border: 1.5px solid currentColor;
-  font-weight: 500;
-}
-
-.home-view input {
-  min-height: 44px;
-  width: min(280px, 80vw);
-  padding: 0 14px;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 15px;
-}
-
-.home-view input::placeholder {
-  color: var(--surface-text-muted);
-}
-
 .home-error {
   color: var(--danger-on-desk);
   font-size: 13px;
@@ -1414,37 +1340,10 @@ h2,
   color: var(--text-muted);
 }
 
-.lobby-settings select {
-  min-height: 44px;
-  padding: 0 10px;
-  border-radius: var(--radius);
-  border: 2px solid var(--line);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 14px;
-}
-
 .lobby-settings-readonly,
 .lobby-estimate {
   font-size: 13px;
   color: var(--text);
-}
-
-.lobby-view button {
-  min-height: 44px;
-  padding: 0 24px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.lobby-view button:disabled {
-  background: var(--surface-sunken);
-  color: var(--surface-sunken-text);
 }
 
 /* host's game-mode picker, and the read-only line everyone else sees */
@@ -1453,31 +1352,6 @@ h2,
   flex-direction: column;
   align-items: center;
   gap: 8px;
-}
-
-.segmented {
-  display: flex;
-  padding: 3px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-}
-
-.lobby-view .segmented-option {
-  min-height: 44px;
-  min-width: 96px;
-  padding: 0 14px;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--surface-text-muted);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.lobby-view .segmented-option.active {
-  background: var(--primary-bg);
-  color: var(--primary-text);
 }
 
 .lobby-mode-blurb {
@@ -1760,23 +1634,10 @@ h2,
   width: 100%;
 }
 
-.lie-form input {
-  min-height: 44px;
-  width: min(320px, 90vw);
-  padding: 0 14px;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 15px;
+.lie-form {
+  max-width: 320px;
 }
 
-.lie-form input::placeholder {
-  color: var(--surface-text-muted);
-}
-
-.lie-form button,
 .guess-option {
   min-height: 44px;
   width: min(320px, 90vw);
@@ -1788,17 +1649,6 @@ h2,
   color: var(--surface-text);
   font-size: 14px;
   font-weight: 600;
-}
-
-.lie-form button {
-  background: var(--primary-bg);
-  color: var(--primary-text);
-}
-
-.lie-form button:disabled {
-  background: var(--surface-sunken);
-  box-shadow: none;
-  color: var(--surface-sunken-text);
 }
 
 .guess-option.picked {
@@ -1969,18 +1819,6 @@ h2,
 
 .score-breakdown .zero {
   color: var(--surface-text-muted);
-}
-
-
-.scores-view button {
-  min-height: 44px;
-  padding: 0 24px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-weight: 700;
-  font-size: 15px;
 }
 
 /* ---------- theme switcher ---------- */
@@ -2341,51 +2179,11 @@ button.theme-choice-option.active {
   z-index: 40;
 }
 
-.game-menu-button {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 20px;
-  line-height: 1;
-}
-
+/* a .paper-card (sized in the paper chrome section); this only places it */
 .game-menu-popover {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  min-width: 170px;
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--surface-text);
-}
-
-.game-menu-code {
-  margin: 0 0 8px;
-  color: var(--surface-text-muted);
-  font-size: 12px;
-}
-
-.game-menu-popover button,
-.leave-actions button {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--surface-text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.game-menu-popover button {
-  width: 100%;
 }
 
 .leave-scrim {
@@ -2399,10 +2197,11 @@ button.theme-choice-option.active {
   background: var(--scrim);
 }
 
+/* a paper card on the scrim */
 .leave-dialog {
   width: min(340px, 100%);
   padding: 20px;
-  border-radius: var(--radius);
+  border-radius: 2px;
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--surface-text);
@@ -2410,28 +2209,22 @@ button.theme-choice-option.active {
 
 .leave-dialog h2 {
   margin: 0 0 8px;
-  font-size: 18px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 400;
 }
 
 .leave-dialog p {
-  margin: 0 0 16px;
-  font-size: 15px;
-  line-height: 1.4;
+  margin: 0 0 20px;
+  font: 400 15px/22px var(--font-ui);
 }
 
+/* staying is the obvious choice (primary); leaving is there, beside it */
 .leave-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.leave-actions button {
-  flex: 1;
-}
-
-/* staying is the obvious choice; leaving is there, but not the big button */
-.leave-actions .leave-stay {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 @keyframes toast-fade {
@@ -3000,22 +2793,6 @@ button.theme-choice-option.active {
   background: var(--gallery-wall);
 }
 
-.vote-submit {
-  width: 100%;
-  min-height: 50px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.vote-submit:disabled {
-  background: var(--surface-sunken);
-  color: var(--surface-sunken-text);
-}
-
 /* --- the awards --- */
 
 .awards-view {
@@ -3215,17 +2992,6 @@ h2.awards-wall-title {
   font-variant-numeric: tabular-nums;
 }
 
-.exhibition-view button {
-  min-height: 44px;
-  padding: 0 24px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-weight: 700;
-  font-size: 15px;
-}
-
 /* still announced one at a time — just nothing flies in */
 @media (prefers-reduced-motion: reduce) {
   .awards-card,
@@ -3412,28 +3178,12 @@ h2.awards-wall-title {
   overflow-wrap: anywhere;
 }
 
-.prompt-window-card button {
+/* the two prompts after a swap: either one, a tap */
+.prompt-window-choice {
   min-height: 48px;
   padding: 0 16px;
   border-radius: var(--radius);
   font-size: 16px;
-}
-
-.prompt-window-start {
-  border: none;
-  background: var(--primary-bg);
-  color: var(--primary-text);
-  font-weight: 700;
-}
-
-.prompt-window-swap {
-  border: 2px solid var(--line);
-  background: transparent;
-  color: var(--surface-text);
-}
-
-/* the two prompts after a swap: either one, a tap */
-.prompt-window-choice {
   border: 2px solid var(--primary-bg);
   background: transparent;
   color: var(--surface-text);
@@ -3843,4 +3593,271 @@ h2.awards-wall-title {
   padding: 10px 0;
   border-top: 1px solid var(--chrome-border);
   font-size: 16px;
+}
+
+/* ---------- paper chrome ----------
+   The controls, cut from paper and standing on ink: buttons on a ledge,
+   text fields, the segmented tray, cards. Every value comes from a theme
+   token; the sizes follow the approved artboards (Style, Main, Lobby). */
+
+/* buttons: a paper or riso-red block on an ink ledge, pressed down onto it */
+.btn {
+  height: 52px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--ledge);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn-primary {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--surface-text);
+}
+
+.btn-sm {
+  height: 48px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* inside a paper card: the ledge alone, no drop shadow onto the card */
+.btn-inset {
+  box-shadow: var(--ledge-inner);
+}
+
+/* pressed onto the ledge — kept under reduced motion, it's feedback */
+.btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn {
+    transition:
+      transform 60ms,
+      box-shadow 60ms;
+  }
+}
+
+/* nothing to stand on: a dashed cut-out, in plain type */
+.btn:disabled {
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
+  border: 2.5px dashed var(--surface-sunken-text);
+  box-shadow: none;
+  transform: none;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: default;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* a text-only action on paper, like the settings card's "Change" */
+.btn-link {
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--primary-ink);
+  font: 700 15px var(--font-ui);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.btn-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* a square paper button for one icon: the game menu */
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.icon-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* text fields: an ink-ruled paper slip */
+.field {
+  width: 100%;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 2.5px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
+  font: 600 18px/24px var(--font-ui);
+  text-transform: none;
+  letter-spacing: normal;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field::placeholder {
+  color: var(--surface-text-muted);
+  opacity: 1;
+}
+
+/* the ink border vanishes on the Night desk; the focus ring doesn't */
+.field:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.field:disabled {
+  border: 2px dashed var(--surface-sunken-text);
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+
+/* a select wears a small ink chevron, drawn by its wrapper */
+.field-select {
+  position: relative;
+  display: block;
+  color: var(--surface-text);
+}
+
+.field-select::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+select.field {
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* the typewriter label above a field: on the desk, or on paper */
+.field-label {
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field-label.on-paper {
+  color: var(--surface-text-muted);
+}
+
+/* segmented control: a paper tray, the picked option standing up in it */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  padding: 5px 5px 10px;
+  background: var(--surface);
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.segmented-option {
+  min-width: 0;
+  height: 44px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--surface-text);
+  font: 700 13px/1.15 var(--font-label);
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.segmented-option.active,
+.segmented-option[aria-checked='true'],
+.segmented-option[aria-selected='true'] {
+  background: var(--picked);
+  border: 2px solid var(--line);
+  box-shadow: var(--ledge-inner);
+}
+
+.segmented-option:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* a paper card on the desk */
+.paper-card {
+  padding: 16px;
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
+}
+
+.paper-card.game-menu-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 200px;
+  padding: 12px;
 }
