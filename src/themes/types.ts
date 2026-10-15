@@ -52,7 +52,62 @@ export type Theme = {
   dangerText: string // text on danger
   warning: string // a running-out timer, the reconnect banner
   warningText: string // text on warning
-  accent: string // the winner, points
+  accent: string // the winner, points — a fill; as text on paper use primaryInk
+
+  // ---- paper on a desk: every surface is paper, and textPrimary/textMuted
+  // are text on the desk (pageBg). What sits on paper reads these instead
+  surfaceText: string // ink on surface
+  surfaceTextMuted: string
+  surfaceSunken: string // disabled controls, the fuse track, an empty seat, your own lie
+  surfaceSunkenText: string
+  line: string // ink borders on paper controls
+  primaryInk: string // the primary red as text or stroke on paper
+  successInk: string
+  successTint: string // a done or used chip
+  picked: string // a picked option, your score row
+  focus: string // the selected layer chip, the focus ring
+  ghost: string // a pending player's dashed avatar
+  awayChip: string // a player who's stepped away
+  fontLabel: string // typewriter labels, set in caps
+  labelTracking: string
+
+  // hard offset shadows, or soft ones. card and small are plain
+  // `x y blur colour` lists, valid as box-shadow and inside drop-shadow()
+  shadow: {
+    style: 'hard' | 'soft'
+    card: string // paper cards
+    small: string // chips, icon buttons
+    ledge: string // a button standing on its ink ledge
+    ledgeSmall: string
+    ledgeInner: string // the ledge alone, for a button inside a card
+    ledgePressed: string // the ledge pushed down: :active
+    burst: string // the points burst on Reveal
+  }
+
+  paper: {
+    torn: boolean // torn edges on the whitelisted cards (data-torn on <html>)
+    tape: string | null // tape strips; null draws none
+    dot: string | null // the desk's dot grid; null is a plain desk
+    stamp: string // the REAL stamp
+    dymo: { bg: string; text: string } // the embossed room-code label
+  }
+
+  // the timer tag hung on a string, with a fuse bar
+  timer: {
+    calm: string // the tag's paper and fuse
+    hot: string // 10s or less
+    hotTrack: string // the fuse's spent track when hot
+    string: string
+    hazard: string // CSS background for the hot fuse's stripes
+  }
+
+  // seat colours, indexed by seat; fg is the initial on bg. Not CSS vars:
+  // PlayerChip sets --p-bg/--p-fg inline
+  players: readonly { bg: string; fg: string }[]
+  promptChips: readonly string[] // the torn prompt-word chips, in turn
+  // a sticker edge round cut-outs, in theme px on a 400px frame; null draws none
+  stickerEdge: { color: string; width: number } | null
+  motion: 'stepped' | 'smooth' // stepped = jittery stop-frame (data-motion on <html>)
 
   // Gallery's judging, played as an art prize: the pictures hang on a wall
   // with a museum label beside each, and prize-winners wear a fairground

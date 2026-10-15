@@ -12,7 +12,7 @@ function Icon({ d }: { d: string }) {
   )
 }
 
-// Light or dark — Clean or Neon. Until the player taps, it's whatever the
+// Light or dark — Day or Night. Until the player taps, it's whatever the
 // device is set to; after, their pick, remembered on this device. Switching
 // is a context update: no reload, nothing remounts, no canvas state touched.
 //
