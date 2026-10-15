@@ -7,6 +7,7 @@ import VoteView from './phases/VoteView'
 import NoticeRegion from './NoticeRegion'
 import { isStuck } from './stuckWatchdog'
 import { STUCK_TEXT } from './roomMessages'
+import { whoIsDone } from './whoIsDone'
 
 // Screens a player can land on with nothing they can press. Each must say
 // why — a dead screen with no words reads as a frozen game.
@@ -102,6 +103,8 @@ describe('waiting looks like waiting', () => {
     expect(textOf(html)).toContain('2 of 3 have voted')
     expect(html).toContain('Bob<span class="away-marker">away</span>')
     expect(textOf(html)).not.toContain('Cara')
+    // the strip's dots agree: nobody away is drawn as done
+    expect(whoIsDone(voted).label).toBe('Alice and you have voted. Bob and Cara are away.')
   })
 
   it('an own lie says why it cannot be picked', () => {

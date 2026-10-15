@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import LeaveDialog from './LeaveDialog'
-import PresenceStrip from './PresenceStrip'
+import DoneDots from './DoneDots'
 import GameMenu from './GameMenu'
 import { joinFailedText, leaveDialogText, leftText, rejoinFailedText, roomEventText } from './roomMessages'
 import { clearActiveRoom, getActiveRoom, getSessionId, setActiveRoom } from './session'
@@ -138,15 +138,15 @@ describe('leaving', () => {
   })
 })
 
-describe('the player strip', () => {
-  it('marks someone away quietly, leaves out who left, and calls you You', () => {
+describe('the players in the status strip', () => {
+  it('marks someone away quietly, leaves out who left, and calls you you', () => {
     const snapshot = fixtureSnapshot('reveal')
     snapshot.players = FIXTURE_BASE.players.map((p) =>
       p.id === 'bob' ? { ...p, presence: 'away' } : p.id === 'cara' ? { ...p, presence: 'left' } : p,
     )
-    const html = renderToStaticMarkup(<PresenceStrip snapshot={snapshot} />)
-    expect([...html.matchAll(/aria-label="([^"]*)"/g)].map((m) => m[1])).toEqual(['Players', 'You', 'Alice', 'Bob, away'])
-    expect(html).toContain('class="player-dot away"')
+    const html = renderToStaticMarkup(<DoneDots snapshot={snapshot} />)
+    expect([...html.matchAll(/aria-label="([^"]*)"/g)].map((m) => m[1])).toEqual(['Playing: Alice and you. Bob is away.'])
+    expect(html.match(/class="player-dot( away)?"/g)).toEqual(['class="player-dot"', 'class="player-dot"', 'class="player-dot away"'])
     expect(snapshot.you.playerId).toBe(YOU_ID)
   })
 })

@@ -1195,46 +1195,6 @@ h2,
   font-weight: 600;
 }
 
-.deadline-timer {
-  align-self: center;
-  margin: 10px auto;
-  min-width: 56px;
-  padding: 6px 14px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--surface-text);
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.deadline-timer-amber {
-  background: var(--warning);
-  color: var(--warning-text);
-}
-
-.deadline-timer-red {
-  background: var(--danger);
-  color: var(--danger-text);
-}
-
-.deadline-timer-pulse {
-  background: var(--danger);
-  color: var(--danger-text);
-  animation: deadline-pulse 0.6s ease-in-out infinite;
-}
-
-@keyframes deadline-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.12);
-  }
-}
-
 /* Submissions, wherever they're shown: the theme sets the colour behind the
    picture and an optional filter over it */
 .picture-display {
@@ -2302,38 +2262,6 @@ button.theme-choice-option.active {
   }
 }
 
-.presence-strip {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin: 0;
-  /* 5px more below, for the dots' badges */
-  padding: 6px 8px calc(11px + env(safe-area-inset-bottom));
-  list-style: none;
-  pointer-events: none;
-}
-
-.presence-strip li {
-  display: flex;
-}
-
-/* room at the bottom for the player strip */
-.lie-view,
-.guess-view,
-.reveal-view,
-.missing-view,
-.vote-view,
-.scores-view,
-.exhibition-view {
-  padding-bottom: calc(48px + env(safe-area-inset-bottom));
-}
-
 /* ---------- prompts: import and export ---------- */
 
 .prompts-summary-actions {
@@ -2750,8 +2678,7 @@ button.theme-choice-option.active {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* the bottom keeps clear of the player strip */
-  padding: 16px 16px calc(48px + env(safe-area-inset-bottom));
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
 .vote-grid {
