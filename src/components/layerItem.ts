@@ -38,6 +38,10 @@ export type LayerItem = {
   // to whatever is underneath, and it can't be transformed or deleted.
   // Selected only from the layer strip, to unlock it. Absent = unlocked.
   locked?: boolean
+  // the prompt word whose search tab it was placed from (its term, as the
+  // asset sheet keys its tabs), so that word's chip shows as used. Local
+  // only: never part of what's sent. Absent = placed some other way
+  fromWord?: string
 }
 
 export type EraseStroke = {
@@ -104,4 +108,6 @@ export type Placement = {
   thumb: string
   label: string
   pixabayId: number | null
+  // placed from a prompt word's tab (or a search for exactly that word)
+  fromWord?: string
 }
