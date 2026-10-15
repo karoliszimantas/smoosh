@@ -54,7 +54,15 @@ function parseUploadPath(pathname: string): UploadTarget | null {
 
 export function createRequestHandler(deps: PhaseMachineDeps) {
   return function handleRequest(req: IncomingMessage, res: ServerResponse): void {
-    const url = new URL(req.url ?? '/', 'http://internal')
+    // node passes the request line through as-is: `GET http://[/x` makes
+    // URL throw, and a throw in a request listener ends the process
+    let url: URL
+    try {
+      url = new URL(req.url ?? '/', 'http://internal')
+    } catch {
+      send(res, 400, 'bad request')
+      return
+    }
     if (url.pathname.startsWith('/socket.io')) return // socket.io's own listener handles this path
 
     if (req.method === 'OPTIONS') {
