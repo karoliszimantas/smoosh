@@ -20,6 +20,7 @@ import {
   type Placement,
 } from './layerItem'
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
+import { encodePicture } from '../game/reencode'
 import PromptBar from './PromptBar'
 import Toolbar, { type ToolbarMode } from './Toolbar'
 import { BRUSH_PX, keepErasedFor, type BrushSize } from './erase'
@@ -111,7 +112,8 @@ export type CanvasHandle = {
 
 type CanvasProps = {
   promptText: string
-  // called with the flattened WebP once exportImage succeeds — the caller
+  // called with the flattened picture once exportImage succeeds — WebP, or
+  // JPEG/PNG where the browser can't write WebP (encodePicture) — the caller
   // (BuildView) owns what happens with it (upload, etc.). Omit it and the
   // export is downloaded instead (the sandbox, which has no game to submit to)
   onSubmit?: (blob: Blob) => void
@@ -144,7 +146,9 @@ function downloadBlob(blob: Blob): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `smoosh-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webp`
+  // named by what the browser actually wrote — Safari writes no WebP
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/png' ? 'png' : 'webp'
+  a.download = `smoosh-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`
   a.click()
   // the click has started the download by the time this runs
   setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -818,9 +822,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         height: frame.size,
         pixelRatio: EXPORT_SIZE / frame.size,
       })
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/webp', 0.8)
-      })
+      // a chain pass keeps its transparency
+      const blob = await encodePicture(canvas, transparentExport, 0.8, 0.85)
       if (!blob) throw new Error('failed to encode export')
 
       if (onSubmit) onSubmit(blob)

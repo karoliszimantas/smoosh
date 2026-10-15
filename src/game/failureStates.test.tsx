@@ -227,6 +227,16 @@ describe('uploading a picture', () => {
     expect(send.mock.calls[2]?.[1].body).toBe(smaller[1])
   })
 
+  it('sent as the type the browser wrote — Safari writes no WebP', async () => {
+    const send = vi
+      .fn<(url: string, init: RequestInit) => Promise<Response>>()
+      .mockImplementation(() => Promise.resolve(new Response('ok', { status: 200 })))
+    const typeOf = (call: number) => new Headers(send.mock.calls[call]?.[1].headers).get('Content-Type')
+    await uploadPicture(send, '/submissions/TEST/1/you', new Blob([new Uint8Array([1])], { type: 'image/jpeg' }))
+    await uploadPicture(send, '/submissions/TEST/1/you', new Blob([new Uint8Array([1])]))
+    expect([typeOf(0), typeOf(1)]).toEqual(['image/jpeg', 'image/webp'])
+  })
+
   it('413 with nothing smaller to send: the generic failure', async () => {
     const send = vi.fn(() => Promise.resolve(new Response('', { status: 413 })))
     expect(await run(send, () => Promise.resolve(null))).toEqual(generic)
