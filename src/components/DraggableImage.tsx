@@ -84,14 +84,12 @@ function buildHitMask(image: HTMLImageElement | HTMLCanvasElement, colorKey: str
 
 const DraggableImage = memo(function DraggableImage({
   item,
-  isSelected,
   hidden,
   dimmed,
   isGestureOwner,
   onChange,
 }: {
   item: LayerItem
-  isSelected: boolean
   // crop mode draws its own copy of the layer; this one steps aside
   hidden: boolean
   dimmed: boolean
@@ -238,8 +236,6 @@ const DraggableImage = memo(function DraggableImage({
       shadowBlur={theme.layerShadowBlur * shadowScale}
       shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (item.mirrored ? -1 : 1)}
       shadowOffsetY={theme.layerShadowOffset.y * shadowScale}
-      // the selection outline is UI — it casts no shadow
-      shadowForStrokeEnabled={false}
       visible={!hidden}
       opacity={item.opacity * (dimmed ? 0.4 : 1)}
       // the one place a lock acts: a node that doesn't listen isn't in Konva's
@@ -248,10 +244,6 @@ const DraggableImage = memo(function DraggableImage({
       listening={!item.locked}
       draggable={!item.locked}
       hitFunc={hitFunc}
-      stroke={isSelected ? theme.selectionColor : undefined}
-      strokeWidth={isSelected ? 3 : 0}
-      // the stage is scaled to fit the frame — keep the outline 3 screen px
-      strokeScaleEnabled={false}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     />
