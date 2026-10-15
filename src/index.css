@@ -204,8 +204,9 @@ h2,
   top: 50%;
   padding: 3px 7px;
   border-radius: var(--radius);
-  background: var(--chrome-bg);
-  color: var(--chrome-text);
+  background: var(--surface);
+  color: var(--surface-text);
+  box-shadow: var(--shadow-sm);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -223,7 +224,7 @@ h2,
 
 /* sitting exactly on a detent: ringed for as long as it stays there */
 .layer-slider-readout.at-detent {
-  box-shadow: 0 0 0 2px var(--selection);
+  box-shadow: 0 0 0 2px var(--selection), var(--shadow-sm);
 }
 
 .layer-slider-left .layer-slider-readout {
@@ -335,9 +336,9 @@ h2,
   justify-content: space-between;
   gap: 6px;
   padding: 0 6px;
-  background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-border);
-  color: var(--chrome-text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .prompt-bar-text {
@@ -379,7 +380,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-size: 11px;
   font-weight: 600;
   touch-action: manipulation;
@@ -392,14 +394,18 @@ h2,
 
 /* nothing to undo: clearly off, not dead — the toolbar's disabled look */
 .prompt-bar-btn:disabled {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--chrome-border);
-  color: var(--chrome-text-muted);
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--surface-sunken-text);
 }
 
 .prompt-bar-submit {
   background: var(--primary-bg);
   color: var(--primary-text);
+}
+
+.prompt-bar-submit:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--line);
 }
 
 /* hold to submit: a fill sweeps up from the bottom while it's held; let go
@@ -450,9 +456,9 @@ h2,
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
-  color: var(--chrome-text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .layer-strip-label,
@@ -460,7 +466,7 @@ h2,
   flex-shrink: 0;
   font-size: 10px;
   font-weight: 600;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -474,12 +480,14 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
 }
 
 .layer-strip-end:disabled {
   background: transparent;
-  color: var(--chrome-text-muted);
+  box-shadow: none;
+  color: var(--surface-text-muted);
 }
 
 .layer-strip-scroll {
@@ -500,6 +508,7 @@ h2,
   border: 2px solid transparent;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
   padding: 2px;
   overflow: hidden;
   transition:
@@ -559,11 +568,11 @@ h2,
   gap: 2px;
   padding: 6px 4px;
   padding-bottom: calc(6px + env(safe-area-inset-bottom));
-  background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
   overflow-x: auto;
   scrollbar-width: none;
-  color: var(--chrome-text);
+  color: var(--surface-text);
 }
 
 .toolbar::-webkit-scrollbar {
@@ -582,8 +591,8 @@ h2,
   padding: 4px 3px;
   border: none;
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+  background: transparent;
+  color: var(--surface-text);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -599,7 +608,7 @@ h2,
   flex: 0 0 44px;
   min-width: 44px;
   background: transparent;
-  color: var(--chrome-text);
+  color: var(--surface-text);
 }
 
 /* a small phone: every layer action still fits the one row */
@@ -615,18 +624,18 @@ h2,
   }
 }
 
-/* clearly "off", not just inert: no fill, a faint outline, greyed out */
+/* clearly "off", not just inert: sunk into the paper, greyed out */
 .toolbar-btn:disabled {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--chrome-border);
-  color: var(--chrome-text-muted);
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--surface-sunken-text);
   cursor: not-allowed;
 }
 
 /* a mirror/flip that's switched on */
 .toolbar-btn-on {
   background: color-mix(in srgb, var(--selection) 22%, var(--surface));
-  color: var(--text);
+  color: var(--surface-text);
 }
 
 .toolbar-btn-primary {
@@ -680,13 +689,15 @@ h2,
 .opacity-slider::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1.5px var(--line);
 }
 
 .opacity-slider::-moz-range-track {
   height: 8px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1.5px var(--line);
 }
 
 .opacity-slider::-webkit-slider-thumb {
@@ -694,7 +705,7 @@ h2,
   width: 30px;
   height: 30px;
   margin-top: -11px;
-  border: 3px solid var(--chrome-bg);
+  border: 3px solid var(--surface);
   border-radius: var(--radius);
   background: var(--selection);
 }
@@ -702,7 +713,7 @@ h2,
 .opacity-slider::-moz-range-thumb {
   width: 30px;
   height: 30px;
-  border: 3px solid var(--chrome-bg);
+  border: 3px solid var(--surface);
   border-radius: var(--radius);
   background: var(--selection);
 }
@@ -742,10 +753,11 @@ h2,
   gap: 2px;
   padding: 6px 14px;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--chrome-bg) 92%, transparent);
+  background: var(--surface);
   border: 2px solid var(--selection);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
-  color: var(--chrome-text);
+  color: var(--surface-text);
   z-index: 2;
 }
 
@@ -762,7 +774,7 @@ h2,
 .depth-badge-hint {
   font-size: 10px;
   font-weight: 600;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -792,7 +804,7 @@ h2,
   height: 65dvh;
   display: flex;
   flex-direction: column;
-  background: var(--chrome-bg);
+  background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   transform: translateY(100%);
   transition: transform 200ms ease-out;
@@ -801,7 +813,7 @@ h2,
      the sheet reaches the top of the screen, where they'd sit over the
      search input. Below the photo lasso (45) and the notice region (50). */
   z-index: 42;
-  color: var(--chrome-text);
+  color: var(--surface-text);
 }
 
 .asset-sheet.open {
@@ -824,7 +836,7 @@ h2,
   width: 40px;
   height: 4px;
   border-radius: var(--radius);
-  background: var(--chrome-border);
+  background: var(--surface-text-muted);
   margin: 10px auto;
 }
 
@@ -837,7 +849,7 @@ h2,
   gap: 8px;
   padding: 12px;
   text-align: center;
-  color: var(--chrome-text);
+  color: var(--surface-text);
   font-size: 13px;
 }
 
@@ -868,7 +880,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -887,11 +900,15 @@ h2,
   width: 100%;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--surface-text);
   font-size: 16px; /* under 16px, iOS zooms the page on focus */
+}
+
+.asset-sheet-search input::placeholder {
+  color: var(--surface-text-muted);
 }
 
 .asset-sheet-search input:focus {
@@ -918,12 +935,12 @@ h2,
   grid-column: 1 / -1;
   margin: -2px 0 0;
   text-align: right;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   font-size: 11px;
 }
 
 .asset-sheet-credit a {
-  color: var(--chrome-text);
+  color: var(--surface-text);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -933,7 +950,7 @@ h2,
   grid-column: 1 / -1;
   margin: 16px 0;
   text-align: center;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   font-size: 13px;
 }
 
@@ -949,7 +966,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-weight: 600;
 }
 
@@ -959,6 +977,8 @@ h2,
   flex-direction: column;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   overflow: hidden;
 }
 
@@ -986,7 +1006,7 @@ h2,
    card, not the cut — an outline traced round the subject's own edge reads
    as a halo */
 .result-card.is-cut {
-  box-shadow: inset 0 0 0 2px var(--selection);
+  box-shadow: inset 0 0 0 2px var(--selection), var(--shadow-sm);
 }
 
 .result-status {
@@ -998,22 +1018,22 @@ h2,
   justify-content: center;
   gap: 6px;
   padding: 8px;
-  background: color-mix(in srgb, var(--chrome-bg) 78%, transparent);
-  color: var(--chrome-text);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--surface-text);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
 }
 
 .result-status.error {
-  color: var(--chrome-danger);
+  color: var(--primary-ink);
 }
 
 .result-progress {
   width: 80%;
   height: 4px;
   border-radius: var(--radius);
-  background: var(--chrome-border);
+  background: var(--surface-sunken);
   overflow: hidden;
 }
 
@@ -1032,8 +1052,8 @@ h2,
   height: 36px;
   border: none;
   border-radius: 0 0 0 var(--radius);
-  background: color-mix(in srgb, var(--chrome-bg) 55%, transparent);
-  color: var(--chrome-text);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
@@ -1048,8 +1068,9 @@ h2,
   min-height: 40px;
   border: none;
   border-radius: var(--radius);
-  background: var(--chrome-border);
-  color: var(--text);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-size: 13px;
   font-weight: 600;
 }
@@ -1057,6 +1078,10 @@ h2,
 .result-action.primary {
   background: var(--primary-bg);
   color: var(--primary-text);
+}
+
+.result-action:disabled {
+  box-shadow: none;
 }
 
 .result-action:disabled {
@@ -1084,9 +1109,9 @@ h2,
   gap: 8px;
   padding: 16px;
   border-radius: var(--radius);
-  background: var(--chrome-bg);
-  
-  color: var(--chrome-text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .report-dialog h2 {
@@ -1096,7 +1121,7 @@ h2,
 
 .report-dialog p {
   margin: 0 0 4px;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   font-size: 13px;
 }
 
@@ -1105,7 +1130,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-size: 14px;
   text-align: left;
   padding: 0 14px;
@@ -1113,12 +1139,13 @@ h2,
 
 .report-dialog .report-cancel {
   background: transparent;
+  box-shadow: none;
   text-align: center;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
 }
 
 .report-dialog .report-error {
-  color: var(--chrome-danger);
+  color: var(--primary-ink);
 }
 
 /* ---------- shared ---------- */
@@ -1127,7 +1154,7 @@ h2,
   background: linear-gradient(
     90deg,
     var(--surface) 25%,
-    color-mix(in srgb, var(--surface) 88%, var(--text)) 37%,
+    color-mix(in srgb, var(--surface) 88%, var(--surface-text)) 37%,
     var(--surface) 63%
   );
   background-size: 400% 100%;
@@ -1188,7 +1215,8 @@ h2,
   padding: 6px 14px;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 15px;
   font-weight: 700;
   text-align: center;
@@ -1230,6 +1258,7 @@ h2,
   object-fit: contain;
   border-radius: var(--radius);
   background: var(--reveal-bg);
+  box-shadow: var(--shadow);
   filter: var(--reveal-filter);
   margin: 0 auto;
   flex-shrink: 0;
@@ -1275,7 +1304,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1292,14 +1322,18 @@ h2,
 }
 
 .home-view > button:disabled {
-  opacity: 0.5;
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--surface-sunken-text);
 }
 
+/* quiet, straight on the desk */
 .home-view > button.home-secondary {
   margin-top: 16px;
   background: transparent;
+  box-shadow: none;
   color: var(--text-muted);
-  border: 1px solid var(--chrome-border);
+  border: 1.5px solid currentColor;
   font-weight: 500;
 }
 
@@ -1307,11 +1341,16 @@ h2,
   min-height: 44px;
   width: min(280px, 80vw);
   padding: 0 14px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 15px;
+}
+
+.home-view input::placeholder {
+  color: var(--surface-text-muted);
 }
 
 .home-error {
@@ -1334,6 +1373,8 @@ h2,
   padding: 8px 14px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
@@ -1353,8 +1394,8 @@ h2,
   margin-left: 8px;
   padding: 1px 6px;
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-muted);
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
   font-size: 11px;
   font-weight: 600;
   vertical-align: middle;
@@ -1377,9 +1418,10 @@ h2,
   min-height: 44px;
   padding: 0 10px;
   border-radius: var(--radius);
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
@@ -1401,7 +1443,8 @@ h2,
 }
 
 .lobby-view button:disabled {
-  opacity: 0.4;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
 }
 
 /* host's game-mode picker, and the read-only line everyone else sees */
@@ -1417,6 +1460,8 @@ h2,
   padding: 3px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
 }
 
 .lobby-view .segmented-option {
@@ -1425,7 +1470,7 @@ h2,
   padding: 0 14px;
   border-radius: var(--radius);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--surface-text-muted);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1443,7 +1488,7 @@ h2,
 .lobby-mode-readonly {
   font-size: 15px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text);
 }
 
 /* ---------- build view ---------- */
@@ -1503,6 +1548,7 @@ h2,
 }
 
 .sys-card .away-marker {
+  background: transparent;
   color: var(--sys-muted);
 }
 
@@ -1667,9 +1713,9 @@ h2,
   gap: 8px;
   padding: 8px 10px;
   padding-top: calc(8px + env(safe-area-inset-top));
-  background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-border);
-  color: var(--chrome-text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .sandbox-bar button {
@@ -1678,7 +1724,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -1687,7 +1734,8 @@ h2,
 .sandbox-bar button:last-child {
   margin-left: auto;
   background: transparent;
-  color: var(--chrome-danger);
+  box-shadow: none;
+  color: var(--primary-ink);
 }
 
 /* ---------- lie / guess views ---------- */
@@ -1716,11 +1764,16 @@ h2,
   min-height: 44px;
   width: min(320px, 90vw);
   padding: 0 14px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 15px;
+}
+
+.lie-form input::placeholder {
+  color: var(--surface-text-muted);
 }
 
 .lie-form button,
@@ -1731,7 +1784,8 @@ h2,
   border: none;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1742,7 +1796,9 @@ h2,
 }
 
 .lie-form button:disabled {
-  opacity: 0.4;
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--surface-sunken-text);
 }
 
 .guess-option.picked {
@@ -1751,7 +1807,9 @@ h2,
 }
 
 .guess-option.own-lie {
-  opacity: 0.35;
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--surface-sunken-text);
 }
 
 /* why an option can't be picked, inside the option itself */
@@ -1783,7 +1841,7 @@ h2,
   color: var(--text-muted);
 }
 
-.guess-option:disabled {
+.guess-option:disabled:not(.own-lie) {
   opacity: 0.6;
 }
 
@@ -1812,6 +1870,8 @@ h2,
   padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   font-size: 14px;
   display: flex;
   flex-direction: column;
@@ -1844,7 +1904,7 @@ h2,
 .scores-winner {
   font-size: 18px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text);
 }
 
 .scoreboard {
@@ -1862,6 +1922,8 @@ h2,
   padding: 8px 14px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   font-size: 14px;
   text-align: left;
 }
@@ -1882,7 +1944,7 @@ h2,
 .score-round {
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--primary-ink);
 }
 
 /* where the points came from: three columns that add up to the figure
@@ -1897,7 +1959,7 @@ h2,
 .score-breakdown small {
   display: block;
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--surface-text-muted);
 }
 
 .score-breakdown .zero {
@@ -1930,10 +1992,11 @@ button.theme-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
 }
 
 button.theme-toggle svg {
@@ -1953,10 +2016,11 @@ button.theme-choice-option {
   gap: 6px;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1968,7 +2032,6 @@ button.theme-choice-option svg {
 
 button.theme-choice-option.active {
   background: var(--primary-bg);
-  border-color: var(--primary-bg);
   color: var(--primary-text);
 }
 
@@ -2008,15 +2071,16 @@ button.theme-choice-option.active {
   transform: none;
   min-height: 44px;
   padding: 0 12px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
 .prompts-view button:disabled {
-  opacity: 0.4;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
 }
 
 .prompts-view button[aria-pressed='true'],
@@ -2030,11 +2094,16 @@ button.theme-choice-option.active {
 .prompts-view textarea {
   min-height: 44px;
   padding: 0 10px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--surface-text);
   font-size: 16px; /* under 16px, iOS zooms the page on focus */
+}
+
+.prompts-view input::placeholder,
+.prompts-view textarea::placeholder {
+  color: var(--surface-text-muted);
 }
 
 .prompts-view textarea {
@@ -2092,6 +2161,8 @@ button.theme-choice-option.active {
   padding: 8px 10px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
@@ -2136,8 +2207,8 @@ button.theme-choice-option.active {
 }
 
 .prompts-view .prompts-danger {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .prompts-empty {
@@ -2226,7 +2297,8 @@ button.theme-choice-option.active {
 .prompt-test .sandbox-bar button:last-child {
   margin-left: 0;
   background: var(--surface);
-  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--surface-text);
 }
 
 /* ---------- coming, going, and being away */
@@ -2237,7 +2309,8 @@ button.theme-choice-option.active {
   padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   font-size: 14px;
   text-align: center;
 }
@@ -2267,9 +2340,11 @@ button.theme-choice-option.active {
   width: 40px;
   height: 40px;
   padding: 0;
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 20px;
   line-height: 1;
 }
@@ -2280,16 +2355,28 @@ button.theme-choice-option.active {
   right: 0;
   min-width: 170px;
   padding: 8px;
-  border: 1px solid var(--chrome-border);
   border-radius: var(--radius);
-  background: var(--chrome-bg);
-  color: var(--chrome-text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .game-menu-code {
   margin: 0 0 8px;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
   font-size: 12px;
+}
+
+.game-menu-popover button,
+.leave-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--surface-text);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .game-menu-popover button {
@@ -2311,8 +2398,9 @@ button.theme-choice-option.active {
   width: min(340px, 100%);
   padding: 20px;
   border-radius: var(--radius);
-  background: var(--page-bg);
-  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
 }
 
 .leave-dialog h2 {
@@ -2336,9 +2424,9 @@ button.theme-choice-option.active {
 }
 
 /* staying is the obvious choice; leaving is there, but not the big button */
-.leave-go {
-  background: var(--surface);
-  color: var(--text);
+.leave-actions .leave-stay {
+  background: var(--primary-bg);
+  color: var(--primary-text);
 }
 
 @keyframes toast-fade {
@@ -2382,7 +2470,8 @@ button.theme-choice-option.active {
   padding: 3px 8px;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
   font-size: 12px;
 }
 
@@ -2394,6 +2483,7 @@ button.theme-choice-option.active {
   margin-left: 4px;
   padding: 0;
   background: none;
+  color: var(--surface-text-muted);
 }
 
 /* room at the bottom for the player strip */
@@ -2444,10 +2534,10 @@ button.theme-choice-option.active {
 .prompts-file {
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--surface-text);
   font-size: 14px;
 }
 
@@ -2457,17 +2547,18 @@ button.theme-choice-option.active {
 }
 
 .prompts-import button:disabled {
-  opacity: 0.4;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
 }
 
 .prompts-import input,
 .prompts-import textarea {
   min-height: 44px;
   padding: 0 10px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--surface-text);
   font-size: 16px; /* under 16px, iOS zooms the page on focus */
 }
 
@@ -3176,7 +3267,7 @@ h2.awards-wall-title {
 .photo-privacy {
   font-size: 12px;
   line-height: 1.3;
-  color: var(--chrome-text-muted);
+  color: var(--surface-text-muted);
 }
 
 /* the lasso: the photo, full screen, between two bars */
@@ -3291,7 +3382,8 @@ h2.awards-wall-title {
   padding: 20px;
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
   text-align: center;
 }
 
@@ -3299,7 +3391,7 @@ h2.awards-wall-title {
 .prompt-window-note,
 .prompt-window-clock {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--surface-text-muted);
 }
 
 .prompt-window-prompt {
@@ -3323,16 +3415,16 @@ h2.awards-wall-title {
 }
 
 .prompt-window-swap {
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   background: transparent;
-  color: var(--text);
+  color: var(--surface-text);
 }
 
 /* the two prompts after a swap: either one, a tap */
 .prompt-window-choice {
   border: 2px solid var(--primary-bg);
   background: transparent;
-  color: var(--text);
+  color: var(--surface-text);
   font-family: var(--font-display);
   text-transform: var(--display-transform);
   letter-spacing: var(--display-tracking);
@@ -3446,16 +3538,15 @@ h2.awards-wall-title {
   flex-shrink: 0;
   min-height: 36px;
   padding: 0 12px;
-  border: 1px solid var(--chrome-border);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--chrome-text);
+  color: var(--surface-text);
   font-size: 13px;
   white-space: nowrap;
 }
 
 .asset-sheet-category.active {
-  border-color: var(--primary-bg);
   background: var(--primary-bg);
   color: var(--primary-text);
 }
@@ -3574,7 +3665,7 @@ h2.awards-wall-title {
   align-items: center;
   justify-content: center;
   background:
-    repeating-conic-gradient(color-mix(in srgb, var(--text) 9%, transparent) 0% 25%, transparent 0% 50%) 50% / 16px 16px,
+    repeating-conic-gradient(color-mix(in srgb, var(--surface-text) 9%, transparent) 0% 25%, transparent 0% 50%) 50% / 16px 16px,
     var(--surface);
 }
 
@@ -3591,7 +3682,7 @@ h2.awards-wall-title {
 
 .labels-nothumb {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--surface-text-muted);
 }
 
 .labels-tile-label {
@@ -3602,7 +3693,7 @@ h2.awards-wall-title {
 
 .labels-tile-meta {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--surface-text-muted);
 }
 
 /* the editor takes the screen: the picture first, the fields under it */
@@ -3659,7 +3750,7 @@ h2.awards-wall-title {
 }
 
 .labels-field > input {
-  color: var(--text);
+  color: var(--surface-text);
 }
 
 .labels-tags {
@@ -3668,9 +3759,10 @@ h2.awards-wall-title {
   align-items: center;
   gap: 6px;
   padding: 6px;
-  border: 1px solid var(--chrome-border);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  color: var(--surface-text);
 }
 
 .labels-tags input {
