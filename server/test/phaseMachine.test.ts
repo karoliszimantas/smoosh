@@ -4,6 +4,7 @@ import {
   PROMPT_WINDOW_SEC,
   MISSING_PHASE_SEC,
   REVEAL_PHASE_SEC,
+  SCORES_PHASE_SEC,
   type GameSettings,
   type PhaseState,
 } from '@smoosh/protocol'
@@ -17,6 +18,8 @@ import {
   recordGuess,
   restorePendingActor,
   optionsForPicture,
+  acceptSubmission,
+  submissionRejection,
   type PhaseMachineDeps,
 } from '../src/game/phaseMachine.ts'
 
@@ -140,6 +143,44 @@ describe('BUILD phase', () => {
     startBuild(room, deps)
     vi.advanceTimersByTime(BUILD_END_MS)
     expect(room.phase.phase).toBe('scores')
+  })
+})
+
+// an upload passes the early check when its request arrives, but the body can
+// take long enough that BUILD is over by the time it's all in — http.ts asks
+// again then, and the answer must leave the room exactly as it was
+describe('an upload that finishes after BUILD moved on', () => {
+  function lateUpload(room: Room, deps: PhaseMachineDeps, round: number) {
+    const pendingBefore = new Set(room.pendingActors)
+    const snapshotsBefore = vi.mocked(deps.onSnapshot).mock.calls.length
+    const save = vi.fn()
+    const result = acceptSubmission(room, deps, 'player-1', round, save)
+    expect(save).not.toHaveBeenCalled()
+    expect(room.pendingActors).toEqual(pendingBefore)
+    expect(vi.mocked(deps.onSnapshot).mock.calls.length).toBe(snapshotsBefore)
+    return result
+  }
+
+  it('BUILD closed mid-upload: refused as too late, nothing saved', () => {
+    const room = makeRoom(3, 3, 60)
+    const deps = makeDeps({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } })
+    startBuild(room, deps)
+    expect(submissionRejection(room, 1)).toBeNull() // the upload starts in time
+    vi.advanceTimersByTime(BUILD_END_MS)
+    expectPhase(room, 'scores')
+    expect(lateUpload(room, deps, 1)).toEqual({ ok: false, reason: 'too_late' })
+  })
+
+  it('the next round’s BUILD already started: the old round’s picture is refused, the new round untouched', () => {
+    const room = makeRoom(3, 3, 60)
+    const deps = makeDeps({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } })
+    startBuild(room, deps)
+    expect(submissionRejection(room, 1)).toBeNull()
+    vi.advanceTimersByTime(BUILD_END_MS) // nobody built -> scores
+    vi.advanceTimersByTime(SCORES_PHASE_SEC * 1000) // -> round 2 build
+    expect(expectPhase(room, 'build').round).toBe(2)
+    expect(room.pendingActors.has('player-1')).toBe(true)
+    expect(lateUpload(room, deps, 1)).toEqual({ ok: false, reason: 'wrong_phase' })
   })
 })
 
