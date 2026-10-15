@@ -74,7 +74,8 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
     setUpload({ status: 'sending' })
 
     const url = `${SERVER_URL}/submissions/${snapshot.roomCode}/${round}/${snapshot.you.playerId}`
-    const result = await uploadPicture(send, url, blob, shrinkPicture)
+    // a chain pass is sent with its transparency, and shrunk keeping it
+    const result = await uploadPicture(send, url, blob, shrinkPicture(phase.phase === 'pass'))
     if (result.ok) {
       clearCanvasItems(storageKey, 'local')
       setUpload({ status: 'submitted' })

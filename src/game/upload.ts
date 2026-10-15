@@ -52,7 +52,8 @@ export async function uploadPicture(
       const res = await Promise.race([
         send(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'image/webp', 'X-Session-Id': getSessionId() },
+          // the type the browser actually wrote — JPEG or PNG where it can't do WebP
+          headers: { 'Content-Type': body.type || 'image/webp', 'X-Session-Id': getSessionId() },
           body,
           signal: abort.signal,
         }),
