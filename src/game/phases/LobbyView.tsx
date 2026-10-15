@@ -89,7 +89,10 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="lobby-view">
-      <h1>Room {roomCode}</h1>
+      <div className="paper-card lobby-code">
+        <p className="field-label on-paper">Room code</p>
+        <h1>Room {roomCode}</h1>
+      </div>
 
       <ul className="player-list">
         {players.map((p) => (
@@ -102,130 +105,140 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
       </ul>
       {awayCount > 0 && <p className="lobby-away-note">Anyone away when the game starts sits it out.</p>}
 
-      {you.isHost ? (
-        <>
-          <div className="lobby-mode">
-            <Segmented
-              label="Game mode"
-              options={[
-                { value: 'guess', label: MODE_LABELS.guess.label },
-                { value: 'gallery', label: MODE_LABELS.gallery.label },
-                { value: 'chain', label: MODE_LABELS.chain.label },
-              ]}
-              value={settings.mode}
-              onChange={setMode}
-            />
-            {chain && (
+      <section className={`paper-card lobby-card${you.isHost ? '' : ' readonly'}`} aria-label="Game settings">
+        {you.isHost ? (
+          <>
+            <div className="lobby-mode">
               <Segmented
-                label="Chains"
-                options={(['rotate', 'groups', 'single'] as const).map((value) => ({ value, label: STRUCTURE_LABELS[value].label }))}
-                value={settings.chainStructure}
-                onChange={(chainStructure) => updateSettings({ chainStructure })}
-              />
-            )}
-            {settings.mode === 'gallery' && (
-              <Segmented
-                label="Prompt"
+                label="Game mode"
                 options={[
-                  { value: 'prompted', label: 'Prompted' },
-                  { value: 'freestyle', label: 'Freestyle' },
+                  { value: 'guess', label: MODE_LABELS.guess.label },
+                  { value: 'gallery', label: MODE_LABELS.gallery.label },
+                  { value: 'chain', label: MODE_LABELS.chain.label },
                 ]}
-                value={settings.prompted ? 'prompted' : 'freestyle'}
-                onChange={(v) => updateSettings({ prompted: v === 'prompted' })}
+                value={settings.mode}
+                onChange={setMode}
               />
+              {chain && (
+                <Segmented
+                  label="Chains"
+                  options={(['rotate', 'groups', 'single'] as const).map((value) => ({ value, label: STRUCTURE_LABELS[value].label }))}
+                  value={settings.chainStructure}
+                  onChange={(chainStructure) => updateSettings({ chainStructure })}
+                />
+              )}
+              {settings.mode === 'gallery' && (
+                <Segmented
+                  label="Prompt"
+                  options={[
+                    { value: 'prompted', label: 'Prompted' },
+                    { value: 'freestyle', label: 'Freestyle' },
+                  ]}
+                  value={settings.prompted ? 'prompted' : 'freestyle'}
+                  onChange={(v) => updateSettings({ prompted: v === 'prompted' })}
+                />
+              )}
+              <p className="lobby-mode-blurb">
+                {settings.mode === 'gallery' && !settings.prompted
+                  ? 'No prompt — build whatever you want, then vote for a favourite and a runner-up'
+                  : settings.mode === 'gallery'
+                    ? 'Same prompt for everyone, then vote for a favourite and a runner-up'
+                    : chain
+                      ? `${MODE_LABELS.chain.blurb}. ${STRUCTURE_LABELS[settings.chainStructure].blurb}.`
+                      : MODE_LABELS.guess.blurb}
+              </p>
+            </div>
+            <div className="lobby-settings">
+              <label>
+                Rounds
+                <span className="field-select">
+                  <select
+                    className="field"
+                    value={settings.rounds}
+                    onChange={(e) => updateSettings({ rounds: Number(e.target.value) as GameSettings['rounds'] })}
+                  >
+                    {ROUND_OPTIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+              <label>
+                {chain ? 'Time per pass' : 'Build time'}
+                <span className="field-select">
+                  <select
+                    className="field"
+                    value={settings.buildTimeSec}
+                    onChange={(e) =>
+                      updateSettings({ buildTimeSec: Number(e.target.value) as GameSettings['buildTimeSec'] })
+                    }
+                  >
+                    {BUILD_TIME_OPTIONS.filter((t) => !chain || t <= PASS_TIME_MAX).map((t) => (
+                      <option key={t} value={t}>
+                        {t}s
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+              <label>
+                Answer time
+                <span className="field-select">
+                  <select
+                    className="field"
+                    value={settings.answerTimeSec}
+                    onChange={(e) =>
+                      updateSettings({ answerTimeSec: Number(e.target.value) as GameSettings['answerTimeSec'] })
+                    }
+                  >
+                    {ANSWER_TIME_OPTIONS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}s
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+            </div>
+            {chain && (
+              // what the time setting costs, seen while choosing it
+              <p className="lobby-mode-blurb">
+                First pass {settings.buildTimeSec + 30}s, then {settings.buildTimeSec}s each — about {roundBuildMin} min of
+                building a round.
+              </p>
             )}
+            {/* the room decides, every game — see allowPhotos in the protocol */}
+            <div className="lobby-photos">
+              <span>Allow photos</span>
+              <Segmented
+                label="Allow photos"
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                value={settings.allowPhotos ? 'on' : 'off'}
+                onChange={(v) => updateSettings({ allowPhotos: v === 'on' })}
+              />
+            </div>
             <p className="lobby-mode-blurb">
-              {settings.mode === 'gallery' && !settings.prompted
-                ? 'No prompt — build whatever you want, then vote for a favourite and a runner-up'
-                : settings.mode === 'gallery'
-                  ? 'Same prompt for everyone, then vote for a favourite and a runner-up'
-                  : chain
-                    ? `${MODE_LABELS.chain.blurb}. ${STRUCTURE_LABELS[settings.chainStructure].blurb}.`
-                    : MODE_LABELS.guess.blurb}
+              {settings.allowPhotos
+                ? 'Players can add photos from their phones. Photos stay on the phone — only finished pictures are shared.'
+                : 'Pictures are built from the library only.'}
             </p>
-          </div>
-          <div className="lobby-settings">
-            <label>
-              Rounds
-              <select
-                value={settings.rounds}
-                onChange={(e) => updateSettings({ rounds: Number(e.target.value) as GameSettings['rounds'] })}
-              >
-                {ROUND_OPTIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {chain ? 'Time per pass' : 'Build time'}
-              <select
-                value={settings.buildTimeSec}
-                onChange={(e) =>
-                  updateSettings({ buildTimeSec: Number(e.target.value) as GameSettings['buildTimeSec'] })
-                }
-              >
-                {BUILD_TIME_OPTIONS.filter((t) => !chain || t <= PASS_TIME_MAX).map((t) => (
-                  <option key={t} value={t}>
-                    {t}s
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Answer time
-              <select
-                value={settings.answerTimeSec}
-                onChange={(e) =>
-                  updateSettings({ answerTimeSec: Number(e.target.value) as GameSettings['answerTimeSec'] })
-                }
-              >
-                {ANSWER_TIME_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}s
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {chain && (
-            // what the time setting costs, seen while choosing it
-            <p className="lobby-mode-blurb">
-              First pass {settings.buildTimeSec + 30}s, then {settings.buildTimeSec}s each — about {roundBuildMin} min of
-              building a round.
+          </>
+        ) : (
+          <>
+            <p className="lobby-mode-readonly">{modeSummary(settings)}</p>
+            <p className="lobby-settings-readonly">
+              {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to
+              answer &middot; photos {settings.allowPhotos ? 'allowed' : 'off'}
             </p>
-          )}
-          {/* the room decides, every game — see allowPhotos in the protocol */}
-          <div className="lobby-photos">
-            <span>Allow photos</span>
-            <Segmented
-              label="Allow photos"
-              options={[
-                { value: 'on', label: 'On' },
-                { value: 'off', label: 'Off' },
-              ]}
-              value={settings.allowPhotos ? 'on' : 'off'}
-              onChange={(v) => updateSettings({ allowPhotos: v === 'on' })}
-            />
-          </div>
-          <p className="lobby-mode-blurb">
-            {settings.allowPhotos
-              ? 'Players can add photos from their phones. Photos stay on the phone — only finished pictures are shared.'
-              : 'Pictures are built from the library only.'}
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="lobby-mode-readonly">{modeSummary(settings)}</p>
-          <p className="lobby-settings-readonly">
-            {settings.rounds} rounds &middot; {settings.buildTimeSec}s to build &middot; {settings.answerTimeSec}s to
-            answer &middot; photos {settings.allowPhotos ? 'allowed' : 'off'}
-          </p>
-        </>
-      )}
-
-      <p className="lobby-estimate">Estimated length: ~{estimateMin} min</p>
+          </>
+        )}
+        <p className="lobby-estimate">Estimated length: ~{estimateMin} min</p>
+      </section>
 
       {/* per player and per device — your pick, not the room's */}
       <div className="lobby-theme">
@@ -236,7 +249,7 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
       {!you.isHost && <p className="phase-status">The host starts the game — waiting for them.</p>}
 
       {you.isHost && (
-        <button className="lobby-start" disabled={!canStart} onClick={() => void emit('room:start', {})}>
+        <button className="btn btn-primary btn-block lobby-start" disabled={!canStart} onClick={() => void emit('room:start', {})}>
           {canStart ? 'Start game' : `Need at least ${MIN_PLAYERS_TO_START} players`}
         </button>
       )}

@@ -76,24 +76,53 @@ export default function HomeView({
       {connectionStatus !== 'connected' && <p className="home-status">Connecting…</p>}
       {notice && <p className="home-notice">{notice}</p>}
 
-      <div className="home-tabs" role="tablist">
-        <button role="tab" aria-selected={mode === 'create'} className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}>
+      <div className="segmented home-tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={mode === 'create'}
+          className={`segmented-option${mode === 'create' ? ' active' : ''}`}
+          onClick={() => setMode('create')}
+        >
           Create game
         </button>
-        <button role="tab" aria-selected={mode === 'join'} className={mode === 'join' ? 'active' : ''} onClick={() => setMode('join')}>
+        <button
+          role="tab"
+          aria-selected={mode === 'join'}
+          className={`segmented-option${mode === 'join' ? ' active' : ''}`}
+          onClick={() => setMode('join')}
+        >
           Join game
         </button>
       </div>
 
-      <input placeholder="Your name" maxLength={12} value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="home-field">
+        <label className="field-label" htmlFor="home-name">
+          Your name
+        </label>
+        <input
+          id="home-name"
+          className="field"
+          placeholder="Your name"
+          maxLength={12}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
 
       {mode === 'join' && (
-        <input
-          placeholder="Room code"
-          maxLength={4}
-          value={roomCode}
-          onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-        />
+        <div className="home-field">
+          <label className="field-label" htmlFor="home-code">
+            Room code
+          </label>
+          <input
+            id="home-code"
+            className="field"
+            placeholder="Room code"
+            maxLength={4}
+            value={roomCode}
+            onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+          />
+        </div>
       )}
 
       {error && <p className="home-error">{error}</p>}
@@ -102,9 +131,11 @@ export default function HomeView({
         <div className="home-still-in" role="alertdialog" aria-label="Still in a game">
           <p>You’re still in game {stillIn.roomCode}. Rejoin, or start fresh?</p>
           <div className="home-still-in-actions">
-            <button onClick={() => void rejoin()}>Rejoin</button>
+            <button className="btn btn-primary" onClick={() => void rejoin()}>
+              Rejoin
+            </button>
             <button
-              className="home-secondary"
+              className="btn btn-secondary"
               onClick={() => {
                 const { proceed } = stillIn
                 setStillIn(null)
@@ -117,6 +148,7 @@ export default function HomeView({
         </div>
       ) : (
         <button
+          className="btn btn-primary btn-block home-go"
           disabled={busy || connectionStatus !== 'connected'}
           onClick={() =>
             mode === 'create'
@@ -130,7 +162,7 @@ export default function HomeView({
 
       {/* a utility, not the main path — and never gated on the connection:
           it has to work with the game server down */}
-      <button className="home-secondary" onClick={onSandbox}>
+      <button className="btn btn-secondary home-sandbox" onClick={onSandbox}>
         Just mess around
       </button>
     </div>
