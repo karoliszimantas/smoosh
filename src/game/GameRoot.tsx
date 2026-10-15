@@ -19,7 +19,9 @@ import GameMenu from './GameMenu'
 import LeaveDialog from './LeaveDialog'
 import NoticeRegion from './NoticeRegion'
 import StatusStrip from './StatusStrip'
+import PromptWindowHeader from './PromptWindowHeader'
 import { statusLine } from './statusLine'
+import { promptWindowEndsAt, useBefore } from './promptWindow'
 import ReplacedView from './ReplacedView'
 import { useStuckWatchdog } from './stuckWatchdog'
 import { STUCK_TEXT } from './roomMessages'
@@ -65,6 +67,10 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   // of alone: the room waiting on them, nothing for them to press
   const phaseRoot = useRef<HTMLDivElement>(null)
   const { stuck, reset: resetWatchdog } = useStuckWatchdog(snapshot, phaseRoot)
+  // this player's prompt window, before their build clock starts: it takes
+  // the screen, and its own header stands in for the strip
+  const windowEndsAt = promptWindowEndsAt(snapshot)
+  const promptWindowOpen = useBefore(windowEndsAt)
   const rejoin = {
     label: 'Rejoin',
     onClick: () => {
@@ -105,9 +111,14 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
       {!status && !isLobby && <FloatingThemeSwitcher />}
       {!status && <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />}
       <div className={status ? 'game-screen' : 'game-screen bare'}>
-        {status && <StatusStrip snapshot={snapshot} status={status} onLeave={openLeave} />}
+        {status &&
+          (promptWindowOpen && windowEndsAt !== null ? (
+            <PromptWindowHeader snapshot={snapshot} round={status.round} windowEndsAt={windowEndsAt} onLeave={openLeave} />
+          ) : (
+            <StatusStrip snapshot={snapshot} status={status} onLeave={openLeave} />
+          ))}
         <div className="phase-root" ref={phaseRoot}>
-          <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} />
+          <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} promptWindowOpen={promptWindowOpen} />
         </div>
       </div>
       <NoticeRegion
@@ -139,10 +150,12 @@ function PhaseView({
   snapshot,
   emit,
   onNotice,
+  promptWindowOpen,
 }: {
   snapshot: RoomSnapshot
   emit: GameConnection['emit']
   onNotice: (message: string) => void
+  promptWindowOpen: boolean
 }) {
   const phase = snapshot.phase
 
@@ -152,7 +165,15 @@ function PhaseView({
     case 'build':
       // keyed by round so BuildView remounts fresh (canvas/timeout state)
       // each round instead of carrying over stale state from the last one
-      return <BuildView key={`build-${phase.round}`} snapshot={snapshot} emit={emit} onNotice={onNotice} />
+      return (
+        <BuildView
+          key={`build-${phase.round}`}
+          snapshot={snapshot}
+          emit={emit}
+          onNotice={onNotice}
+          promptWindowOpen={promptWindowOpen}
+        />
+      )
     case 'lie':
       return <LieView key={`lie-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'guess':
