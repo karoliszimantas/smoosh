@@ -97,6 +97,7 @@ export type Theme = {
   timer: {
     calm: string // the tag's paper and fuse
     hot: string // 10s or less
+    track: string // the fuse's spent track while calm
     hotTrack: string // the fuse's spent track when hot
     string: string
     hazard: string // CSS background for the hot fuse's stripes

@@ -98,6 +98,7 @@ describe('cssVars', () => {
     '--dymo-text',
     '--timer-calm',
     '--timer-hot',
+    '--timer-track',
     '--timer-hot-track',
     '--timer-string',
     '--hazard',
@@ -166,6 +167,8 @@ describe('text contrast', () => {
     ['error text on the desk', (t) => [t.dangerOnDesk, t.pageBg]],
     ['warning', (t) => [t.warningText, t.warning]],
     ['a seat badge’s shape', (t) => [t.line, t.markBadge]],
+    ['the timer’s digits', (t) => [t.surfaceText, t.timer.calm]],
+    ['the timer’s digits, last 10 seconds', (t) => [t.line, t.timer.hot]],
   ]
 
   for (const theme of THEMES) {
