@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { UPLOAD_MESSAGES } from '@smoosh/protocol'
 import { getRoom, findSeatBySession, touchRoom } from './rooms/Room.ts'
 import { putSubmission, getSubmission } from './submissions/store.ts'
+import { isPictureType, sniffPictureType } from './submissions/imageType.ts'
 import {
   acceptSubmission,
   submissionRejection,
@@ -95,24 +96,30 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
 }
 
 function handleGet(res: ServerResponse, { roomCode, round, playerId }: UploadTarget): void {
-  const buffer = getSubmission(roomCode, round, playerId)
-  if (!buffer) {
+  const picture = getSubmission(roomCode, round, playerId)
+  if (!picture) {
     send(res, 404)
     return
   }
   withCors(res)
+  // served as what its bytes were found to be, and the browser told not to
+  // guess otherwise
   res.writeHead(200, {
-    'Content-Type': 'image/webp',
-    'Content-Length': buffer.length,
+    'Content-Type': picture.type,
+    'Content-Length': picture.buffer.length,
     'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
   })
-  res.end(buffer)
+  res.end(picture.buffer)
 }
 
 function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTarget, deps: PhaseMachineDeps): void {
   const { roomCode, round, playerId } = target
 
-  if (req.headers['content-type'] !== 'image/webp') {
+  // WebP, or JPEG/PNG from Safari. Only the sender's word — the bytes are
+  // checked once they've arrived
+  const declaredType = req.headers['content-type']?.split(';')[0]?.trim().toLowerCase()
+  if (!isPictureType(declaredType)) {
     send(res, 415, UPLOAD_MESSAGES.wrong_type)
     return
   }
@@ -161,8 +168,14 @@ function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTar
 
   req.on('end', () => {
     if (res.headersSent) return
+    const buffer = Buffer.concat(chunks)
+    const type = sniffPictureType(buffer)
+    if (!type) {
+      send(res, 415, UPLOAD_MESSAGES.wrong_type)
+      return
+    }
     const result = acceptSubmission(room, deps, playerId, round, () =>
-      putSubmission(roomCode, round, playerId, Buffer.concat(chunks)),
+      putSubmission(roomCode, round, playerId, { buffer, type }),
     )
     if (!result.ok) {
       send(res, 409, REJECTION_MESSAGES[result.reason])
