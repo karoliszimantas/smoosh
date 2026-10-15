@@ -24,9 +24,12 @@ type BuildViewProps = PhaseProps & {
   // for news that has to outlive this view — an upload refused after the
   // round has already moved on
   onNotice: (message: string) => void
+  // this player's prompt window is up: it takes the screen until their
+  // clock starts (GameRoot times it, and swaps the strip for its header)
+  promptWindowOpen?: boolean
 }
 
-export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) {
+export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen = false }: BuildViewProps) {
   const { upload: send } = useGameServices()
   const phase = snapshot.phase
   // BUILD, or a chain pass — the same screen. Uploads, the saved canvas
@@ -136,6 +139,7 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
     })
   const freestyle = (snapshot.settings.mode === 'gallery' && !snapshot.settings.prompted) || (pass !== null && pass.prompt === null)
   const prompt = pass ? (pass.prompt ?? '') : (snapshot.you.secretPrompt ?? '')
+  const showWindow = promptWindowOpen && snapshot.you.build !== null && !submitted
 
   return (
     <div className="build-view">
@@ -154,9 +158,11 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
         storageKey={submitted ? undefined : storageKey}
         // survives the tab being closed, not just reloaded
         storageArea="local"
+        // still laid out and measured under the prompt window, just not shown
+        concealed={showWindow}
         {...(pass ? { underlay: pass.underlay, maxLayers: PASS_LAYER_CAP, transparentExport: true } : {})}
       />
-      {snapshot.you.build && !submitted && (
+      {showWindow && snapshot.you.build && (
         <PromptWindow round={round} prompt={prompt} build={snapshot.you.build} emit={emit} />
       )}
     </div>

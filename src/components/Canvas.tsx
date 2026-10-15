@@ -140,6 +140,9 @@ type CanvasProps = {
   maxLayers?: number
   // chain: export only this player's layers, on a transparent ground
   transparentExport?: boolean
+  // laid out and measured, but not shown or reachable: the prompt window is
+  // over it, before the build clock starts
+  concealed?: boolean
 }
 
 function downloadBlob(blob: Blob): void {
@@ -167,6 +170,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     underlay,
     maxLayers,
     transparentExport = false,
+    concealed = false,
   },
   ref,
 ) {
@@ -866,7 +870,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const shownItems = depth ? moveToIndex(items, depth.id, depth.to) : items
 
   return (
-    <div className="app">
+    <div className={concealed ? 'app concealed' : 'app'}>
       <PromptBar
         text={promptText}
         canUndo={canUndo}
