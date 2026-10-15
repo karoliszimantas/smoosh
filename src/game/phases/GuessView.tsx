@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
-import DeadlineTimer from '../DeadlineTimer'
 import { actionErrorText } from '../roomMessages'
 import RoomProgress from '../RoomProgress'
 
@@ -32,7 +31,6 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="guess-view">
-      <DeadlineTimer deadline={phase.deadline} />
       <Picture imagePath={phase.imagePath} />
 
       {isAuthor ? (

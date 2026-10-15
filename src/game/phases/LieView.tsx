@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
-import DeadlineTimer from '../DeadlineTimer'
 import { actionErrorText } from '../roomMessages'
 import RoomProgress from '../RoomProgress'
 
@@ -31,7 +30,6 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="lie-view">
-      <DeadlineTimer deadline={phase.deadline} />
       <Picture imagePath={phase.imagePath} />
 
       {isAuthor || submitted ? (

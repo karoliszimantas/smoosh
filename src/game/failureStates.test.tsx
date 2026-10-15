@@ -4,6 +4,8 @@ import { UPLOAD_MESSAGES } from '@smoosh/protocol'
 import UploadStatus from './UploadStatus'
 import NoticeRegion from './NoticeRegion'
 import MissingView from './phases/MissingView'
+import StatusStrip from './StatusStrip'
+import { statusLine } from './statusLine'
 import { PICTURE_MESSAGES, uploadPicture, UPLOAD_ATTEMPTS, UPLOAD_BUDGET_MS } from './upload'
 import { actionErrorText } from './roomMessages'
 import { fixtureSnapshot, FIXTURE_BASE, YOU_ID } from '../dev/fixtures'
@@ -142,19 +144,22 @@ describe('missing-picture placeholder', () => {
   it('to everyone else: no name, no blame', () => {
     const snapshot = fixtureSnapshot('missing', FIXTURE_BASE, { authorId: 'bob' })
     const html = renderToStaticMarkup(<MissingView snapshot={snapshot} emit={emit} />)
-    expect(textOf(html)).toMatch(/^\d+s No picture this round$/)
+    expect(textOf(html)).toBe('No picture this round')
     expect(html).toContain('picture-display')
   })
 
   it('speaks to you when it was yours', () => {
     const snapshot = fixtureSnapshot('missing', FIXTURE_BASE, { authorId: YOU_ID })
     const text = textOf(renderToStaticMarkup(<MissingView snapshot={snapshot} emit={emit} />))
-    expect(text).toMatch(/^\d+s Your picture didn't make it this round$/)
+    expect(text).toBe("Your picture didn't make it this round")
   })
 
-  it('a calm timer: no amber, red or pulse', () => {
-    const snapshot = fixtureSnapshot('missing', FIXTURE_BASE, { authorId: 'bob' }) // 4s left: red, by the usual clock
-    expect(renderToStaticMarkup(<MissingView snapshot={snapshot} emit={emit} />)).not.toMatch(/deadline-timer-(amber|red|pulse)/)
+  it('a calm tag in the strip: the turn is skipped, nothing to hurry', () => {
+    const snapshot = fixtureSnapshot('missing', FIXTURE_BASE, { authorId: 'bob' }) // 4s left: hot, by the usual clock
+    const html = renderToStaticMarkup(<StatusStrip snapshot={snapshot} status={statusLine(snapshot)!} onLeave={noop} />)
+    expect(html).toContain('<div class="timer-tag">')
+    expect(html).toContain('<span class="timer-tag-word">Skip</span>')
+    expect(html).not.toContain('role="timer"')
   })
 
   it('renders nothing outside its phase', () => {

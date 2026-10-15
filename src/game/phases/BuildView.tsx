@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import Canvas, { type CanvasHandle } from '../../components/Canvas'
 import type { LayerItem } from '../../components/layerItem'
 import type { PhaseProps } from '../types'
-import DeadlineTimer from '../DeadlineTimer'
 import { useCountdown } from '../useCountdown'
 import { canvasStorageKey, loadCanvasItems, clearCanvasItems } from '../canvasStorage'
 import { SERVER_URL } from '../serverUrl'
@@ -114,7 +113,6 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
   if (phase.phase === 'pass' && (!pass || pass.chainId === null)) {
     return (
       <div className="pass-waiting">
-        <DeadlineTimer deadline={phase.deadline} />
         <h2>Not your turn yet</h2>
         <p className="phase-status">
           {pass?.nextPass !== null && pass?.nextPass !== undefined
@@ -141,7 +139,6 @@ export default function BuildView({ snapshot, emit, onNotice }: BuildViewProps) 
 
   return (
     <div className="build-view">
-      <DeadlineTimer deadline={deadline} />
       <UploadStatus
         state={shownState}
         onRetry={() => void canvasRef.current?.exportImage()}
