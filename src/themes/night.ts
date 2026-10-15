@@ -89,6 +89,7 @@ export const night: Theme = {
   timer: {
     calm: PAPER,
     hot: '#FF5A1F',
+    track: '#E9DFCC',
     hotTrack: '#FFB291',
     string: '#8A7E6C',
     hazard: `repeating-linear-gradient(-45deg, ${INK} 0 5px, #FFD84A 5px 10px)`,

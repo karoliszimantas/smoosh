@@ -110,6 +110,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--dymo-text': theme.paper.dymo.text,
     '--timer-calm': theme.timer.calm,
     '--timer-hot': theme.timer.hot,
+    '--timer-track': theme.timer.track,
     '--timer-hot-track': theme.timer.hotTrack,
     '--timer-string': theme.timer.string,
     '--hazard': theme.timer.hazard,
