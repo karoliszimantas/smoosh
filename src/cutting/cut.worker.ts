@@ -3,6 +3,7 @@
 // first job — this file is its own chunk, and the library (plus the ~40MB
 // model it fetches) never touches the main bundle or the initial page load.
 
+import { cleanAlpha } from './maskCleanup'
 import type { WorkerRequest, WorkerResponse } from './protocol'
 
 type Imgly = typeof import('@imgly/background-removal')
@@ -15,6 +16,10 @@ type ImglyConfig = NonNullable<Parameters<Imgly['removeBackground']>[1]>
 const MAX_INPUT_PX = 1024
 // alpha at or below this counts as background when trimming
 const TRIM_ALPHA = 10
+// tidy the model's mask before anything else sees it — specks dropped, halo
+// pulled in, edge softened (maskCleanup.ts). Off to compare against the raw
+// model output.
+const CLEAN_MASK = true
 
 // per-image failures — everything else means the device can't cut at all
 class ImageError extends Error {}
@@ -97,7 +102,18 @@ async function cut(url: string): Promise<{ place: Blob; upload: Blob | null }> {
   const full = canvas2d(bitmap.width, bitmap.height)
   full.drawImage(bitmap, 0, 0)
   bitmap.close()
-  const bounds = alphaBounds(full.getImageData(0, 0, full.canvas.width, full.canvas.height))
+  const pixels = full.getImageData(0, 0, full.canvas.width, full.canvas.height)
+  if (CLEAN_MASK) {
+    // cleaned in place and drawn back, so the upload, the trim box and the
+    // trimmed cut all come from the same cleaned mask — the trim box hugs
+    // the subject now there are no specks out in the corners to stretch it
+    const s = cleanAlpha(pixels.data, pixels.width, pixels.height)
+    full.putImageData(pixels, 0, 0)
+    console.info(
+      `[cut] mask clean-up: kept ${s.kept}/${s.components} components, cleared ${s.cleared}px, softened ${s.softened}px in ${s.ms}ms`,
+    )
+  }
+  const bounds = alphaBounds(pixels)
   if (!bounds) throw new ImageError('No subject found in this image — try Full instead.')
 
   // The upload stays untrimmed, the same size as the source, so the server
