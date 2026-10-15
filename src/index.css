@@ -4352,3 +4352,17 @@ select.field {
   width: 16px;
   height: 16px;
 }
+
+/* ---------- tape ----------
+   A strip of yellow tape holding paper to the desk (components/Tape.tsx):
+   placed by its parent, which must be positioned. Decoration only */
+.tape {
+  position: absolute;
+  z-index: 1;
+  width: 72px;
+  height: 22px;
+  background: var(--tape);
+  opacity: 0.85;
+  transform: rotate(-3deg);
+  pointer-events: none;
+}
