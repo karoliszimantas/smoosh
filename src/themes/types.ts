@@ -81,7 +81,7 @@ export type Theme = {
     ledge: string // a button standing on its ink ledge
     ledgeSmall: string
     ledgeInner: string // the ledge alone, for a button inside a card
-    ledgePressed: string // the ledge pushed down: :active
+    ledgePressed: string // :active — the button drops 3px onto a 2px ledge
     burst: string // the points burst on Reveal
   }
 
