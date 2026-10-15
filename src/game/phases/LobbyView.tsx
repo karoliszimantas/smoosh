@@ -3,12 +3,14 @@ import {
   BUILD_TIME_OPTIONS,
   ANSWER_TIME_OPTIONS,
   MIN_PLAYERS_TO_START,
+  MAX_PLAYERS,
   chainBuildingSec,
   estimateDurationSec,
 } from '@smoosh/protocol'
 import type { ChainStructure, GameMode, GameSettings } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import ThemeSwitcher from '../../themes/ThemeSwitcher'
+import PlayerChip from '../PlayerChip'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
   guess: { label: 'Guess', blurb: 'Secret prompts — fool the others with fake ones' },
@@ -66,6 +68,8 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
   // only players here when the game starts are dealt in
   const presentCount = players.filter((p) => p.presence === 'present').length
   const awayCount = players.length - presentCount
+  // nobody who left is listed — in the lobby the server frees their seat
+  const seated = players.filter((p) => p.presence !== 'left')
   const canStart = you.isHost && presentCount >= MIN_PLAYERS_TO_START
   const estimateMin = Math.max(1, Math.round(estimateDurationSec(settings, players.length) / 60))
 
@@ -94,15 +98,28 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
         <h1>Room {roomCode}</h1>
       </div>
 
-      <ul className="player-list">
-        {players.map((p) => (
-          <li key={p.id} className={p.presence === 'away' ? 'away' : ''}>
-            {p.name}
-            {p.isHost ? ' (host)' : ''}
-            {p.presence === 'away' && <span className="away-marker">away</span>}
-          </li>
-        ))}
-      </ul>
+      <div className="lobby-seats">
+        <p className="field-label lobby-seats-head">
+          <span>Players</span>
+          <span>
+            {seated.length} of {MAX_PLAYERS}
+          </span>
+        </p>
+        <ul className="seat-grid" aria-label="Players">
+          {seated.map((p) => (
+            <li key={p.id}>
+              <PlayerChip player={p} players={players} youId={you.playerId} />
+            </li>
+          ))}
+          {/* one empty seat while there's room — "n of 8" above says it */}
+          {players.length < MAX_PLAYERS && (
+            <li className="seat-waiting" aria-hidden="true">
+              <span className="seat-waiting-avatar" />
+              Waiting…
+            </li>
+          )}
+        </ul>
+      </div>
       {awayCount > 0 && <p className="lobby-away-note">Anyone away when the game starts sits it out.</p>}
 
       <section className={`paper-card lobby-card${you.isHost ? '' : ' readonly'}`} aria-label="Game settings">
