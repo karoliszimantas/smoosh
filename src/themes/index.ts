@@ -142,12 +142,21 @@ export function applyThemeToDocument(theme: Theme): void {
 
 const STORAGE_KEY = 'smoosh_theme'
 
+// Themes that were renamed: a stored pick of one carries over to its
+// successor, light for light and dark for dark
+const RENAMED: Record<string, string> = { clean: 'day', neon: 'night' }
+
 // per player, per device — never sent over the socket. A stored pick that
 // names no theme (one since removed: Scrapbook, Noir, Newsprint, Fresco) is
 // no pick at all — forgotten, and the device's setting applies
 export function loadThemeId(): string | null {
   try {
-    const id = localStorage.getItem(STORAGE_KEY)
+    let id = localStorage.getItem(STORAGE_KEY)
+    const renamed = id !== null && Object.hasOwn(RENAMED, id) ? RENAMED[id] : undefined
+    if (renamed !== undefined) {
+      localStorage.setItem(STORAGE_KEY, renamed)
+      id = renamed
+    }
     if (id !== null && !themeById(id)) {
       localStorage.removeItem(STORAGE_KEY)
       return null
