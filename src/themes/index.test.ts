@@ -162,6 +162,7 @@ describe('text contrast', () => {
     ['red on paper', (t) => [t.primaryInk, t.surface]],
     ['disabled', (t) => [t.surfaceSunkenText, t.surfaceSunken]],
     ['danger', (t) => [t.dangerText, t.danger]],
+    ['error text on the desk', (t) => [t.dangerOnDesk, t.pageBg]],
     ['warning', (t) => [t.warningText, t.warning]],
   ]
 
