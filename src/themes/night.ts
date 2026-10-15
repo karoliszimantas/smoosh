@@ -46,6 +46,7 @@ export const night: Theme = {
   surface: PAPER,
   scrim: 'rgba(20,18,16,.6)',
   danger: '#D7141A',
+  dangerOnDesk: '#FF6B5B',
   dangerText: '#FFFFFF',
   warning: '#FFD84A',
   warningText: INK,

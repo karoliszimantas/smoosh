@@ -57,6 +57,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--scrim': theme.scrim,
     '--danger': theme.danger,
     '--danger-text': theme.dangerText,
+    '--danger-on-desk': theme.dangerOnDesk,
     '--warning': theme.warning,
     '--warning-text': theme.warningText,
     '--accent': theme.accent,

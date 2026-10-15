@@ -1204,7 +1204,7 @@ h2,
 }
 
 .form-error {
-  color: var(--danger);
+  color: var(--danger-on-desk);
   font-weight: 600;
 }
 
@@ -1354,7 +1354,7 @@ h2,
 }
 
 .home-error {
-  color: var(--danger);
+  color: var(--danger-on-desk);
   font-size: 13px;
   font-weight: 600;
 }
@@ -2157,7 +2157,7 @@ button.theme-choice-option.active {
 
 .prompts-error {
   margin: 6px 0;
-  color: var(--danger);
+  color: var(--danger-on-desk);
   font-size: 14px;
 }
 
@@ -2660,7 +2660,7 @@ button.theme-choice-option.active {
 
 .import-status.too_long,
 .import-status.invalid {
-  color: var(--danger);
+  color: var(--danger-on-desk);
 }
 
 .import-reason {

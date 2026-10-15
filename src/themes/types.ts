@@ -49,6 +49,7 @@ export type Theme = {
   surface: string // chips, cards, inputs, list rows, neutral buttons; textPrimary sits on it
   scrim: string // backdrop behind dialogs and the asset sheet
   danger: string // delete, errors
+  dangerOnDesk: string // error text straight on the desk; danger is a fill
   dangerText: string // text on danger
   warning: string // a running-out timer, the reconnect banner
   warningText: string // text on warning
