@@ -43,11 +43,19 @@ export default function PromptWindow({
           <>
             <p className="prompt-window-kicker">Your prompt</p>
             <h2 className="prompt-window-prompt">{prompt}</h2>
-            <button className="prompt-window-start" onClick={() => void send(() => emit('build:begin', { round }))} disabled={busy}>
+            <button
+              className="btn btn-primary btn-inset btn-block prompt-window-start"
+              onClick={() => void send(() => emit('build:begin', { round }))}
+              disabled={busy}
+            >
               Start building
             </button>
             {build.canSwap ? (
-              <button className="prompt-window-swap" onClick={() => void send(() => emit('prompt:swap', { round }))} disabled={busy}>
+              <button
+                className="btn btn-secondary btn-inset btn-block prompt-window-swap"
+                onClick={() => void send(() => emit('prompt:swap', { round }))}
+                disabled={busy}
+              >
                 Swap prompt · {build.swapsLeft} left
               </button>
             ) : (

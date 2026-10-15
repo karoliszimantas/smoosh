@@ -26,10 +26,10 @@ export default function LeaveDialog({
         <h2 id="leave-title">{title}</h2>
         <p>{body}</p>
         <div className="leave-actions">
-          <button className="leave-stay" onClick={onStay} autoFocus>
+          <button className="btn btn-primary btn-inset leave-stay" onClick={onStay} autoFocus>
             Stay
           </button>
-          <button className="leave-go" onClick={onLeave}>
+          <button className="btn btn-secondary btn-inset leave-go" onClick={onLeave}>
             Leave
           </button>
         </div>

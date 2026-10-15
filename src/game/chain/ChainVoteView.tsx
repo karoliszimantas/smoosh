@@ -66,7 +66,7 @@ export default function ChainVoteView({ snapshot, emit }: PhaseProps) {
       {votable.size > 0 && !done && (
         <div className="vote-bar">
           {error && <p className="form-error">{error}</p>}
-          <button className="vote-submit" onClick={() => void cast()} disabled={!pick || sending}>
+          <button className="btn btn-primary btn-block vote-submit" onClick={() => void cast()} disabled={!pick || sending}>
             {sending ? 'Casting…' : pick ? 'Cast vote' : 'Pick a favourite'}
           </button>
         </div>
