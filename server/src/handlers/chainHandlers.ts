@@ -1,10 +1,11 @@
 import { GameError, SkipChainRevealSchema, SubmitChainVoteSchema } from '@smoosh/protocol'
 import { touchRoom } from '../rooms/Room.ts'
 import { dropPendingActor, recordChainVote, skipChainReveal, votableChains, type PhaseMachineDeps } from '../game/phaseMachine.ts'
-import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
 export function registerChainHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
   socket.on('chainVote:submit', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { round, chainId } = SubmitChainVoteSchema.parse(payload)
       const room = requireRoom(socket)
@@ -18,15 +19,16 @@ export function registerChainHandlers(_io: TypedServer, socket: TypedSocket, dep
       }
       recordChainVote(room, seat.playerId, chainId)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       dropPendingActor(room, deps, seat.playerId)
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('chainReveal:skip', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { round } = SkipChainRevealSchema.parse(payload)
       const room = requireRoom(socket)
@@ -34,10 +36,10 @@ export function registerChainHandlers(_io: TypedServer, socket: TypedSocket, dep
       if (!seat.isHost) throw new GameError('NOT_HOST', 'only the host can skip')
       if (room.phase.phase !== 'chainReveal' || room.phase.round !== round) throw new GameError('PHASE_MISMATCH', 'nothing to skip')
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       skipChainReveal(room, deps)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 }

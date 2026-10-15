@@ -2,7 +2,7 @@ import { BeginBuildSchema, GameError, KeepPromptSchema, SwapPromptSchema } from 
 import { touchRoom, type Room } from '../rooms/Room.ts'
 import { rescheduleBuild, type PhaseMachineDeps } from '../game/phaseMachine.ts'
 import { closeWindow, settleWindows, swapPrompt, swapProblem } from '../game/promptSwap.ts'
-import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
 // Guess, the start of BUILD: each player's prompt window (promptSwap.ts).
 export function registerBuildHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
@@ -14,6 +14,7 @@ export function registerBuildHandlers(_io: TypedServer, socket: TypedSocket, dep
   }
 
   socket.on('prompt:swap', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { round } = SwapPromptSchema.parse(payload)
       const room = requireRoom(socket)
@@ -23,11 +24,11 @@ export function registerBuildHandlers(_io: TypedServer, socket: TypedSocket, dep
       if (problem) throw new GameError('PHASE_MISMATCH', problem)
       swapPrompt(room, seat.playerId, Date.now(), room.swapPool, deps.random)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       rescheduleBuild(room, deps)
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
@@ -41,28 +42,30 @@ export function registerBuildHandlers(_io: TypedServer, socket: TypedSocket, dep
   }
 
   socket.on('prompt:keep', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { round, keep } = KeepPromptSchema.parse(payload)
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
       inBuild(room, round)
-      cb(ok(undefined))
+      ack(ok(undefined))
       close(keep)(room, seat.playerId)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('build:begin', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { round } = BeginBuildSchema.parse(payload)
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
       inBuild(room, round)
-      cb(ok(undefined))
+      ack(ok(undefined))
       close('swapped')(room, seat.playerId)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 }
