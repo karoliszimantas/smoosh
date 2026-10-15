@@ -8,6 +8,11 @@ import { getPromptStore } from './prompts/shared.ts'
 
 const PORT = Number(process.env.PORT ?? 3001)
 
+// every game lives in this process's memory: one bad packet or a stray
+// rejection must not end everyone's game. Logged, and the server carries on.
+process.on('uncaughtException', (err) => console.error('[process] uncaught exception:', err))
+process.on('unhandledRejection', (reason) => console.error('[process] unhandled rejection:', reason))
+
 const httpServer = http.createServer()
 const { deps } = createSocketServer(httpServer)
 httpServer.on('request', createRequestHandler(deps))

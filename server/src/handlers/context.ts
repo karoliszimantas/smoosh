@@ -16,6 +16,13 @@ export function fail(err: unknown): AckResult<never> {
   return { ok: false, code: 'INVALID_PAYLOAD', message }
 }
 
+// the protocol types say an ack is always there, but a client can emit
+// without one — calling it then would throw from the catch and take the
+// whole process down. Every handler answers through this.
+export function safeAck<R>(cb: ((r: R) => void) | undefined): (r: R) => void {
+  return typeof cb === 'function' ? cb : () => {}
+}
+
 export function requireRoom(socket: TypedSocket): Room {
   const roomCode = socket.data.roomCode
   const room = roomCode ? getRoom(roomCode) : undefined

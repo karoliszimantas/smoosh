@@ -2,10 +2,11 @@ import { SubmitLieSchema, GameError } from '@smoosh/protocol'
 import { touchRoom } from '../rooms/Room.ts'
 import { dropPendingActor, recordLie, existingLieTexts, type PhaseMachineDeps } from '../game/phaseMachine.ts'
 import { validateLie } from '../game/lieValidation.ts'
-import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
 export function registerLieHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
   socket.on('lie:submit', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { pictureIndex, text } = SubmitLieSchema.parse(payload)
       const room = requireRoom(socket)
@@ -32,11 +33,11 @@ export function registerLieHandlers(_io: TypedServer, socket: TypedSocket, deps:
 
       recordLie(room, pictureIndex, seat.playerId, text)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       dropPendingActor(room, deps, seat.playerId)
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 }

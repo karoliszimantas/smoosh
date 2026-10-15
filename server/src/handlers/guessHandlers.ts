@@ -1,10 +1,11 @@
 import { SubmitGuessSchema, GameError } from '@smoosh/protocol'
 import { touchRoom } from '../rooms/Room.ts'
 import { dropPendingActor, recordGuess, optionsForPicture, type PhaseMachineDeps } from '../game/phaseMachine.ts'
-import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
 export function registerGuessHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
   socket.on('guess:submit', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { pictureIndex, optionId } = SubmitGuessSchema.parse(payload)
       const room = requireRoom(socket)
@@ -28,11 +29,11 @@ export function registerGuessHandlers(_io: TypedServer, socket: TypedSocket, dep
 
       recordGuess(room, pictureIndex, seat.playerId, optionId)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       dropPendingActor(room, deps, seat.playerId)
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 }

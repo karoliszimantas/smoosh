@@ -22,7 +22,7 @@ import { resolveSeat } from '../rooms/seats.ts'
 import { dealIn, enterLobby, seatArrived, seatAway, seatLeft, type PresenceDeps } from '../rooms/presence.ts'
 import { startBuild } from '../game/phaseMachine.ts'
 import { deleteRoomSubmissions } from '../submissions/store.ts'
-import { ok, fail, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
+import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 import { phaseLabel, roomLog, waitingLabel, who } from '../roomLog.ts'
 
 export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps: PresenceDeps): void {
@@ -54,16 +54,17 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
   }
 
   socket.on('room:create', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { name } = CreateRoomSchema.parse(payload)
       leaveOtherRooms(null)
       const room = createAndRegisterRoom()
       const seat = resolveSeat(room, socket.data.sessionId, name, true)
       attach(room, seat)
-      cb(ok({ roomCode: room.code }))
+      ack(ok({ roomCode: room.code }))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
@@ -71,6 +72,7 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
   // reconnect, the page returning from the background, the room code typed
   // in again after leaving
   socket.on('room:join', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { roomCode, name } = JoinRoomSchema.parse(payload)
       const room = getRoom(roomCode)
@@ -85,14 +87,15 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       leaveOtherRooms(room.code)
       attach(room, seat)
       roomLog(room.code, `${who(seat)} joined (was ${was}) during ${phaseLabel(room)}; ${waitingLabel(room)}`)
-      cb(ok(undefined))
+      ack(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('room:leave', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const { roomCode } = LeaveRoomSchema.parse(payload)
       const room = (roomCode ? getRoom(roomCode) : undefined) ?? requireRoom(socket)
@@ -100,14 +103,15 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       socket.data.roomCode = undefined
       seatLeft(room, deps, seat)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('presence:away', (_payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
@@ -116,14 +120,15 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
         seatAway(room, deps, seat)
         roomLog(room.code, `${who(seat)} away (page hidden)`)
       }
-      cb(ok(undefined))
+      ack(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('room:updateSettings', (payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
@@ -135,14 +140,15 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       if (problem) throw new GameError('INVALID_SETTINGS', problem)
       room.settings = settings
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('room:start', (_payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
@@ -168,14 +174,15 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
 
       dealIn(room, deps)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       startBuild(room, deps)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 
   socket.on('room:playAgain', (_payload, cb) => {
+    const ack = safeAck(cb)
     try {
       const room = requireRoom(socket)
       const seat = requireSeat(room, socket)
@@ -210,10 +217,10 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
 
       enterLobby(room, deps)
       touchRoom(room)
-      cb(ok(undefined))
+      ack(ok(undefined))
       deps.onSnapshot(room)
     } catch (err) {
-      cb(fail(err))
+      ack(fail(err))
     }
   })
 }
