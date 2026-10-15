@@ -20,6 +20,7 @@ export const day: Theme = {
   textMuted: '#5C5348',
 
   pageBg: DESK,
+  dangerOnDesk: '#A3172A',
   surface: PAPER,
 
   surfaceSunken: '#D6CAB3',
