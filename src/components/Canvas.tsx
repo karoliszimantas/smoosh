@@ -18,6 +18,7 @@ import {
   type EraseStroke,
   type LayerItem,
   type Placement,
+  usedPromptWords,
 } from './layerItem'
 import { saveCanvasItems, type CanvasStorageArea } from '../game/canvasStorage'
 import { encodePicture } from '../game/reencode'
@@ -182,6 +183,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const setItems = useCallback((change: (prev: LayerItem[]) => LayerItem[]) => setDoc((d) => commitDoc(d, change)), [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  // the prompt word chip that last asked for its tab, numbered so that
+  // asking again for the same word is still a new request
+  const [tabRequest, setTabRequest] = useState<{ key: string; seq: number } | null>(null)
+  // whatever opened the sheet gets the focus back when it closes
+  const sheetOpener = useRef<HTMLElement | null>(null)
   const [reportTarget, setReportTarget] = useState<number | null>(null)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
   const [cropping, setCropping] = useState<Cropping | null>(null)
@@ -786,11 +792,23 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setCropping(null)
   }, [cropping, setItems])
 
-  const openSheet = useCallback(() => setSheetOpen(true), [])
+  const openSheet = useCallback(() => {
+    sheetOpener.current = addButtonRef.current
+    setSheetOpen(true)
+  }, [])
+  // a prompt word's chip: the sheet, on that word's tab
+  const openSheetOn = useCallback((term: string) => {
+    sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setTabRequest((prev) => ({ key: term, seq: (prev?.seq ?? 0) + 1 }))
+    setSheetOpen(true)
+  }, [])
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
-    addButtonRef.current?.focus()
+    const opener = sheetOpener.current ?? addButtonRef.current
+    opener?.focus()
   }, [])
+  // the prompt words with a layer on the canvas placed from their tab
+  const usedWords = useMemo(() => usedPromptWords(items), [items])
   const handleAssetSelect = useCallback((placement: Placement) => addItem(placement), [addItem])
 
   const exportImage = useCallback(async (): Promise<Blob | null> => {
@@ -874,6 +892,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     <div className={concealed ? 'app concealed' : 'app'}>
       <PromptBar
         text={promptText}
+        freestyle={freestyle}
+        usedWords={usedWords}
+        onWord={openSheetOn}
         canUndo={canUndo}
         onUndo={undo}
         submitLabel={doneLabel ?? 'Done'}
@@ -1040,6 +1061,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onClose={closeSheet}
           onPlace={handleAssetSelect}
           onCutShared={handleCutShared}
+          tabRequest={tabRequest}
         />
       </Suspense>
 
