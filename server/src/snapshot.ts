@@ -88,6 +88,7 @@ export function buildSnapshot(room: Room, seat: Seat): RoomSnapshot {
     players,
     phase: room.phase,
     waitingOn: [...room.pendingActors],
+    serverNow: Date.now(),
     you: {
       playerId: seat.playerId,
       isHost: seat.isHost,

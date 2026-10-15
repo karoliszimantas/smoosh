@@ -244,6 +244,7 @@ export function fixtureSnapshot(
     players: base.players,
     phase: state,
     waitingOn: phase === 'build' ? others.map((p) => p.id) : [],
+    serverNow: Date.now(),
     you: {
       playerId: base.youId,
       isHost: base.players.find((p) => p.id === base.youId)?.isHost ?? false,

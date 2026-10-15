@@ -5,6 +5,7 @@ import { ChainPicture } from './ChainPicture'
 import { Placard } from '../gallery/Exhibit'
 import { titleFor } from '../gallery/galleryText'
 import { chainArtists } from './chainText'
+import { serverNow } from '../serverClock'
 
 // Each chain in turn: all of it as ghosts — as its later players saw it —
 // then its passes resolve one at a time, in order, with a beat between;
@@ -30,9 +31,9 @@ function stageAt(elapsed: number, starts: readonly number[], passes: readonly nu
 export default function ChainRevealView({ snapshot, emit }: PhaseProps) {
   const phase = snapshot.phase
   const reveal = phase.phase === 'chainReveal' ? phase : null
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 150)
+    const id = setInterval(() => setNow(serverNow()), 150)
     return () => clearInterval(id)
   }, [])
   if (!reveal) return null

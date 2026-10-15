@@ -547,6 +547,7 @@ export class SoloGame {
       phase: p,
       // bots act instantly, so only BUILD ever waits on anyone
       waitingOn: p.phase === 'build' ? this.players.filter((x) => !this.submitted.has(x.id)).map((x) => x.id) : [],
+      serverNow: Date.now(),
       you: {
         playerId: YOU_ID,
         isHost: true,

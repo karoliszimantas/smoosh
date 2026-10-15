@@ -62,5 +62,9 @@ export const RoomSnapshotSchema = z.object({
   // who the current phase is still waiting on — in BUILD, whoever hasn't
   // sent a picture in yet, away players included
   waitingOn: z.array(PlayerIdSchema),
+  // the server's clock when this snapshot was built (ms epoch). Deadlines are
+  // server timestamps; a phone with a skewed clock measures them against this
+  // instead of its own Date.now()
+  serverNow: z.number(),
 })
 export type RoomSnapshot = z.infer<typeof RoomSnapshotSchema>
