@@ -3928,3 +3928,167 @@ select.field {
   min-width: 200px;
   padding: 12px;
 }
+
+/* ---------- player marks ----------
+   A player is a coloured round avatar with their initial and a white badge
+   holding their seat's shape: colour and shape together, so seats are told
+   apart without relying on colour. PlayerChip (52px, the lobby and the
+   Reveal card) and PlayerDot (28px, rows and strips) set --p-bg/--p-fg
+   inline from the theme's seat colours. */
+
+/* the 52px pill: avatar, name, a tag */
+.player-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--surface-text);
+}
+
+/* you: a dashed ring around your own pill. Drawn, not an outline — Safari
+   before 16.4 draws outlines square on rounded boxes */
+.player-chip.you::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px dashed var(--text);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.player-chip.you.on-paper::after {
+  border-color: var(--surface-text);
+}
+
+.player-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--p-bg);
+  color: var(--p-fg);
+  box-shadow: inset 0 0 0 2.5px var(--line);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* the white badge with the seat's shape, on the avatar's lower right */
+.player-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--mark-badge);
+  box-shadow: 0 0 0 1.5px var(--line);
+  color: var(--line);
+}
+
+.player-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 700 18px/22px var(--font-ui);
+}
+
+.player-tag {
+  flex-shrink: 0;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--surface-text-muted);
+}
+
+/* away: a grey pill, the avatar faded, and an ink Away tag */
+.player-chip.away {
+  background: var(--away-chip);
+}
+
+.player-chip.away .player-avatar,
+.player-dot.away {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.player-chip.away .player-tag {
+  padding: 3px 5px;
+  border-radius: 2px;
+  background: var(--line);
+  color: var(--surface);
+}
+
+/* the 28px dot */
+.player-dot {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--p-bg);
+  color: var(--p-fg);
+  box-shadow: inset 0 0 0 2px var(--line);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.player-dot .player-badge {
+  right: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+}
+
+/* someone the room is still waiting on: a dashed ghost, no colour yet */
+.player-dot.pending {
+  background: none;
+  box-shadow: none;
+  border: 2px dashed var(--ghost);
+  color: var(--ghost);
+}
+
+/* a dot before a name, in a row */
+.dot-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* a row of dots: who picked a lie. The badge pokes out 3px */
+.dot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0 3px 3px 0;
+  list-style: none;
+}
+
+.dot-row li {
+  display: flex;
+}
