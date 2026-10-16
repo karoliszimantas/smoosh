@@ -507,8 +507,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     for (const node of layer.find<Konva.Image>('Image')) {
       if (node.id() === activeId || !node.visible()) continue
       const onScreen = Math.abs(node.getAbsoluteScale().x) * Konva.pixelRatio
-      const side = Math.max(1, node.width(), node.height())
-      node.cache({ pixelRatio: Math.max(0.1, Math.min(onScreen, 2048 / side)) })
+      // a cut-out's sticker edge spills past its box (DraggableImage): the
+      // snapshot is widened by as much so the rim and its shadow aren't clipped
+      const pad = Math.ceil(Number(node.getAttr('stickerPad')) || 0)
+      const side = Math.max(1, node.width() + 2 * pad, node.height() + 2 * pad)
+      node.cache({ offset: pad, pixelRatio: Math.max(0.1, Math.min(onScreen, 2048 / side)) })
     }
   }, [])
   const thawAll = useCallback(() => {
