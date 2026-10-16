@@ -1,6 +1,7 @@
 // Background removal, off the main thread so the canvas never freezes
 // mid-gesture. @imgly/background-removal is imported dynamically on the
-// first job — this file is its own chunk, and the library (plus the ~40MB
+// first job — a preload while the player reads their prompt, or the first
+// cut — so this file is its own chunk, and the library (plus the ~40MB
 // model it fetches) never touches the main bundle or the initial page load.
 
 import { cleanAlpha } from './maskCleanup'
@@ -87,10 +88,17 @@ function alphaBounds(data: ImageData): { x: number; y: number; w: number; h: num
   return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 
-async function cut(url: string): Promise<{ place: Blob; upload: Blob | null; trim: CutTrim }> {
+// the library, with its model fetched and ready — once per worker; a
+// preload and a cut asking at the same time share the one download
+async function load(): Promise<Imgly> {
   if (!imgly) imgly = import('@imgly/background-removal')
   const lib = await imgly
   await lib.preload(config)
+  return lib
+}
+
+async function cut(url: string): Promise<{ place: Blob; upload: Blob | null; trim: CutTrim }> {
+  const lib = await load()
 
   const input = await fetchDownscaled(url)
   // the cut timeout starts here — a slow image download is the network's
@@ -135,9 +143,19 @@ async function cut(url: string): Promise<{ place: Blob; upload: Blob | null; tri
 }
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  const { job, url } = event.data
+  const request = event.data
+  const { job } = request
+  // the download's progress goes to whoever asked last: a cut tapped
+  // while a preload is still fetching shows how far it has got
   currentJob = job
-  cut(url).then(
+  if (request.type === 'preload') {
+    load().then(
+      () => post({ type: 'ready', job }),
+      (err: unknown) => post({ type: 'error', job, message: err instanceof Error ? err.message : String(err), fatal: true }),
+    )
+    return
+  }
+  cut(request.url).then(
     ({ place, upload, trim }) => post({ type: 'done', job, place, upload, trim }),
     (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)

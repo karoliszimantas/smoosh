@@ -9,13 +9,14 @@ import {
   useSyncExternalStore,
   type ChangeEvent,
   type PointerEvent,
+  useId,
 } from 'react'
 import type { Asset, ImageVariant, PixabayHit, SearchResult } from '../assets'
 import { LocalAssetSource, SearchError, pixabaySource } from '../assets'
 import { mergeResults, promptTabs } from '../assets/search'
 import { buildIndex, searchAssets } from '../assetSearch'
 import { recordMissingWord } from '../assets/missingWords'
-import { canCutOnDevice, cutImage, subscribeCutAvailability, type CutTrim } from '../cutting/cutClient'
+import { canCutOnDevice, CutTooSlow, cutImage, cutNeedsDownload, subscribeCutter, type CutTrim } from '../cutting/cutClient'
 import type { Placement } from './layerItem'
 import type { CutUpdate } from './cutSwap'
 import { generateId } from '../id'
@@ -73,6 +74,9 @@ type TermState = {
   loading: boolean
   error: string | null
 }
+
+// a cut that didn't work, as the canvas hears of it
+const cutFailure = (err: unknown): CutUpdate => (err instanceof CutTooSlow ? { kind: 'tooSlow' } : { kind: 'failed' })
 
 // a cut being made on this phone, and the layers waiting on it
 type DeviceCut = { done: Promise<{ image: ImageVariant; trim: CutTrim }>; tokens: Set<string> }
@@ -140,7 +144,10 @@ export default function AssetSheet({
   const [curated, setCurated] = useState<CuratedEntry[] | null>(null)
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set())
   const [reportTarget, setReportTarget] = useState<number | null>(null)
-  const cutAvailable = useSyncExternalStore(subscribeCutAvailability, canCutOnDevice)
+  const cutAvailable = useSyncExternalStore(subscribeCutter, canCutOnDevice)
+  // the cutter wasn't fetched ahead (a metered connection): the first card
+  // that would cut on this phone says the first cut downloads it
+  const cutNeedsFetch = useSyncExternalStore(subscribeCutter, cutNeedsDownload)
   const sheetRef = useRef<HTMLDivElement>(null)
   const refreshedTerms = useRef(new Set<string>())
   // a photo from this phone, prepared and waiting to be cut — on this device only
@@ -361,6 +368,8 @@ export default function AssetSheet({
     const hits = activeTerm === libraryQuery ? (termState?.hits ?? []) : []
     return mergeResults(libraryMatches, hits).filter((r) => r.pixabayId === null || r.tier === 1 || !hidden.has(r.pixabayId))
   }, [activeCategory, curated, libraryQuery, libraryMatches, activeTerm, termState, hidden])
+  // the first card whose Cut is made on this phone
+  const firstDeviceCut = results.find(cutsOnDevice)?.key
 
   // a prompt word the library has nothing for: shown as an empty tab (the
   // player should know), and counted (so the library can grow where it's thin)
@@ -443,7 +452,7 @@ export default function AssetSheet({
       known.tokens.add(token)
       known.done.then(
         (cut) => onCut(token, { kind: 'done', ...cut }),
-        () => onCut(token, { kind: 'failed' }),
+        (err: unknown) => onCut(token, cutFailure(err)),
       )
       return
     }
@@ -471,7 +480,7 @@ export default function AssetSheet({
         console.warn('cut failed', err)
         // tried again from scratch next time
         deviceCuts.current.delete(rect.full)
-        onCut(token, { kind: 'failed' })
+        onCut(token, cutFailure(err))
       },
     )
   }
@@ -654,6 +663,7 @@ export default function AssetSheet({
                 key={result.key}
                 result={result}
                 cutAvailable={cutAvailable}
+                downloadNote={cutNeedsFetch && result.key === firstDeviceCut}
                 onCut={handleCut}
                 onFull={(r) => r.rect && place(r, r.rect, currentWord())}
                 onReport={setReportTarget}
@@ -707,15 +717,21 @@ function applyCuts(terms: Record<string, TermState>, found: ReadonlyMap<number, 
   return next
 }
 
-function ResultCard({
+// a result only this phone can cut: no one has cut it yet
+const cutsOnDevice = (result: SearchResult) => result.cut === null && result.tier === 3
+
+export function ResultCard({
   result,
   cutAvailable,
+  downloadNote = false,
   onCut,
   onFull,
   onReport,
 }: {
   result: SearchResult
   cutAvailable: boolean
+  // says, quietly, that Cut has a download to make first
+  downloadNote?: boolean
   onCut: (result: SearchResult) => void
   onFull: (result: SearchResult) => void
   onReport: (pixabayId: number) => void
@@ -726,11 +742,18 @@ function ResultCard({
   const showFull = result.rect !== null
   // backgrounds default to Full: never nudge anyone into cutting a landscape
   const primary = !showCut || result.isBackground ? 'full' : 'cut'
+  const noteId = useId()
+  const note = downloadNote && showCut && !isCut
 
   return (
     <div className={`result-card${isCut ? ' is-cut' : ''}`}>
       <div className="result-thumb">
         <img src={result.thumb} alt={result.label} loading="lazy" />
+        {note && (
+          <p id={noteId} className="result-note">
+            Cut works after a short download
+          </p>
+        )}
       </div>
 
       {result.tier !== 1 && result.pixabayId !== null && (
@@ -749,6 +772,7 @@ function ResultCard({
             className={`result-action${primary === 'cut' ? ' primary' : ''}`}
             onClick={() => onCut(result)}
             aria-label={`Cut ${result.label}`}
+            aria-describedby={note ? noteId : undefined}
           >
             Cut
           </button>

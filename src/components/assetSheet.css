@@ -47,3 +47,22 @@
 .asset-sheet .asset-sheet-categories {
   touch-action: pan-x;
 }
+
+/* ---------- asset sheet: Cut has a download to make ----------
+   The cutter wasn't fetched ahead (a metered connection), so the first
+   card that cuts on this phone says so, quietly, along the foot of its
+   picture — the card keeps its size and the grid its rows. */
+
+.result-note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--surface-text-muted);
+  font: 600 11px/1.25 var(--font-ui);
+  text-align: center;
+  pointer-events: none;
+}

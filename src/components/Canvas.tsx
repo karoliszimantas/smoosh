@@ -41,7 +41,7 @@ import { EXPORT_LOOK } from '../themes/exportLook'
 import Tape from './Tape'
 import SelectionOverlay from './SelectionOverlay'
 import CutOverlay from './CutOverlay'
-import { dropCut, landCuts, withoutCut, type CutUpdate, type LandedCut } from './cutSwap'
+import { CUT_FAILED_TEXT, CUT_TOO_SLOW_TEXT, dropCut, landCuts, notesOnCut, withoutCut, type CutUpdate, type LandedCut } from './cutSwap'
 import './canvas.css'
 import type { SheetMode } from './AssetSheet'
 
@@ -73,6 +73,8 @@ const EXPORT_SIZE = 1024
 const EXPORT_PAPER = { fill: EXPORT_LOOK.canvasBg }
 // how long a passing note over the canvas stays
 const TOAST_MS = 4000
+// how long words stay on a layer (a phone too slow to cut)
+const LAYER_NOTE_MS = 4000
 
 // long-press a layer to change its depth: hold still this long…
 const LONG_PRESS_MS = 400
@@ -224,6 +226,19 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const timer = window.setTimeout(() => setToast(null), TOAST_MS)
     return () => window.clearTimeout(timer)
   }, [toast])
+
+  // words on a layer for a moment, in the cut overlay's chip: a phone too
+  // slow to cut kept the whole picture
+  const [layerNotes, setLayerNotes] = useState<{ id: string; label: string; until: number }[]>([])
+  useEffect(() => {
+    if (layerNotes.length === 0) return
+    const next = Math.min(...layerNotes.map((n) => n.until))
+    const timer = window.setTimeout(
+      () => setLayerNotes((prev) => prev.filter((n) => n.until > Date.now())),
+      Math.max(0, next - Date.now()),
+    )
+    return () => window.clearTimeout(timer)
+  }, [layerNotes])
 
   // Cut-outs made on this phone, landed and waiting to go on (cutSwap.ts).
   // They go on as soon as they're here — except onto a layer crop or erase
@@ -389,8 +404,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   // The sheet's word on a cut it's making for a layer showing the whole
   // picture: how far it's got, the cut-out, or that it didn't work — then
-  // the whole picture stays, and the player is told so. A layer deleted (or
-  // undone) meanwhile simply isn't there to change.
+  // the whole picture stays, and the player is told so: in a passing note,
+  // or on the layer itself when the phone is too slow to cut at all. A
+  // layer deleted (or undone) meanwhile simply isn't there to change.
   const handleCut = useCallback((token: string, update: CutUpdate) => {
     if (update.kind === 'progress') {
       const p = update.progress
@@ -404,8 +420,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       return
     }
     const showing = itemsRef.current.some((i) => i.cutting === token)
+    if (update.kind === 'tooSlow') {
+      const until = Date.now() + LAYER_NOTE_MS
+      const notes = notesOnCut(itemsRef.current, token, CUT_TOO_SLOW_TEXT).map((n) => ({ ...n, until }))
+      setLayerNotes((prev) => [...prev.filter((p) => !notes.some((n) => n.id === p.id)), ...notes])
+    }
     setDoc((d) => rewriteDoc(d, (list) => dropCut(list, token)))
-    if (showing) setToast((prev) => ({ id: (prev?.id ?? 0) + 1, text: 'Couldn’t cut that one. Kept the full image.' }))
+    if (showing && update.kind === 'failed') setToast((prev) => ({ id: (prev?.id ?? 0) + 1, text: CUT_FAILED_TEXT }))
   }, [])
 
   // stable identities: DraggableImage is memoized, so these must not be
@@ -1068,6 +1089,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           </Layer>
           <CutOverlay
             cutting={cuttingLayers}
+            notes={layerNotes}
             stageScale={frame.scale}
             status={cutLabel}
             paper={theme.surface}
@@ -1118,6 +1140,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               {toast.text}
             </p>
           )}
+          {/* the words on a layer are drawn on the canvas: said here too */}
+          {layerNotes[0] && <span className="visually-hidden">{layerNotes[0].label}</span>}
         </div>
         {depth && (
           <div className={`depth-badge${depth.below ? ' below' : ''}`} style={{ left: depth.x, top: depth.y }} aria-live="polite">

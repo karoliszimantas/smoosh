@@ -72,6 +72,18 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
     }
   }, [])
 
+  // The cutter (~40MB) downloads while the prompt is being read, before the
+  // clock starts, rather than on the first Cut, mid-build. Only where that's
+  // free (cutClient decides); in the background, and a failure is left for
+  // the first Cut to retry. Its own chunk, like the rest of the cutting code
+  useEffect(() => {
+    if (!isBuild || busyRef.current) return
+    import('../../cutting/cutClient').then(
+      (cut) => cut.preloadCutter(),
+      () => {},
+    )
+  }, [isBuild])
+
   const submit = async (blob: Blob, info: ExportInfo): Promise<void> => {
     if (busyRef.current) return
     busyRef.current = true
