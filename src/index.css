@@ -896,7 +896,11 @@ h2,
   letter-spacing: 0.06em;
 }
 
-/* ---------- asset sheet ---------- */
+/* ---------- asset sheet ----------
+   Not in the artboards; cut from the same paper: a cream sheet with ink
+   text rising over a scrim, a drag-handle bar, the search as a ruled paper
+   field, the tabs as a tray of scraps (the picked one yellow), and the
+   results as straight-cut paper cards in a sunken well. */
 
 .sheet-backdrop {
   position: fixed;
@@ -921,8 +925,9 @@ h2,
   height: 65dvh;
   display: flex;
   flex-direction: column;
+  border-top: 2.5px solid var(--line);
+  border-radius: 2px 2px 0 0;
   background: var(--surface);
-  border-radius: var(--radius) var(--radius) 0 0;
   transform: translateY(100%);
   transition: transform 200ms ease-out;
   padding-bottom: env(safe-area-inset-bottom);
@@ -951,8 +956,8 @@ h2,
 .sheet-handle {
   flex-shrink: 0;
   width: 40px;
-  height: 4px;
-  border-radius: var(--radius);
+  height: 5px;
+  border-radius: 3px;
   background: var(--surface-text-muted);
   margin: 10px auto;
 }
@@ -963,76 +968,111 @@ h2,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
   text-align: center;
   color: var(--surface-text);
   font-size: 13px;
 }
 
+/* Retry: a small primary ledge button on the sunken well */
 .sheet-error button {
   min-height: 44px;
   min-width: 44px;
   padding: 0 16px;
-  border: none;
+  border: 2.5px solid var(--line);
   border-radius: var(--radius);
   background: var(--primary-bg);
+  box-shadow: var(--ledge-inner);
   color: var(--primary-text);
-  font-weight: 600;
+  font: 400 14px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
+.sheet-error button:active {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
+}
+
+/* the words of the prompt, then All: a tray of paper scraps, the picked
+   one standing up on yellow (the segmented control's look, scrolling) */
 .asset-sheet-tabs {
   flex-shrink: 0;
   display: flex;
   gap: 6px;
-  padding: 4px 10px 10px;
+  margin: 0 10px 10px;
+  padding: 5px 5px 10px;
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.asset-sheet-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .asset-sheet-tab {
   flex-shrink: 0;
   min-height: 44px;
   min-width: 44px;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 2px var(--line);
+  padding: 0 14px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: transparent;
   color: var(--surface-text);
-  font-size: 13px;
+  font: 700 13px/1.15 var(--font-label);
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .asset-sheet-tab.active {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  border-color: var(--line);
+  background: var(--picked);
+  box-shadow: var(--ledge-inner);
+  color: var(--line);
+}
+
+.asset-sheet-tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .asset-sheet-search {
   flex-shrink: 0;
-  padding: 0 10px 6px;
+  padding: 0 10px 10px;
 }
 
+/* a ruled paper field (.field), kept at 16px: under that, iOS zooms the
+   page on focus */
 .asset-sheet-search input {
   width: 100%;
-  min-height: 44px;
+  height: 48px;
   padding: 0 14px;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
+  border: 2.5px solid var(--line);
+  border-radius: 3px;
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
   color: var(--surface-text);
-  font-size: 16px; /* under 16px, iOS zooms the page on focus */
+  font: 600 16px/24px var(--font-ui);
 }
 
 .asset-sheet-search input::placeholder {
   color: var(--surface-text-muted);
+  opacity: 1;
 }
 
 .asset-sheet-search input:focus {
-  outline: 2px solid var(--selection);
-  outline-offset: -2px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
+/* the results: paper cards in a sunken well, straight cut — torn edges
+   in a scrolling grid would cost a layer each */
 .asset-sheet-grid {
   flex: 1;
   min-height: 0;
@@ -1043,16 +1083,18 @@ h2,
      nothing once the grid is taller than the sheet — rows take the card's
      own height instead, and the grid scrolls */
   grid-auto-rows: max-content;
-  gap: 10px;
-  padding: 0 10px 10px;
+  gap: 12px;
+  padding: 12px 10px;
   align-content: start;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
 }
 
 .asset-sheet-credit {
   grid-column: 1 / -1;
   margin: -2px 0 0;
   text-align: right;
-  color: var(--surface-text-muted);
+  color: var(--surface-sunken-text);
   font-size: 11px;
 }
 
@@ -1067,7 +1109,7 @@ h2,
   grid-column: 1 / -1;
   margin: 16px 0;
   text-align: center;
-  color: var(--surface-text-muted);
+  color: var(--surface-sunken-text);
   font-size: 13px;
 }
 
@@ -1077,22 +1119,30 @@ h2,
   justify-content: center;
 }
 
+/* More: a paper button on its ledge */
 .asset-sheet-more {
   min-height: 44px;
   padding: 0 24px;
-  border: none;
+  border: 2.5px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: inset 0 0 0 2px var(--line);
+  box-shadow: var(--ledge-inner);
   color: var(--surface-text);
-  font-weight: 600;
+  font: 400 14px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.asset-sheet-more:active {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
 }
 
 .result-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius);
+  border-radius: 2px;
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   color: var(--surface-text);
@@ -1119,11 +1169,23 @@ h2,
   display: block;
 }
 
-/* already cut = instant: the card outlined in the selection colour. The
-   card, not the cut — an outline traced round the subject's own edge reads
-   as a halo */
-.result-card.is-cut {
-  box-shadow: inset 0 0 0 2px var(--selection), var(--shadow-sm);
+/* already cut = instant: a small red check badge in the corner. On the
+   card, not round the cut — an outline traced round the subject's own edge
+   reads as a halo */
+.result-card.is-cut::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")
+      center / 12px 12px no-repeat,
+    var(--primary-ink);
+  box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
 }
 
 .result-status {
@@ -1148,16 +1210,17 @@ h2,
 
 .result-progress {
   width: 80%;
-  height: 4px;
-  border-radius: var(--radius);
+  height: 6px;
   background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1.5px var(--line);
   overflow: hidden;
 }
 
 .result-progress > span {
   display: block;
   height: 100%;
-  background: var(--primary-bg);
+  background: var(--picked);
+  box-shadow: inset 0 0 0 1.5px var(--line);
   transition: width 150ms linear;
 }
 
@@ -1168,7 +1231,7 @@ h2,
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 0 0 0 var(--radius);
+  border-radius: 0 0 0 2px;
   background: color-mix(in srgb, var(--surface) 75%, transparent);
   color: var(--surface-text);
   font-size: 14px;
@@ -1183,13 +1246,11 @@ h2,
 .result-action {
   flex: 1;
   min-height: 40px;
-  border: none;
-  border-radius: var(--radius);
+  border: 2px solid var(--line);
+  border-radius: 3px;
   background: var(--surface);
-  box-shadow: inset 0 0 0 2px var(--line);
   color: var(--surface-text);
-  font-size: 13px;
-  font-weight: 600;
+  font: 700 13px/1 var(--font-ui);
 }
 
 .result-action.primary {
@@ -1197,12 +1258,13 @@ h2,
   color: var(--primary-text);
 }
 
-.result-action:disabled {
-  box-shadow: none;
+.result-action:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .result-action:disabled {
-  opacity: 0.4;
+  border-style: dashed;
+  opacity: 0.5;
 }
 
 /* ---------- report dialog ---------- */
@@ -3095,7 +3157,7 @@ h2.awards-wall-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 10px 8px;
+  padding: 0 10px 12px;
 }
 
 .photo-button {
@@ -3104,13 +3166,26 @@ h2.awards-wall-title {
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 14px;
+  border: 2.5px solid var(--line);
   border-radius: var(--radius);
   background: var(--primary-bg);
+  box-shadow: var(--ledge-inner);
   color: var(--primary-text);
-  font-size: 15px;
-  font-weight: 700;
+  font: 400 14px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
+}
+
+.photo-button:active {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
+}
+
+.photo-button:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .photo-button.busy {
@@ -3517,16 +3592,17 @@ h1.prompt-window-kicker {
   min-height: 36px;
   padding: 0 12px;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 3px;
   background: transparent;
   color: var(--surface-text);
   font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .asset-sheet-category.active {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  background: var(--picked);
+  color: var(--line);
 }
 
 /* a word the library hasn't got, said once above whatever Pixabay found */
@@ -3559,8 +3635,7 @@ h1.prompt-window-kicker {
 }
 
 .asset-sheet.keyboard-open .asset-sheet-tabs {
-  padding-top: 0;
-  padding-bottom: 6px;
+  margin-bottom: 6px;
 }
 
 /* ---------- /labels: labelling the asset library ---------- */
