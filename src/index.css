@@ -5904,3 +5904,111 @@ html[data-torn='false'] .wordmark-tile {
     transform: none;
   }
 }
+
+/* ---------- invites ----------
+   Under the Lobby's room code: Copy link and Share, and a live line saying
+   what happened (game/RoomCodeCard.tsx). The code itself is the button for
+   the full-screen QR code of the invite link (game/InviteQr.tsx) */
+.lobby-code-button {
+  padding: 6px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.lobby-code-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* pressed: the strip sinks a little onto the card */
+.lobby-code-button:active .dymo {
+  transform: rotate(-1deg) translateY(2px);
+}
+
+.lobby-invite {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lobby-invite .btn {
+  height: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.lobby-invite-status {
+  margin: 0;
+  font: 600 13px/18px var(--font-ui);
+  color: var(--surface-text-muted);
+}
+
+/* nothing to say: there for the screen reader, taking no room on screen */
+.lobby-invite-status:empty {
+  margin-top: -12px;
+}
+
+.lobby-invite-link {
+  height: 44px;
+  font-size: 14px;
+}
+
+/* the QR code takes the whole screen, on the desk */
+.invite-qr {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 20px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background-color: var(--page-bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+}
+
+/* focused only so a screen reader starts here — not a control */
+.invite-qr:focus {
+  outline: none;
+}
+
+.invite-qr h2 {
+  margin: 0;
+}
+
+.invite-qr-card {
+  position: relative;
+  flex: none;
+  padding: 10px;
+}
+
+.invite-qr-close {
+  flex: none;
+  width: min(100%, 240px);
+}
+
+/* A reader needs dark on light, so a QR code's two colours are its own, not
+   the theme's: black modules on white, the same on either desk (21:1) */
+.qr-svg {
+  display: block;
+  width: max(180px, min(calc(100vw - 56px), calc(100dvh - 300px), 400px));
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.qr-svg-light {
+  fill: #ffffff;
+}
+
+.qr-svg-dark {
+  fill: #000000;
+}
