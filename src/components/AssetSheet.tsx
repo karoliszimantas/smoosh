@@ -518,7 +518,10 @@ export default function AssetSheet({
         role="dialog"
         aria-modal={mode === 'open'}
         aria-label="Add to canvas"
+        // closed, it's only slid off the screen: inert takes its search and
+        // cards out of the tab order too, not just out of what's read out
         aria-hidden={!open}
+        inert={!open}
         tabIndex={-1}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose()
