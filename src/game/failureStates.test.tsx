@@ -83,7 +83,7 @@ describe('upload status over the canvas', () => {
       <UploadStatus state={{ status: 'failed', message: PICTURE_MESSAGES.generic }} onRetry={noop} />,
     )
     expect(html).toContain('role="alert"')
-    expect(textOf(html)).toBe('Something went wrong sending your picture Try again')
+    expect(textOf(html)).toBe("Couldn't send your picture. It's saved on this phone. Try again")
     expect(buttonsOf(html)).toEqual(['Try again'])
   })
 
