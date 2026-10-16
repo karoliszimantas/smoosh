@@ -1,32 +1,18 @@
-import { breakdownTotal, type PointsBreakdown } from '@smoosh/protocol'
+import { breakdownTotal } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import Exhibit from '../gallery/Exhibit'
 import PlayerDot from '../PlayerDot'
-
-// where a player's points came from, in a line that adds up to the number
-// beside it
-function Breakdown({ b }: { b: PointsBreakdown }) {
-  return (
-    <span className="score-breakdown">
-      <span className={b.picture ? '' : 'zero'}>
-        <small>picture</small> {b.picture}
-      </span>
-      <span className={b.guessing ? '' : 'zero'}>
-        <small>guessing</small> {b.guessing}
-      </span>
-      <span className={b.lies ? '' : 'zero'}>
-        <small>lies</small> {b.lies}
-      </span>
-    </span>
-  )
-}
+import Tape from '../../components/Tape'
+import { useCountdown } from '../useCountdown'
+import { rankLabel, rankName, rankWithTies } from '../ranking'
+import { formatPoints } from '../revealSummary'
 
 export default function ScoresView({ snapshot, emit }: PhaseProps) {
   const phase = snapshot.phase
+  const { remainingMs } = useCountdown(phase.phase === 'scores' ? phase.deadline : null)
   if (phase.phase !== 'scores') return null
 
   const nameById = new Map(snapshot.players.map((p) => [p.id, p.name]))
-  const presenceById = new Map(snapshot.players.map((p) => [p.id, p.presence]))
   const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
   // a player's dot, before their name
   const dot = (playerId: string) => {
@@ -38,7 +24,6 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
     )
   }
   const ranked = [...phase.scoreboard].sort((a, b) => b.total - a.total)
-  const winner = phase.isFinalRound ? ranked[0] : undefined
 
   const playAgain =
     phase.isFinalRound &&
@@ -97,42 +82,62 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
     )
   }
 
+  // After round n of m (Scores.dc.html): a cut paper scrap per player,
+  // ranked with shared places, your own on tape-yellow, the leader taped
+  // down; then when the next round starts
+  const youId = snapshot.you.playerId
+  const standings = rankWithTies(phase.scoreboard, (e) => e.total)
+  const secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000))
+
   return (
     <div className="scores-view">
-      <h1>{phase.isFinalRound ? 'Final scores' : `Round ${phase.round} of ${phase.totalRounds}`}</h1>
+      <h1 className="round-heading scores-title">
+        {phase.isFinalRound ? 'Final scores' : `After round ${phase.round} of ${phase.totalRounds}`}
+      </h1>
 
-      {winner && <p className="scores-winner">{nameById.get(winner.playerId) ?? '?'} wins!</p>}
-
-      <ol className="scoreboard">
-        {ranked.map((entry) => {
-          // the round's points mid-game, the whole game's at the end — each
-          // adds up to the figure shown with it
-          const b = phase.isFinalRound ? entry.game : entry.round
+      <ol className="standings" aria-label="Standings">
+        {standings.map((r, i) => {
+          const entry = r.item
+          const player = playerById.get(entry.playerId)
+          const presence = player?.presence
+          const you = entry.playerId === youId
+          // this round's points; gallery and chain don't say where points came from
+          const delta = !phase.isFinalRound && entry.round ? breakdownTotal(entry.round) : null
           return (
-            <li key={entry.playerId} className={presenceById.get(entry.playerId) === 'away' ? 'away' : ''}>
-              <span className="score-line">
-                <span className="dot-name">
-                  {dot(entry.playerId)}
-                  <span>
-                    {nameById.get(entry.playerId) ?? '?'}
-                    {presenceById.get(entry.playerId) === 'away' && <span className="away-marker">away</span>}
-                    {presenceById.get(entry.playerId) === 'left' && <span className="away-marker">left</span>}
-                  </span>
-                </span>
-                <span className="score-total">{entry.total}</span>
+            <li key={entry.playerId} className={`standing${you ? ' you' : ''}${presence === 'away' || presence === 'left' ? ' gone' : ''}`}>
+              <span className="standing-rank">
+                <span aria-hidden="true">{rankLabel(r)}</span>
+                <span className="visually-hidden">{rankName(r)}:</span>
               </span>
-              {b && (
-                <>
-                  {!phase.isFinalRound && <span className="score-round">+{breakdownTotal(b)} this round</span>}
-                  <Breakdown b={b} />
-                </>
+              {player && <PlayerDot player={player} away={presence !== 'present'} labelled />}
+              <span className="standing-name">
+                <span className="standing-name-text">{nameById.get(entry.playerId) ?? '?'}</span>
+                {you && <span className="standing-you">You</span>}
+                {presence === 'away' && <span className="away-marker">away</span>}
+                {presence === 'left' && <span className="away-marker">left</span>}
+              </span>
+              {delta !== null && (
+                <span className={delta > 0 ? 'standing-delta' : 'standing-delta zero'}>
+                  <span className="visually-hidden">, this round </span>+{delta}
+                </span>
               )}
+              <span className="standing-total">
+                <span className="visually-hidden">, total </span>
+                {formatPoints(entry.total)}
+              </span>
+              {i === 0 && <Tape />}
             </li>
           )
         })}
       </ol>
 
-      {playAgain}
+      {phase.isFinalRound ? (
+        playAgain
+      ) : (
+        <p className="scores-next">
+          Next: Round {phase.round + 1} in <strong>{secondsLeft}</strong>…
+        </p>
+      )}
     </div>
   )
 }

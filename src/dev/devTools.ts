@@ -11,7 +11,7 @@ import { SERVER_URL } from '../game/serverUrl'
 import { clearActiveRoom } from '../game/session'
 import { createDevStore, type DevStore } from './devStore'
 import { makeDevPicture } from './devPicture'
-import { fixtureSnapshot, samplePicture, FIXTURE_BASE, type FixturePhase } from './fixtures'
+import { fixtureSnapshot, samplePicture, FIXTURE_BASE, type FixtureOpts, type FixturePhase } from './fixtures'
 import { SoloGame } from './soloGame'
 import { createElement } from 'react'
 import DevPanel from './DevPanel'
@@ -30,7 +30,7 @@ export type DevControls = {
   dropConnection: () => void
   restoreConnection: () => void
   // shows a phase with fake data, on this device only, until the next real update
-  jumpTo: (phase: FixturePhase, opts?: { authorId?: string; exhibition?: boolean }) => void
+  jumpTo: (phase: FixturePhase, opts?: FixtureOpts) => void
   setSolo: (on: boolean) => void
 }
 

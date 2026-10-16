@@ -16,7 +16,7 @@ const FAULTS: { value: UploadFault; label: string }[] = [
   { value: 'never', label: 'never send' },
 ]
 
-const JUMPS: { phase: FixturePhase; label: string; yours?: boolean; exhibition?: boolean }[] = [
+const JUMPS: { phase: FixturePhase; label: string; yours?: boolean; exhibition?: boolean; final?: boolean; tie?: boolean }[] = [
   { phase: 'missing', label: 'Placeholder' },
   { phase: 'missing', label: 'Placeholder (yours)', yours: true },
   { phase: 'build', label: 'build' },
@@ -30,6 +30,9 @@ const JUMPS: { phase: FixturePhase; label: string; yours?: boolean; exhibition?:
   { phase: 'vote', label: 'vote' },
   { phase: 'awards', label: 'awards' },
   { phase: 'scores', label: 'scores' },
+  { phase: 'scores', label: 'scores (tie)', tie: true },
+  { phase: 'scores', label: 'final', final: true },
+  { phase: 'scores', label: 'final (tie)', final: true, tie: true },
   { phase: 'scores', label: 'exhibition', exhibition: true },
   { phase: 'lobby', label: 'lobby' },
 ]
@@ -235,6 +238,8 @@ export default function DevPanel({ controls }: { controls: DevControls }) {
                 controls.jumpTo(j.phase, {
                   ...(j.yours && youId ? { authorId: youId } : {}),
                   ...(j.exhibition ? { exhibition: true } : {}),
+                  ...(j.final ? { final: true } : {}),
+                  ...(j.tie ? { tie: true } : {}),
                 })
               }
             >

@@ -69,6 +69,8 @@ export function samplePicture(playerId: string): string {
   return SAMPLE_PICTURES[hash % SAMPLE_PICTURES.length] ?? '/assets/test.jpg'
 }
 
+export type FixtureOpts = { authorId?: string; exhibition?: boolean; final?: boolean; tie?: boolean }
+
 export type FixtureBase = {
   roomCode: string
   settings: GameSettings
@@ -89,8 +91,10 @@ export const FIXTURE_BASE: FixtureBase = {
 export function fixtureSnapshot(
   phase: FixturePhase,
   base: FixtureBase = FIXTURE_BASE,
-  // exhibition: the scores are Gallery's final ones, hung as an exhibition
-  opts: { authorId?: string; exhibition?: boolean } = {},
+  // exhibition: the scores are Gallery's final ones, hung as an exhibition.
+  // final: the last round's scores, in the room's own mode. tie: the
+  // second and third places level on points
+  opts: FixtureOpts = {},
 ): RoomSnapshot {
   const others = base.players.filter((p) => p.id !== base.youId)
   const authorId = opts.authorId ?? others[0]?.id ?? base.youId
@@ -110,6 +114,10 @@ export function fixtureSnapshot(
   const yourLie = { id: 'opt-yours', text: 'a dog in a bathtub' }
   const theirLie = { id: 'opt-theirs', text: 'grandma at the beach' }
   const youWrite = authorId !== base.youId
+
+  // with `tie`, third place has as many points as second
+  const byScore = [...base.players].sort((a, b) => b.score - a.score)
+  const tieTotal = (p: Player) => (opts.tie && p.id === byScore[2]?.id ? (byScore[1]?.score ?? p.score) : p.score)
 
   let state: PhaseState
   switch (phase) {
@@ -215,15 +223,15 @@ export function fixtureSnapshot(
     case 'scores':
       state = {
         phase: 'scores',
-        round,
+        round: opts.final ? totalRounds : round,
         totalRounds,
-        isFinalRound: opts.exhibition === true,
+        isFinalRound: opts.exhibition === true || opts.final === true,
         // made-up breakdowns that add up: a round's worth, and the game's
         scoreboard: base.players.map((p, i) => {
           const round = { picture: i === 2 ? 0 : 1400, guessing: 700 * (i % 3), lies: 175 * i }
           const game = { picture: p.score, guessing: 0, lies: 0 }
           const gallery = opts.exhibition === true
-          return { playerId: p.id, total: p.score, round: gallery ? null : round, game: gallery ? null : game }
+          return { playerId: p.id, total: tieTotal(p), round: gallery ? null : round, game: gallery ? null : game }
         }),
         exhibition: opts.exhibition
           ? others.slice(0, 3).map((p, i) => ({
@@ -233,7 +241,7 @@ export function fixtureSnapshot(
               imagePath: soloPicturePath(p.id),
             }))
           : [],
-        deadline: opts.exhibition ? null : now + 6_000,
+        deadline: opts.exhibition || opts.final ? null : now + 6_000,
       }
       break
   }
