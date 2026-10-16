@@ -30,6 +30,8 @@ export const day: Theme = {
 
   shadow: { ...night.shadow, burst: '4px 5px 0 rgba(26,23,20,.85)' },
   paper: { ...night.paper, dot: 'rgba(26,23,20,.06)' },
+  // the cut-outs' rim is the picture's own paper on a light desk
+  stickerEdge: { color: PAPER, width: 3 },
   timer: { ...night.timer, calm: PAPER, string: '#5C5348' },
 
   gallery: {
