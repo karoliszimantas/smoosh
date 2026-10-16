@@ -4,6 +4,7 @@ import type Konva from 'konva'
 import { CANVAS_SIZE, FULL_CROP, MIN_SCALE, baseSize, type LayerItem } from './layerItem'
 import { erasedFor } from './erase'
 import { loadImage } from './imageCache'
+import { stickerRadius, stickerSprite } from './stickerEdge'
 import { useTheme } from '../themes/useTheme'
 
 // a cut-out is mostly transparent, but Konva hit-tests its whole rectangle —
@@ -211,6 +212,41 @@ const DraggableImage = memo(function DraggableImage({
   // glow that would halo its edge
   const shadowed = useMemo(() => (erased ? theme.cutoutShadow || isOpaque(erased) : false), [erased, theme.cutoutShadow])
 
+  // A cut-out (anything with real transparency — never a whole photo) is a
+  // die-cut sticker: a rim of the theme's paper round what's left of it
+  // after erasing, inside its crop. The rim is the same width on screen at
+  // any scale, like the shadow, so it's rebuilt when the scale is committed
+  // (a gesture in progress just scales it with the layer).
+  const edge = theme.stickerEdge
+  const radius =
+    edge && erased && !isOpaque(erased)
+      ? stickerRadius(CANVAS_UNITS_PER_THEME_PX, edge.width, u, Math.max(item.scale, MIN_SCALE), Math.max(src.width, src.height))
+      : 0
+  const edgeColor = edge?.color
+  const edgeWidth = edge?.width ?? 0
+  const sprite = useMemo(() => {
+    if (!erased || !edgeColor || radius <= 0) return null
+    const w = erased.width
+    const h = erased.height
+    const rect = { x: crop.x * w, y: crop.y * h, width: crop.width * w, height: crop.height * h }
+    // a working pixel per canvas unit of rim
+    return stickerSprite(erased, rect, radius, edgeColor, edgeWidth * CANVAS_UNITS_PER_THEME_PX)
+  }, [erased, crop, radius, edgeColor, edgeWidth])
+  // in canvas units, how far the sprite reaches past the node's box on each
+  // side — freezeOthers reads it to size a snapshot that holds the rim
+  const spritePad = sprite ? sprite.pad * u : 0
+
+  // The sprite (the rim, with the image on top) drawn spilling past the
+  // node's box by the padding: width, height, offsets, hitFunc and the
+  // transform maths all stay the image's own, so the selection, hit tests
+  // and gestures don't know the rim is there. Konva sets the shadow before
+  // drawing, so it falls under the rim, as the artboard's lift shadow does.
+  const sceneFunc = sprite
+    ? (ctx: Konva.Context) => {
+        ctx.drawImage(sprite.canvas, -spritePad, -spritePad, sprite.canvas.width * u, sprite.canvas.height * u)
+      }
+    : undefined
+
   if (!img || !erased) return null
 
   return (
@@ -244,6 +280,8 @@ const DraggableImage = memo(function DraggableImage({
       listening={!item.locked}
       draggable={!item.locked}
       hitFunc={hitFunc}
+      sceneFunc={sceneFunc}
+      stickerPad={spritePad}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     />
