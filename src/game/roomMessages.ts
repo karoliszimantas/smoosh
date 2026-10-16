@@ -1,4 +1,5 @@
 import type { ErrorCode, RoomEvent } from '@smoosh/protocol'
+import { signedPoints } from './points'
 
 // What the player reads about comings and goings — plain words, never an
 // error code. Kept apart from the components so the wording is easy to find
@@ -25,7 +26,7 @@ export function roomEventText(event: RoomEvent, youId: string | null): string | 
       const missed: string[] = []
       if (event.roundsFinished > 0) missed.push(`${plural(event.roundsFinished, 'a round', 'rounds')} finished`)
       else if (event.picturesMissed > 0) missed.push(`${plural(event.picturesMissed, 'a picture', 'pictures')} went by`)
-      const gained = event.pointsGained > 0 ? ` (+${event.pointsGained})` : ''
+      const gained = event.pointsGained > 0 ? ` (${signedPoints(event.pointsGained)})` : ''
       return `While you were away, ${missed.join(', ')}. You’re ${ordinal(event.rank)} of ${event.playerCount}${gained}.`
     }
     case 'replaced':

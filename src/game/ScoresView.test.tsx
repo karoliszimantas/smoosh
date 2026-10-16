@@ -38,7 +38,7 @@ describe('the standings after a round', () => {
     expect(html.match(/<li class="standing you">/g)).toHaveLength(1)
     expect(html).toContain('<span class="standing-you">You</span>')
     expect(html.match(/class="tape"/g)).toHaveLength(1)
-    expect(textOf(html)).toContain('Alice , this round +2275 , total 2,000')
+    expect(textOf(html)).toContain('Alice , this round +2,275 , total 2,000')
   })
 
   it('keeps the away and left markers', () => {

@@ -5,12 +5,6 @@ export function nameList(names: readonly string[]): string {
   return names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
-// a points figure as the artboards print it: 4,000
-const POINTS = new Intl.NumberFormat('en-US')
-export function formatPoints(points: number): string {
-  return POINTS.format(points)
-}
-
 export type RevealLie = {
   option: RevealOption
   authorId: string

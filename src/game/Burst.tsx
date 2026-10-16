@@ -1,6 +1,8 @@
+import { formatPoints, signedPoints } from './points'
+
 // The points you won on a picture, in a tape-yellow starburst with a paper
 // note stuck to its corner (Reveal.dc.html). One image to a screen reader:
-// "Plus 1400 points: you found it". The star, the figure and the note keep
+// "Plus 1,400 points: you found it". The star, the figure and the note keep
 // their own class names (.burst-star, .burst-points, .burst-note) so the
 // stepped arrival can jolt each of them.
 const STAR =
@@ -8,12 +10,12 @@ const STAR =
 
 export default function Burst({ points, note }: { points: number; note: string }) {
   return (
-    <div className="burst" role="img" aria-label={`Plus ${points} points: ${note}`}>
+    <div className="burst" role="img" aria-label={`Plus ${formatPoints(points)} points: ${note}`}>
       <svg className="burst-star" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
         <polygon points={STAR} />
       </svg>
       <span className="burst-points" aria-hidden="true">
-        +{points}
+        {signedPoints(points)}
       </span>
       <span className="burst-note" aria-hidden="true">
         {note}

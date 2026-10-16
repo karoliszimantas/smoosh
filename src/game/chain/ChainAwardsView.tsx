@@ -1,5 +1,6 @@
 import type { PhaseProps } from '../types'
 import ChainExhibit from './ChainPicture'
+import { signedPoints } from '../points'
 
 // Best in Show goes to a chain, its points shared by every artist on it.
 export default function ChainAwardsView({ snapshot }: PhaseProps) {
@@ -29,7 +30,7 @@ export default function ChainAwardsView({ snapshot }: PhaseProps) {
             award="best"
             winner
             large={best.length === 1}
-            note={`+${c.pointsEach} to each artist`}
+            note={`${signedPoints(c.pointsEach)} to each artist`}
             votes={c.votes}
           />
         ))}

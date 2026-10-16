@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { RevealOption, RoomSnapshot } from '@smoosh/protocol'
-import { formatPoints, nameList, revealSummary } from './revealSummary'
+import { nameList, revealSummary } from './revealSummary'
+import { formatPoints, signedPoints } from './points'
 import { fixtureSnapshot, YOU_ID } from '../dev/fixtures'
 
 // Sam (you), Alice, Bob, Cara: four at the table, so a right guess is worth
@@ -102,5 +103,11 @@ describe('words and figures', () => {
     expect(formatPoints(0)).toBe('0')
     expect(formatPoints(4000)).toBe('4,000')
     expect(formatPoints(12600)).toBe('12,600')
+  })
+
+  it('signs a gain the same way', () => {
+    expect(signedPoints(1400)).toBe('+1,400')
+    expect(signedPoints(350)).toBe('+350')
+    expect(signedPoints(0)).toBe('+0')
   })
 })
