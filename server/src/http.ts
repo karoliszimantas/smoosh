@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { UPLOAD_MESSAGES } from '@smoosh/protocol'
+import { BLANK_PICTURE_PARAM, UPLOAD_MESSAGES } from '@smoosh/protocol'
 import { getRoom, findSeatBySession, touchRoom } from './rooms/Room.ts'
 import { putSubmission, getSubmission } from './submissions/store.ts'
 import { isPictureType, sniffPictureType } from './submissions/imageType.ts'
+import { looksBlank } from './submissions/blank.ts'
 import {
   acceptSubmission,
   submissionRejection,
@@ -88,7 +89,8 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
       return
     }
     if (req.method === 'POST') {
-      handlePost(req, res, target, deps)
+      // the phone says there's nothing on it; the pixels are checked anyway
+      handlePost(req, res, target, deps, url.searchParams.get(BLANK_PICTURE_PARAM) === '1')
       return
     }
     send(res, 405, 'method not allowed')
@@ -113,7 +115,13 @@ function handleGet(res: ServerResponse, { roomCode, round, playerId }: UploadTar
   res.end(picture.buffer)
 }
 
-function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTarget, deps: PhaseMachineDeps): void {
+function handlePost(
+  req: IncomingMessage,
+  res: ServerResponse,
+  target: UploadTarget,
+  deps: PhaseMachineDeps,
+  saidBlank: boolean,
+): void {
   const { roomCode, round, playerId } = target
 
   // WebP, or JPEG/PNG from Safari. Only the sender's word — the bytes are
@@ -174,15 +182,27 @@ function handlePost(req: IncomingMessage, res: ServerResponse, target: UploadTar
       send(res, 415, UPLOAD_MESSAGES.wrong_type)
       return
     }
-    const result = acceptSubmission(room, deps, playerId, round, () =>
-      putSubmission(roomCode, round, playerId, { buffer, type }),
-    )
-    if (!result.ok) {
-      send(res, 409, REJECTION_MESSAGES[result.reason])
-      return
-    }
-    touchRoom(room)
-    send(res, 200, 'ok')
+    // known before the picture is accepted: the last one in ends BUILD, and
+    // the picture order is fixed right then. Chain passes are never skipped,
+    // so they aren't checked
+    const blankCheck = saidBlank || room.settings.mode === 'chain' ? Promise.resolve(saidBlank) : looksBlank(buffer)
+    void blankCheck
+      .then((blank) => {
+        if (res.headersSent) return
+        const result = acceptSubmission(room, deps, playerId, round, () =>
+          putSubmission(roomCode, round, playerId, { buffer, type, blank }),
+        )
+        if (!result.ok) {
+          send(res, 409, REJECTION_MESSAGES[result.reason])
+          return
+        }
+        touchRoom(room)
+        send(res, 200, 'ok')
+      })
+      .catch((err: unknown) => {
+        console.error(`[build] ${roomCode} round ${round}: upload from ${playerId} failed:`, err)
+        send(res, 500, UPLOAD_MESSAGES.failed)
+      })
   })
 
   req.on('error', () => send(res, 400, UPLOAD_MESSAGES.failed))

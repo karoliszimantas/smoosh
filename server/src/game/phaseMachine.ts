@@ -29,6 +29,8 @@ export type PhaseMachineDeps = {
   // the prompts a game in this mode can be dealt, as of now
   prompts: (mode: GameMode) => readonly string[]
   hasSubmission: (roomCode: string, round: number, playerId: string) => boolean
+  // the submission arrived with nothing on it; none are blank when absent
+  isBlank?: (roomCode: string, round: number, playerId: string) => boolean
   onSnapshot: (room: Room) => void
   // [0, 1) — injectable so tests can replay a game from a seed
   random?: () => number
@@ -263,22 +265,22 @@ function endBuild(room: Room, deps: PhaseMachineDeps): void {
   settleWindows(room, Number.POSITIVE_INFINITY)
   room.rearmWindows = null
   // every player gets a slot, picture or not, so nobody can be skipped
-  // silently: a missing picture comes up as a placeholder everyone sees.
-  // Except someone who chose to leave — their absence is no news, unless
-  // they'd already sent a picture in.
+  // silently: a missing or blank picture comes up as a placeholder everyone
+  // sees. Except someone who chose to leave — their absence is no news,
+  // unless they'd already sent a picture in.
   room.pictureQueue = shuffle([...room.seats.values()], deps.random)
-    .map((seat) => ({
-      authorId: seat.playerId,
-      hasPicture: deps.hasSubmission(room.code, room.round, seat.playerId),
-      left: seat.presence === 'left',
-    }))
+    .map((seat) => {
+      const submitted = deps.hasSubmission(room.code, room.round, seat.playerId)
+      const blank = submitted && (deps.isBlank?.(room.code, room.round, seat.playerId) ?? false)
+      return { authorId: seat.playerId, hasPicture: submitted && !blank, blank, left: seat.presence === 'left' }
+    })
     .filter((slot) => slot.hasPicture || !slot.left)
-    .map(({ authorId, hasPicture }) => ({ authorId, hasPicture }))
+    .map(({ authorId, hasPicture, blank }) => ({ authorId, hasPicture, blank }))
   room.pictureIndex = -1
   room.shownThisRound = []
 
-  // nobody submitted anything — a row of placeholders would tell no one
-  // anything new
+  // nobody submitted anything to show — a row of placeholders would tell
+  // no one anything new
   if (!room.pictureQueue.some((slot) => slot.hasPicture)) {
     endRoundOrGame(room, deps)
     return
@@ -296,11 +298,13 @@ function nextPicture(room: Room, deps: PhaseMachineDeps): void {
     endRoundOrGame(room, deps)
     return
   }
-  if (!slot.hasPicture) startMissing(room, deps, slot.authorId)
+  if (!slot.hasPicture) startMissing(room, deps, slot.authorId, slot.blank)
   else startLie(room, deps, slot.authorId)
 }
 
-function startMissing(room: Room, deps: PhaseMachineDeps, authorId: string): void {
+// no picture to lie about, or a blank one: a moment to say so, then on.
+// No LIE, no GUESS, nothing scored
+function startMissing(room: Room, deps: PhaseMachineDeps, authorId: string, blank: boolean): void {
   room.pendingActors = new Set()
   room.phase = {
     phase: 'missing',
@@ -309,7 +313,7 @@ function startMissing(room: Room, deps: PhaseMachineDeps, authorId: string): voi
     pictureIndex: room.pictureIndex,
     pictureCount: room.pictureQueue.length,
     authorId,
-    blank: false,
+    blank,
     deadline: deadlineIn(MISSING_PHASE_SEC),
   }
   schedulePhaseEnd(room, MISSING_PHASE_SEC * 1000, () => nextPicture(room, deps))
@@ -737,19 +741,22 @@ function startChainAwards(room: Room, deps: PhaseMachineDeps): void {
 
 export type RoundAudit = {
   players: number
-  submitted: string[] // players whose picture the server holds for the round
+  submitted: string[] // players whose picture (with something on it) the server holds for the round
   shown: string[] // authors whose picture was presented, in order
   placeholders: string[] // players shown as "picture missing"
+  blank: string[] // players whose picture was blank, shown as such
 }
 
 export function auditRound(room: Room, deps: PhaseMachineDeps): RoundAudit {
+  const blank = (id: string) => deps.isBlank?.(room.code, room.round, id) ?? false
   return {
     players: room.seats.size,
     submitted: [...room.seats.values()]
       .map((s) => s.playerId)
-      .filter((id) => deps.hasSubmission(room.code, room.round, id)),
+      .filter((id) => deps.hasSubmission(room.code, room.round, id) && !blank(id)),
     shown: [...room.shownThisRound],
-    placeholders: room.pictureQueue.filter((slot) => !slot.hasPicture).map((slot) => slot.authorId),
+    placeholders: room.pictureQueue.filter((slot) => !slot.hasPicture && !slot.blank).map((slot) => slot.authorId),
+    blank: room.pictureQueue.filter((slot) => slot.blank).map((slot) => slot.authorId),
   }
 }
 
@@ -771,7 +778,7 @@ function reportRound(room: Room, deps: PhaseMachineDeps): void {
   const audit = auditRound(room, deps)
   log.info(
     `[round] ${room.code} round ${room.round}: ${audit.players} players, ${audit.submitted.length} submitted, ` +
-      `${audit.shown.length} shown, ${audit.placeholders.length} missing`,
+      `${audit.shown.length} shown, ${audit.placeholders.length} missing, ${audit.blank.length} blank`,
   )
   if (process.env.NODE_ENV === 'production') return
   const problem = roundAuditProblem(audit)

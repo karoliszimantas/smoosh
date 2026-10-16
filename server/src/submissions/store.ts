@@ -1,7 +1,9 @@
 import type { PictureType } from './imageType.ts'
 
-// the picture, and what its bytes were found to be — it's served as that
-export type StoredPicture = { buffer: Buffer; type: PictureType }
+// the picture, and what its bytes were found to be — it's served as that.
+// `blank`: nothing on it (the phone said so, or its pixels did) — kept and
+// served like any other, but never put up to be lied about and guessed
+export type StoredPicture = { buffer: Buffer; type: PictureType; blank?: boolean }
 
 const submissions = new Map<string, StoredPicture>()
 
@@ -19,6 +21,10 @@ export function getSubmission(roomCode: string, round: number, playerId: string)
 
 export function hasSubmission(roomCode: string, round: number, playerId: string): boolean {
   return submissions.has(key(roomCode, round, playerId))
+}
+
+export function isBlankSubmission(roomCode: string, round: number, playerId: string): boolean {
+  return submissions.get(key(roomCode, round, playerId))?.blank === true
 }
 
 export function deleteRoomSubmissions(roomCode: string): void {
