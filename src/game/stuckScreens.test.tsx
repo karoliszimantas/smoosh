@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { RoomSnapshot } from '@smoosh/protocol'
+import { optionText, type RoomSnapshot } from '@smoosh/protocol'
 import GuessView from './phases/GuessView'
 import { fixtureSnapshot, YOU_ID } from '../dev/fixtures'
 import VoteView from './phases/VoteView'
@@ -42,7 +42,7 @@ describe('a reload into GUESS after guessing', () => {
     )
     const phase = snap.phase
     if (phase.phase !== 'guess') throw new Error('fixture')
-    expect(picked).toEqual([phase.options.find((o) => o.id === snap.you.ownGuessId)?.text])
+    expect(picked).toEqual([optionText(phase.options.find((o) => o.id === snap.you.ownGuessId)?.text ?? '')])
   })
 })
 

@@ -1,3 +1,4 @@
+import { optionText } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import PlayerDot from '../PlayerDot'
@@ -38,7 +39,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
         <div className="reveal-truth">
           <section className="torn torn-c reveal-truth-card" aria-label="The real prompt">
             <p className="field-label on-paper">The real prompt</p>
-            <p className="reveal-truth-text">{truth.text}</p>
+            <p className="reveal-truth-text">{optionText(truth.text)}</p>
             {finders.length > 0 ? (
               <>
                 <p className="reveal-found">Found it · +{formatPoints(summary.foundEach)} each</p>
@@ -74,7 +75,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
               <li key={lie.option.id} className="reveal-lie-slot">
                 <div className={`torn${i % 2 === 1 ? ' torn-b' : ''} reveal-lie`}>
                   <div className="reveal-lie-words">
-                    <p className="reveal-lie-text">{lie.option.text}</p>
+                    <p className="reveal-lie-text">{optionText(lie.option.text)}</p>
                     <p className="reveal-lie-meta">
                       Fake · by {nameOf(lie.authorId)} ·{' '}
                       {lie.fooled.length > 0 ? (
