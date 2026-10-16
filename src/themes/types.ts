@@ -66,7 +66,11 @@ export type Theme = {
   successInk: string
   successTint: string // a done or used chip
   picked: string // a picked option, your score row
-  focus: string // the selected layer chip, the focus ring
+  focus: string // the selected layer chip, the focus ring on the desk
+  // the focus ring on a control inside paper (a card, the toolbar, a sheet,
+  // a dialog): drawn against the paper, not the desk, so it needs its own
+  // colour where the desk's ring is pale (paper containers set --focus to it)
+  focusOnPaper: string
   ghost: string // a pending player's dashed avatar
   awayChip: string // a player who's stepped away
   fontLabel: string // typewriter labels, set in caps
