@@ -49,6 +49,7 @@ function ToolButton({
   disabled,
   ariaLabel,
   pressed,
+  lit,
   expanded,
   buttonRef,
   children,
@@ -61,6 +62,8 @@ function ToolButton({
   disabled?: boolean
   ariaLabel?: string
   pressed?: boolean
+  // shown switched on without being a toggle (Unlock: the layer is locked)
+  lit?: boolean
   expanded?: boolean
   buttonRef?: Ref<HTMLButtonElement>
   // custom glyph instead of an icon (the brush-size dots)
@@ -69,7 +72,7 @@ function ToolButton({
   const classes = ['toolbar-btn']
   if (variant) classes.push(`toolbar-btn-${variant}`)
   if (!label) classes.push('toolbar-btn-icon')
-  if (pressed) classes.push('toolbar-btn-on')
+  if (pressed || lit) classes.push('toolbar-btn-on')
   return (
     <button
       ref={buttonRef}
@@ -262,7 +265,7 @@ export default function Toolbar({
     buttons = (
       <>
         {add}
-        <ToolButton icon="unlock" label="Unlock" onClick={onToggleLock} ariaLabel="Unlock this layer" />
+        <ToolButton icon="unlock" label="Unlock" onClick={onToggleLock} ariaLabel="Unlock this layer" lit />
       </>
     )
   } else if (mode === 'layer') {
