@@ -125,8 +125,9 @@ function currentSlot(room: Room, caller: string): PictureSlot {
 }
 
 // the only phases that can early-advance via a player action; reveal and
-// scores are driven purely by their timers (pendingActors stays empty there,
-// so dropPendingActor's guard never fires for them)
+// scores are driven by their timers (and a reveal by the host's tap —
+// endRevealEarly). pendingActors stays empty there, so dropPendingActor's
+// guard never fires for them
 function advanceCurrentPhase(room: Room, deps: PhaseMachineDeps): void {
   switch (room.phase.phase) {
     case 'build':
@@ -435,6 +436,13 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
   room.pendingActors = new Set()
   schedulePhaseEnd(room, revealSec * 1000, () => nextPicture(room, deps))
   deps.onSnapshot(room)
+}
+
+// the host's tap: on to the next picture now, the way the reveal's timer
+// would. The caller has checked it's this picture's reveal still showing
+export function endRevealEarly(room: Room, deps: PhaseMachineDeps): void {
+  if (room.phase.phase !== 'reveal') return
+  nextPicture(room, deps)
 }
 
 // ---------- gallery: everyone votes on the whole round, then the awards
