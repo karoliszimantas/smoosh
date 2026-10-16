@@ -4,7 +4,7 @@
 // model it fetches) never touches the main bundle or the initial page load.
 
 import { cleanAlpha } from './maskCleanup'
-import type { WorkerRequest, WorkerResponse } from './protocol'
+import type { CutTrim, WorkerRequest, WorkerResponse } from './protocol'
 
 type Imgly = typeof import('@imgly/background-removal')
 type ImglyConfig = NonNullable<Parameters<Imgly['removeBackground']>[1]>
@@ -87,7 +87,7 @@ function alphaBounds(data: ImageData): { x: number; y: number; w: number; h: num
   return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 
-async function cut(url: string): Promise<{ place: Blob; upload: Blob | null }> {
+async function cut(url: string): Promise<{ place: Blob; upload: Blob | null; trim: CutTrim }> {
   if (!imgly) imgly = import('@imgly/background-removal')
   const lib = await imgly
   await lib.preload(config)
@@ -128,15 +128,17 @@ async function cut(url: string): Promise<{ place: Blob; upload: Blob | null }> {
   const trimmed = canvas2d(bounds.w, bounds.h)
   trimmed.drawImage(full.canvas, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h)
   const place = await trimmed.canvas.convertToBlob({ type: 'image/webp', quality: 0.9 })
+  const { width, height } = full.canvas
+  const trim = { x: bounds.x / width, y: bounds.y / height, width: bounds.w / width, height: bounds.h / height, aspect: width / height }
 
-  return { place, upload }
+  return { place, upload, trim }
 }
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const { job, url } = event.data
   currentJob = job
   cut(url).then(
-    ({ place, upload }) => post({ type: 'done', job, place, upload }),
+    ({ place, upload, trim }) => post({ type: 'done', job, place, upload, trim }),
     (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)
       // a bad image is this image's problem; anything else (model download,

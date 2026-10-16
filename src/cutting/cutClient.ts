@@ -3,7 +3,7 @@
 // UI uses to hide the Cut control. The worker (and with it the library and
 // its model) is created on the first cutImage() call — never at page load.
 
-import type { WorkerRequest, WorkerResponse } from './protocol'
+import type { CutTrim, WorkerRequest, WorkerResponse } from './protocol'
 
 // A thermally throttled phone in round three can otherwise hang past the
 // round deadline. Counted from when inference starts, not from page load —
@@ -14,6 +14,8 @@ const STALL_TIMEOUT_MS = 30_000
 // a device that times out this often is too slow to be worth offering Cut on
 const MAX_TIMEOUTS = 2
 
+export type { CutTrim } from './protocol'
+
 export type CutProgress =
   | { stage: 'download'; loaded: number; total: number }
   | { stage: 'cutting' }
@@ -21,6 +23,8 @@ export type CutProgress =
 export type CutOutput = {
   // trimmed to the subject — for this player's canvas
   place: Blob
+  // where that trimmed cut sits in the image it was cut from
+  trim: CutTrim
   // untrimmed WebP for the shared library; null when the browser can't
   // encode WebP (Safari), in which case the cut stays local
   upload: Blob | null
@@ -145,7 +149,7 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
         case 'done':
           console.info(`[cut] inference took ${Math.round(performance.now() - cutStartedAt)}ms`)
           finish()
-          resolve({ place: msg.place, upload: msg.upload })
+          resolve({ place: msg.place, upload: msg.upload, trim: msg.trim })
           return
         case 'error':
           // the worker's own words are for the console; the player gets fixed ones
