@@ -73,7 +73,7 @@ afterEach(() => {
 })
 
 describe('lie:submit refusals', () => {
-  const rejected = { ok: false, code: 'LIE_REJECTED', message: 'Try a different fake' }
+  const rejected = { ok: false, code: 'LIE_REJECTED', message: 'Someone already has that one — write another' }
 
   it('a lie equal to the real prompt, any case or spacing, gets the neutral refusal', () => {
     const s = roomInLie()
