@@ -1,6 +1,12 @@
-import { SubmitGuessSchema, GameError } from '@smoosh/protocol'
+import { NextPictureSchema, SubmitGuessSchema, GameError } from '@smoosh/protocol'
 import { touchRoom } from '../rooms/Room.ts'
-import { dropPendingActor, recordGuess, optionsForPicture, type PhaseMachineDeps } from '../game/phaseMachine.ts'
+import {
+  dropPendingActor,
+  endRevealEarly,
+  recordGuess,
+  optionsForPicture,
+  type PhaseMachineDeps,
+} from '../game/phaseMachine.ts'
 import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 
 export function registerGuessHandlers(_io: TypedServer, socket: TypedSocket, deps: PhaseMachineDeps): void {
@@ -32,6 +38,27 @@ export function registerGuessHandlers(_io: TypedServer, socket: TypedSocket, dep
       ack(ok(undefined))
       dropPendingActor(room, deps, seat.playerId)
       deps.onSnapshot(room)
+    } catch (err) {
+      ack(fail(err))
+    }
+  })
+
+  // the host has seen enough of this reveal. Named by its picture, so a tap
+  // that lands after the timer already moved on is refused — it must never
+  // skip the next picture too
+  socket.on('reveal:next', (payload, cb) => {
+    const ack = safeAck(cb)
+    try {
+      const { pictureIndex } = NextPictureSchema.parse(payload)
+      const room = requireRoom(socket)
+      const seat = requireSeat(room, socket)
+      if (!seat.isHost) throw new GameError('NOT_HOST', 'only the host can move on')
+      if (room.phase.phase !== 'reveal' || room.phase.pictureIndex !== pictureIndex) {
+        throw new GameError('PHASE_MISMATCH', 'that reveal is already over')
+      }
+      touchRoom(room)
+      ack(ok(undefined))
+      endRevealEarly(room, deps)
     } catch (err) {
       ack(fail(err))
     }
