@@ -1,4 +1,5 @@
 import { optionText } from '@smoosh/protocol'
+import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import PlayerDot from '../PlayerDot'
@@ -9,15 +10,24 @@ import Tape from '../../components/Tape'
 import { nameList, revealSummary } from '../revealSummary'
 import { formatPoints, signedPoints } from '../points'
 import { NO_FAKES_TEXT } from '../roomMessages'
+import { nextPictureLabel, nextPictureSender } from '../nextPicture'
 
 // The truth is… (Reveal.dc.html): the picture small, what you won in a
 // burst, the real prompt stamped REAL with who found it, each lie with who
-// fell for it, then everyone's score so far along the foot.
-export default function RevealView({ snapshot }: PhaseProps) {
+// fell for it, then everyone's score so far along the foot. The host can
+// move on before the time's up, once everyone has had their laugh.
+export default function RevealView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
   const phase = snapshot.phase
   const summary = revealSummary(snapshot)
+  const [sendNext] = useState(() => nextPictureSender((pictureIndex) => emit('reveal:next', { pictureIndex })))
+  const [going, setGoing] = useState(false)
   if (phase.phase !== 'reveal' || !summary) return null
+
+  const goNext = async () => {
+    setGoing(true)
+    if ((await sendNext(phase.pictureIndex)) === 'refused') setGoing(false)
+  }
 
   const youId = snapshot.you.playerId
   const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
@@ -144,6 +154,12 @@ export default function RevealView({ snapshot }: PhaseProps) {
           })}
         </ul>
       </section>
+
+      {snapshot.you.isHost && (
+        <button className="btn btn-primary btn-block reveal-next" disabled={going} onClick={() => void goNext()}>
+          {nextPictureLabel(phase.pictureIndex, phase.pictureCount)}
+        </button>
+      )}
     </div>
   )
 }

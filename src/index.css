@@ -2474,6 +2474,11 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+/* the host's way on from a reveal, under the scores */
+.reveal-next {
+  flex: none;
+}
+
 /* ---------- scores view ----------
    Scores.dc.html: "After round n of m", then a 64px cut paper scrap per
    player — rank, dot, name, this round's points in red, the total — and
