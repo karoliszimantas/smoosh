@@ -1,0 +1,49 @@
+/* ---------- asset sheet: the peek ----------
+   After a placement the sheet drops to a peek of its search and tabs, about
+   138px, with the canvas above it free to work on. Everything else moves
+   below the fold rather than going: the results keep their height, so
+   their scroll is just where it was when the sheet opens again. */
+
+.asset-sheet {
+  --sheet-peek: calc(138px + env(safe-area-inset-bottom));
+}
+
+.asset-sheet.open.peek {
+  transform: translateY(calc(100% - var(--sheet-peek)));
+  box-shadow: 0 -4px 0 rgba(0, 0, 0, 0.18);
+}
+
+.asset-sheet.peek .photo-entry,
+.asset-sheet.peek .asset-sheet-categories,
+.asset-sheet.peek .asset-sheet-grid {
+  order: 1;
+}
+
+/* a little tighter on top (12px in all), given back above the results */
+.asset-sheet.peek .sheet-handle {
+  margin: 6px auto;
+}
+
+.asset-sheet.peek .asset-sheet-tabs {
+  padding-top: 3px;
+  padding-bottom: 8px;
+}
+
+.asset-sheet.peek .asset-sheet-grid {
+  margin-top: 12px;
+}
+
+/* the top of the sheet is where it's swiped, so the sheet takes no panning
+   of its own; the grid keeps its scrolling, the tab rows their sideways one */
+.asset-sheet {
+  touch-action: none;
+}
+
+.asset-sheet .asset-sheet-grid {
+  touch-action: pan-y;
+}
+
+.asset-sheet .asset-sheet-tabs,
+.asset-sheet .asset-sheet-categories {
+  touch-action: pan-x;
+}

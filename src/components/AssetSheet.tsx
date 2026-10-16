@@ -1,4 +1,15 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+  type PointerEvent,
+} from 'react'
 import type { Asset, ImageVariant, PixabayHit, SearchResult } from '../assets'
 import { LocalAssetSource, SearchError, pixabaySource } from '../assets'
 import { mergeResults, promptTabs } from '../assets/search'
@@ -9,6 +20,7 @@ import type { Placement } from './layerItem'
 import ReportDialog from './ReportDialog'
 import { preparePhoto, releaseCanvas } from '../photos/photoCut'
 import { savePhoto } from '../photos/photoStore'
+import './assetSheet.css'
 
 // only fetched when someone actually adds a photo
 const PhotoLasso = lazy(() => import('../photos/PhotoLasso'))
@@ -70,23 +82,38 @@ const PER_PAGE = 20
 type SheetTab = { kind: 'word' | 'all'; label: string; key: string }
 const ALL_TAB: SheetTab = { kind: 'all', label: 'All', key: '__all' }
 
+// closed; a peek of the search and the tabs under the canvas, after a
+// placement, so the next one is a tap away; or open over the canvas
+export type SheetMode = 'closed' | 'peek' | 'open'
+
+// a swipe on the sheet's top (handle, search, tabs) counts once it has gone
+// this far, mostly up or down, and settles it once it has gone this far
+const SWIPE_START_PX = 10
+const SWIPE_COMMIT_PX = 40
+
 export default function AssetSheet({
-  open,
+  mode,
   promptText,
   freestyle,
   allowPhotos = true,
   onClose,
+  onExpand,
   onPlace,
   onCutShared,
   tabRequest = null,
 }: {
-  open: boolean
+  mode: SheetMode
   promptText: string
   freestyle: boolean
   // "Your photo" is offered — the room's host can turn it off
   allowPhotos?: boolean
+  // closed all the way
   onClose: () => void
-  onPlace: (placement: Placement) => void
+  // from the peek to open
+  onExpand: () => void
+  // the canvas decides where the sheet goes next (a peek, or closed at the
+  // layer limit); false when nothing was placed
+  onPlace: (placement: Placement) => boolean
   // a cut made on this device finished uploading — the canvas swaps its
   // local blob: URL for the shared one so the layer survives a reload
   onCutShared: (localSrc: string, shared: ImageVariant) => void
@@ -94,6 +121,9 @@ export default function AssetSheet({
   // is a new request, even for the same word
   tabRequest?: { key: string; seq: number } | null
 }) {
+  // peeking still searches and keeps its place: only closed is idle
+  const open = mode !== 'closed'
+  const peek = mode === 'peek'
   const [tabIndex, setTabIndex] = useState<number | null>(0)
   // the tab to go back to when the search box is emptied
   const [lastTabIndex, setLastTabIndex] = useState(0)
@@ -246,9 +276,69 @@ export default function AssetSheet({
     if (!open) refreshedTerms.current.clear()
   }, [open])
 
+  // Opening takes the focus into the sheet. So does dropping to the peek:
+  // the card just tapped is out of reach there — unless the focus is already
+  // on what the peek shows (the search, a tab)
+  const lastMode = useRef(mode)
   useEffect(() => {
-    if (open) sheetRef.current?.focus()
-  }, [open])
+    const was = lastMode.current
+    lastMode.current = mode
+    const sheet = sheetRef.current
+    if (!sheet || mode === was || mode === 'closed') return
+    if (mode === 'open' && was !== 'closed') return
+    const active = document.activeElement
+    if (mode === 'peek' && active && sheet.contains(active) && !active.closest('[inert]')) return
+    sheet.focus({ preventScroll: true })
+  }, [mode])
+
+  // Swiping the sheet's top: up opens the peek, down closes it from either.
+  // The sheet follows the finger; the grid keeps its own scrolling, and the
+  // tabs their sideways one
+  const swipe = useRef<{ id: number; x: number; y: number; dy: number; active: boolean } | null>(null)
+  // a swipe that ends on a tab mustn't also pick it
+  const swallowClick = useRef(false)
+  const onSwipeStart = (e: PointerEvent<HTMLDivElement>) => {
+    swallowClick.current = false
+    if (!e.isPrimary || !open || keyboard) return
+    if (e.target instanceof Element && e.target.closest('.asset-sheet-grid, .photo-entry, .asset-sheet-categories')) return
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dy: 0, active: false }
+  }
+  const onSwipeMove = (e: PointerEvent<HTMLDivElement>) => {
+    const s = swipe.current
+    const sheet = sheetRef.current
+    if (!s || !sheet || e.pointerId !== s.id) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    if (!s.active) {
+      if (Math.abs(dx) > SWIPE_START_PX && Math.abs(dx) >= Math.abs(dy)) {
+        swipe.current = null
+        return
+      }
+      if (Math.abs(dy) < SWIPE_START_PX) return
+      s.active = true
+      try {
+        sheet.setPointerCapture(e.pointerId)
+      } catch {
+        // the pointer's already gone: the swipe just ends where it is
+      }
+    }
+    s.dy = dy
+    const rest = peek ? '100% - var(--sheet-peek)' : '0px'
+    sheet.style.transition = 'none'
+    sheet.style.transform = `translateY(max(0px, calc(${rest} + ${dy}px)))`
+  }
+  const onSwipeEnd = (e: PointerEvent<HTMLDivElement>) => {
+    const s = swipe.current
+    const sheet = sheetRef.current
+    if (!s || e.pointerId !== s.id) return
+    swipe.current = null
+    if (!s.active || !sheet) return
+    sheet.style.transition = ''
+    sheet.style.transform = ''
+    swallowClick.current = true
+    if (s.dy <= -SWIPE_COMMIT_PX && peek) onExpand()
+    else if (s.dy >= SWIPE_COMMIT_PX) onClose()
+  }
 
   const termState = activeTerm ? terms[activeTerm] : undefined
 
@@ -335,7 +425,6 @@ export default function AssetSheet({
       pixabayId: result.tier === 1 ? null : result.pixabayId,
       ...(fromWord ? { fromWord } : {}),
     })
-    onClose() // one-line to remove if adding should leave the sheet open
   }
 
   const cutOnDevice = (result: SearchResult) => {
@@ -405,10 +494,7 @@ export default function AssetSheet({
   // the cut, kept on this device and placed like any other layer
   const placePhoto = (cut: Blob) => {
     closePhoto()
-    void savePhoto(cut).then((src) => {
-      onPlace({ full: src, thumb: src, label: 'Your photo', pixabayId: null })
-      onClose()
-    })
+    void savePhoto(cut).then((src) => onPlace({ full: src, thumb: src, label: 'Your photo', pixabayId: null }))
   }
 
   const handleReported = (pixabayId: number) => {
@@ -423,18 +509,34 @@ export default function AssetSheet({
 
   return (
     <>
-      <div className={`sheet-backdrop${open ? ' open' : ''}`} onClick={onClose} aria-hidden="true" />
+      {/* only open covers the canvas: a peek leaves it to be worked on */}
+      <div className={`sheet-backdrop${mode === 'open' ? ' open' : ''}`} onClick={onClose} aria-hidden="true" />
       <div
         ref={sheetRef}
-        className={`asset-sheet${open ? ' open' : ''}${keyboard ? ' keyboard-open' : ''}`}
+        className={`asset-sheet${open ? ' open' : ''}${peek ? ' peek' : ''}${keyboard ? ' keyboard-open' : ''}`}
         style={keyboard ? { bottom: keyboard.inset, height: keyboard.height } : undefined}
         role="dialog"
-        aria-modal="true"
+        aria-modal={mode === 'open'}
         aria-label="Add to canvas"
         aria-hidden={!open}
         tabIndex={-1}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose()
+        }}
+        onPointerDown={onSwipeStart}
+        onPointerMove={onSwipeMove}
+        onPointerUp={onSwipeEnd}
+        onPointerCancel={onSwipeEnd}
+        onClickCapture={(e) => {
+          if (swallowClick.current) {
+            swallowClick.current = false
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
+          // a tap anywhere on the peek opens it — and still does what it
+          // tapped (a tab picks that tab, the search takes the typing)
+          if (peek) onExpand()
         }}
       >
         <div className="sheet-handle" />
@@ -457,7 +559,7 @@ export default function AssetSheet({
         </div>
 
         {allowPhotos && (
-          <div className="photo-entry">
+          <div className="photo-entry" inert={peek}>
             <label className={`photo-button${photoState === 'opening' ? ' busy' : ''}`}>
               <CameraIcon />
               {photoState === 'opening' ? 'Opening…' : 'Your photo'}
@@ -493,7 +595,7 @@ export default function AssetSheet({
 
         {/* All: the library by category */}
         {activeTab?.kind === 'all' && categories.length > 0 && (
-          <div className="asset-sheet-categories" role="tablist" aria-label="Library categories">
+          <div className="asset-sheet-categories" role="tablist" aria-label="Library categories" inert={peek}>
             {categories.map((c) => (
               <button
                 key={c.key}
@@ -508,7 +610,9 @@ export default function AssetSheet({
           </div>
         )}
 
-        <div className="asset-sheet-grid">
+        {/* in the peek, below the fold: kept as it was (the tab's results,
+            scrolled where they were) for when the sheet opens again */}
+        <div className="asset-sheet-grid" inert={peek}>
           {/* a word the library hasn't got: always said plainly, whatever
               Pixabay is doing — before anything it found */}
           {libraryQuery && curated !== null && libraryMatches.length === 0 && (
