@@ -511,7 +511,10 @@ h2,
 /* ---------- canvas ---------- */
 
 .canvas-container {
-  flex: 1;
+  /* square while there's room — as wide as the screen is tall, the frame
+     filling it but for its gutter — and the one thing that gives way when
+     there isn't: a wrapped prompt row or the layer strip shrinks it */
+  flex: 0 1 100vw;
   min-height: 0;
   overflow: hidden;
   position: relative;
@@ -648,6 +651,9 @@ h2,
 .toolbar-wrap {
   position: relative;
   flex-shrink: 0;
+  /* any room the square canvas leaves goes above the toolbar, which stays
+     at the foot of the screen, under the thumb */
+  margin-top: auto;
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
@@ -713,7 +719,9 @@ h2,
 /* the row's main action: riso red standing on an ink ledge, inside the
    strip (so no drop shadow), the widest thing in the row */
 .toolbar-btn-primary {
-  flex: 1.6 0 96px;
+  flex: 1.6 0 auto;
+  min-width: 80px;
+  padding: 0 8px;
   flex-direction: row;
   gap: 6px;
   border: 2.5px solid var(--line);
@@ -735,14 +743,25 @@ h2,
   box-shadow: var(--ledge-pressed);
 }
 
+/* erase mode's six controls fit one row: the brush sizes and the rest
+   narrow to a thumb's width */
+.toolbar-erase .toolbar-btn:not(.toolbar-btn-primary) {
+  min-width: 44px;
+}
+
 /* a small phone: a little tighter, so crop and erase still fit one row */
 @media (max-width: 380px) {
   .toolbar {
     gap: 2px;
   }
 
-  .toolbar-btn:not(.toolbar-btn-primary) {
-    min-width: 52px;
+  .toolbar-btn {
+    letter-spacing: 0.5px;
+  }
+
+  .toolbar-btn-primary {
+    font-size: 14px;
+    padding: 0 6px;
   }
 }
 
