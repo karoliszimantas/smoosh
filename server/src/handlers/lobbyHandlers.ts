@@ -20,7 +20,7 @@ import {
 } from '../rooms/Room.ts'
 import { resolveSeat } from '../rooms/seats.ts'
 import { dealIn, enterLobby, seatArrived, seatAway, seatLeft, type PresenceDeps } from '../rooms/presence.ts'
-import { startBuild } from '../game/phaseMachine.ts'
+import { dealablePrompts, startBuild } from '../game/phaseMachine.ts'
 import { deleteRoomSubmissions } from '../submissions/store.ts'
 import { ok, fail, safeAck, requireRoom, requireSeat, type TypedServer, type TypedSocket } from './context.ts'
 import { phaseLabel, roomLog, waitingLabel, who } from '../roomLog.ts'
@@ -167,7 +167,7 @@ export function registerLobbyHandlers(io: TypedServer, socket: TypedSocket, deps
       if (problem) throw new GameError('INVALID_SETTINGS', problem)
 
       const needed = promptsNeeded(room.settings, seatCount)
-      const available = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p)).length
+      const available = dealablePrompts(deps, room.settings.mode).filter((p) => !room.usedPrompts.has(p)).length
       if (available < needed) {
         throw new GameError('INVALID_SETTINGS', 'not enough prompts left for this many rounds and players')
       }

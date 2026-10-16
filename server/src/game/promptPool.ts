@@ -1,3 +1,5 @@
+import { promptSentenceCase } from '@smoosh/protocol'
+
 // Server-only — never shipped to the client bundle. If this vocabulary were
 // part of @smoosh/protocol it would ship in every player's JS, letting anyone
 // inspect it and recognize the real prompt during GUESS.
@@ -166,7 +168,8 @@ export function generatePromptPool(size: number = POOL_SIZE, rng: Rng = Math.ran
   const pool = new Set<string>()
   // bounded so a too-small vocabulary can't spin forever
   for (let attempts = 0; pool.size < size && attempts < size * 20; attempts++) {
-    const prompt = pick(TEMPLATES, rng)(rng)
+    // the slots read as titles; players are dealt sentence case
+    const prompt = promptSentenceCase(pick(TEMPLATES, rng)(rng))
     if (prompt.length <= MAX_PROMPT_LEN) pool.add(prompt)
   }
   return [...pool]

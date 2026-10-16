@@ -9,6 +9,7 @@ import {
   type PhaseState,
 } from '@smoosh/protocol'
 import { createRoom, type Room, type Seat } from '../src/rooms/Room.ts'
+import { generatePromptPool } from '../src/game/promptPool.ts'
 import {
   startBuild,
   dropPendingActor,
@@ -16,6 +17,8 @@ import {
   skipAwards,
   voteProblem,
   recordGuess,
+  recordLie,
+  dealablePrompts,
   restorePendingActor,
   optionsForPicture,
   acceptSubmission,
@@ -75,6 +78,15 @@ function expectPhase<T extends PhaseState['phase']>(room: Room, phase: T): Extra
     throw new Error(`expected phase "${phase}", got "${room.phase.phase}"`)
   }
   return room.phase as Extract<PhaseState, { phase: T }>
+}
+
+// everyone still to write a fake for the current picture writes one
+function writeLies(room: Room, deps: PhaseMachineDeps): void {
+  const phase = expectPhase(room, 'lie')
+  for (const id of [...room.pendingActors]) {
+    recordLie(room, phase.pictureIndex, id, `fake by ${id}`)
+    dropPendingActor(room, deps, id)
+  }
 }
 
 // A 60s BUILD closes after its deadline plus the grace window for late
@@ -553,5 +565,54 @@ describe('GALLERY mode', () => {
     }
     expect(seen.has('lie') || seen.has('guess') || seen.has('reveal')).toBe(false)
     expect(seen.has('vote') && seen.has('awards')).toBe(true)
+  })
+})
+
+describe('prompts are dealt in sentence case', () => {
+  const TITLE_CASE = ['Pug in Sunglasses on a Pirate Galleon', 'Goat Working as a Judge', 'Hen Juggling Bananas at the Gym']
+
+  it('the real prompt in GUESS reads in sentence case, from a Title Case pool entry', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ prompts: () => TITLE_CASE, hasSubmission: () => true })
+    startBuild(room, deps)
+    expect([...room.promptByPlayer.values()].sort()).toEqual([
+      'Goat working as a judge',
+      'Hen juggling bananas at the gym',
+      'Pug in sunglasses on a pirate galleon',
+    ])
+    vi.advanceTimersByTime(BUILD_END_MS)
+    const { authorId } = expectPhase(room, 'lie')
+    writeLies(room, deps)
+    const guess = expectPhase(room, 'guess')
+    const truth = optionsForPicture(room, guess.pictureIndex).find((o) => o.authorId === null)
+    expect(truth?.text).toBe(room.promptByPlayer.get(authorId))
+    expect(TITLE_CASE.map((p) => p.charAt(0) + p.slice(1).toLowerCase())).toContain(truth?.text)
+  })
+
+  it('a swap offers sentence case too, and the stored text is never rewritten', () => {
+    const pool = [...TITLE_CASE, 'Sloth in a Hard Hat at the Airport', 'Llama Hugging a Cactus']
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ prompts: () => pool })
+    startBuild(room, deps)
+    expect(room.swapPool.every((p) => p === p.charAt(0) + p.slice(1).toLowerCase())).toBe(true)
+    expect(pool[0]).toBe('Pug in Sunglasses on a Pirate Galleon')
+  })
+
+  it('gallery: the shared prompt is in sentence case', () => {
+    const room = makeRoom(3, 1, 60, 'gallery')
+    startBuild(room, makeDeps({ prompts: () => ['A Llama in a Royal Crown'] }))
+    expect(new Set(room.promptByPlayer.values())).toEqual(new Set(['A llama in a royal crown']))
+  })
+
+  it('two stored prompts that differ only in case are dealt as one', () => {
+    const deps = makeDeps({ prompts: () => ['Goat on a Unicycle', 'goat on a unicycle', 'Pug in a Wig'] })
+    expect(dealablePrompts(deps, 'guess')).toEqual(['Goat on a unicycle', 'Pug in a wig'])
+  })
+
+  it('the generated pool comes out in sentence case', () => {
+    let seed = 7
+    const pool = generatePromptPool(50, () => (seed = (seed * 16807) % 2147483647) / 2147483647)
+    expect(pool.length).toBe(50)
+    for (const p of pool) expect(p).toBe(p.charAt(0) + p.slice(1).toLowerCase())
   })
 })
