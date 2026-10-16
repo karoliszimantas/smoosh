@@ -4,6 +4,7 @@ import { getActiveRoom } from './session'
 import { joinFailedText } from './roomMessages'
 import Wordmark from './Wordmark'
 import { forgetInvite, invitedRoom } from './invite'
+import HowToPlay from './HowToPlay'
 
 export default function HomeView({
   emit,
@@ -26,6 +27,7 @@ export default function HomeView({
   const [name, setName] = useState('')
   const [roomCode, setRoomCode] = useState(invited ?? lastRoomCode ?? '')
   const nameRef = useRef<HTMLInputElement>(null)
+  const [howToPlay, setHowToPlay] = useState(false)
   useEffect(() => {
     if (invited) nameRef.current?.focus()
   }, [invited])
@@ -183,11 +185,17 @@ export default function HomeView({
         )}
       </div>
 
-      {/* a utility, not the main path — and never gated on the connection:
-          it has to work with the game server down */}
-      <button className="btn-link on-desk home-sandbox" onClick={onSandbox}>
-        Just mess around
-      </button>
+      {/* the rules, and a utility: not the main path — and never gated on
+          the connection, they have to work with the game server down */}
+      <div className="home-links">
+        <button className="btn-link on-desk" onClick={() => setHowToPlay(true)}>
+          How to play
+        </button>
+        <button className="btn-link on-desk home-sandbox" onClick={onSandbox}>
+          Just mess around
+        </button>
+      </div>
+      {howToPlay && <HowToPlay onClose={() => setHowToPlay(false)} />}
     </div>
   )
 }

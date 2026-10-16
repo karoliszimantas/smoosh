@@ -6034,3 +6034,319 @@ html[data-torn='false'] .wordmark-tile {
 .qr-svg-dark {
   fill: #000000;
 }
+
+/* Home's two quiet links, side by side under the form */
+.home-links {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+}
+
+/* ---------- how to play ----------
+   game/HowToPlay.tsx: three cards on one taped paper card over the desk,
+   each a 160px scrap-paper picture, a title and a line or two */
+.htp-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: var(--scrim);
+}
+
+.htp {
+  position: relative;
+  width: min(358px, 100%);
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px 16px;
+}
+
+/* focused only so a screen reader starts here — not a control */
+.htp:focus {
+  outline: none;
+}
+
+.htp-head {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* the swipe area: a horizontal swipe is ours, a vertical one scrolls */
+.htp-page {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.htp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.htp-art {
+  position: relative;
+  height: 160px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.htp-title {
+  margin: 0;
+  font: 400 26px/30px var(--font-display);
+  text-transform: var(--display-transform);
+  letter-spacing: var(--display-tracking);
+}
+
+.htp-text {
+  margin: 0;
+  min-height: 66px;
+  font: 400 16px/22px var(--font-ui);
+}
+
+.htp-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.htp-dots li {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+}
+
+.htp-dots li.on {
+  background: var(--line);
+}
+
+.htp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.htp-skip {
+  margin-right: auto;
+  padding-left: 4px;
+}
+
+.htp-next {
+  min-width: 132px;
+}
+
+/* the pictures: scraps of coloured paper, cut and taped, in the theme's
+   chip colours */
+.htp-scrap {
+  position: absolute;
+  display: block;
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.htp-scrap-a {
+  background: var(--prompt-chip-1);
+}
+
+.htp-scrap-b {
+  background: var(--prompt-chip-2);
+  clip-path: polygon(8% 0, 100% 6%, 92% 100%, 0 88%);
+}
+
+.htp-build .htp-prompt {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  padding: 4px 10px 5px;
+  background: var(--prompt-chip-0);
+  color: var(--line);
+  font: 400 15px/18px var(--font-display);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-2deg);
+}
+
+.htp-build .htp-scrap-a {
+  left: calc(50% - 92px);
+  top: 54px;
+  width: 104px;
+  height: 84px;
+  transform: rotate(-5deg);
+}
+
+.htp-build .htp-scrap-b {
+  left: calc(50% - 4px);
+  top: 62px;
+  width: 92px;
+  height: 80px;
+  transform: rotate(7deg);
+}
+
+.htp-sun {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--prompt-chip-0);
+}
+
+.htp-build .htp-tape {
+  left: calc(50% - 30px);
+  top: 50px;
+  width: 56px;
+  height: 18px;
+  transform: rotate(4deg);
+}
+
+.htp-fake .htp-thumb {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 96px;
+  height: 72px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  transform: translateX(-50%) rotate(-3deg);
+}
+
+.htp-fake .htp-scrap-a {
+  left: 8px;
+  top: 8px;
+  width: 44px;
+  height: 40px;
+}
+
+.htp-fake .htp-scrap-b {
+  right: 8px;
+  bottom: 6px;
+  width: 42px;
+  height: 36px;
+}
+
+/* a caption on a slip of paper, typed */
+.htp-slip {
+  position: relative;
+  display: block;
+  width: max-content;
+  max-width: calc(100% - 96px);
+  padding: 5px 12px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  color: var(--surface-text);
+  font: 700 14px/18px var(--font-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.htp-fake .htp-slip-typing {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%) rotate(1deg);
+}
+
+.htp-caret {
+  display: inline-block;
+  width: 2px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--surface-text);
+}
+
+.htp-spot {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding-left: 14px;
+}
+
+.htp-spot .htp-slip:nth-child(1) {
+  transform: rotate(-1.5deg);
+}
+
+.htp-spot .htp-slip:nth-child(3) {
+  transform: rotate(1deg);
+}
+
+.htp-spot .htp-slip-real {
+  padding-right: 76px;
+}
+
+.htp-spot .htp-stamp {
+  top: 1px;
+  right: 4px;
+  padding: 0 6px;
+  border-width: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 2px;
+}
+
+.htp-points {
+  position: absolute;
+  right: 12px;
+  top: calc(50% - 12px);
+  font: 400 22px/24px var(--font-display);
+  color: var(--burst-figure);
+  -webkit-text-stroke: 2px var(--line);
+  paint-order: stroke fill;
+  text-shadow: var(--burst-figure-shadow);
+  transform: rotate(-8deg);
+}
+
+/* a new card is dealt: in held frames on a stepped desk, a quick slide on a
+   smooth one, and simply there for anyone who asked for less motion */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion='stepped'] .htp-card {
+    animation: htp-deal calc(var(--step-ms) * 4) steps(2, end);
+  }
+
+  html[data-motion='smooth'] .htp-card {
+    animation: htp-slide 180ms ease-out;
+  }
+}
+
+@keyframes htp-deal {
+  0% {
+    transform: translateX(24px) rotate(3deg);
+  }
+  50% {
+    transform: translateX(-4px) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes htp-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
