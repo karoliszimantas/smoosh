@@ -44,7 +44,7 @@ export function useDialog<T extends HTMLElement>(onClose: () => void, returnFocu
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
-      const back = opener?.isConnected ? opener : returnRef.current?.()
+      const back = opener?.isConnected && opener !== document.body ? opener : returnRef.current?.()
       back?.focus()
     }
   }, [])

@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Wordmark from './Wordmark'
 import DymoLabel from './DymoLabel'
 import { copyText, inviteLink } from './invite'
+import HowToPlay from './HowToPlay'
 
 // Tucked behind a tap, away from anything that submits — leaving is never
 // something to do by accident. Opens on the small wordmark and the room's
-// code on its Dymo strip, the invite link to copy for a latecomer, then
-// Leave. In a round it sits at the end of the status
+// code on its Dymo strip, the invite link to copy for a latecomer, how to
+// play, then Leave. In a round it sits at the end of the status
 // strip, small (`inStrip`); elsewhere, in the top-right corner.
 export default function GameMenu({
   roomCode,
@@ -20,12 +21,15 @@ export default function GameMenu({
   inStrip?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [howToPlay, setHowToPlay] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   // the menu stays open to say how the copy went
   const [copied, setCopied] = useState<'copied' | 'failed' | null>(null)
   const copyInvite = async () => setCopied((await copyText(inviteLink(roomCode))) ? 'copied' : 'failed')
   return (
     <div className={inStrip ? 'game-menu in-strip' : 'game-menu'}>
       <button
+        ref={buttonRef}
         className={inStrip ? 'icon-btn icon-btn-sm game-menu-button' : 'icon-btn game-menu-button'}
         aria-label="Game menu"
         aria-expanded={open}
@@ -71,6 +75,16 @@ export default function GameMenu({
             role="menuitem"
             onClick={() => {
               setOpen(false)
+              setHowToPlay(true)
+            }}
+          >
+            How to play
+          </button>
+          <button
+            className="btn btn-secondary btn-inset btn-block"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
               onLeave()
             }}
           >
@@ -78,6 +92,8 @@ export default function GameMenu({
           </button>
         </div>
       )}
+      {/* the menu item is gone with the menu: focus goes back to ⋯ */}
+      {howToPlay && <HowToPlay onClose={() => setHowToPlay(false)} returnFocus={() => buttonRef.current} />}
     </div>
   )
 }
