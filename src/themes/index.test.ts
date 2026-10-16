@@ -96,6 +96,7 @@ describe('cssVars', () => {
     '--stamp',
     '--dymo-bg',
     '--dymo-text',
+    '--sticker-edge',
     '--timer-calm',
     '--timer-hot',
     '--timer-track',
@@ -115,6 +116,12 @@ describe('cssVars', () => {
     for (const name of NEW_VARS) expect(vars[name], name).toBeTruthy()
     expect(vars['--torn-a']).toMatch(/^polygon\(/)
     expect(vars['--surface-text']).toBe(theme.surfaceText)
+  })
+
+  it('gives the sticker edge its colour, and none when a theme has no edge', () => {
+    expect(cssVars(DARK)['--sticker-edge']).toBe('#FFFFFF')
+    expect(cssVars(LIGHT)['--sticker-edge']).toBe('#FBF7EE')
+    expect(cssVars({ ...DARK, stickerEdge: null })['--sticker-edge']).toBe('transparent')
   })
 
   it('keeps --frame for the gallery and never claims --ink', () => {

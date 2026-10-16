@@ -108,6 +108,9 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--stamp': theme.paper.stamp,
     '--dymo-bg': theme.paper.dymo.bg,
     '--dymo-text': theme.paper.dymo.text,
+    // the die-cut rim round cut-outs (drawn on the canvas; this is for any
+    // CSS that shows a cut-out the same way)
+    '--sticker-edge': theme.stickerEdge?.color ?? 'transparent',
     '--timer-calm': theme.timer.calm,
     '--timer-hot': theme.timer.hot,
     '--timer-track': theme.timer.track,
