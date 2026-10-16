@@ -62,6 +62,8 @@ export const night: Theme = {
   successTint: '#E3F1E2',
   picked: '#FFD84A',
   focus: '#FFD84A',
+  // yellow on Night's paper is 1.2:1; the Day ring's red is 5.1:1 on it
+  focusOnPaper: '#B8320A',
   ghost: '#B3A895',
   awayChip: '#B3A895',
   fontLabel: FONT_LABEL,

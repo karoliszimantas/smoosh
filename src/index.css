@@ -4908,6 +4908,20 @@ select.field {
   outline-offset: 2px;
 }
 
+/* a focus ring inside paper is seen against the paper, not the desk: every
+   paper container that holds controls hands its rings the paper's colour
+   (Night's yellow ring would be 1.2:1 on its paper) */
+.paper-card,
+.toolbar,
+.asset-sheet,
+.report-dialog,
+.leave-dialog,
+.home-notice,
+.prompt-window-card,
+.sandbox-bar {
+  --focus: var(--focus-on-paper);
+}
+
 /* a paper card on the desk */
 .paper-card {
   padding: 16px;

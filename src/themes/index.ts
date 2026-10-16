@@ -91,6 +91,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--success-tint': theme.successTint,
     '--picked': theme.picked,
     '--focus': theme.focus,
+    '--focus-on-paper': theme.focusOnPaper,
     '--ghost': theme.ghost,
     '--away-chip': theme.awayChip,
     '--mark-badge': theme.markBadge,
