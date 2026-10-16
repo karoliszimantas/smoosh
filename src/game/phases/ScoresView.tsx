@@ -2,6 +2,7 @@ import { breakdownTotal } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import Exhibit from '../gallery/Exhibit'
 import PlayerDot from '../PlayerDot'
+import { initialsFor } from '../playerMark'
 import Tape from '../../components/Tape'
 import { useCountdown } from '../useCountdown'
 import { rankLabel, rankName, rankWithTies } from '../ranking'
@@ -16,12 +17,13 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
 
   const nameById = new Map(snapshot.players.map((p) => [p.id, p.name]))
   const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
+  const initials = initialsFor(snapshot.players)
   // a player's dot, before their name
   const dot = (playerId: string) => {
     const player = playerById.get(playerId)
     return (
       player && (
-        <PlayerDot player={player} away={player.presence === 'away'} labelled />
+        <PlayerDot player={player} initial={initials.get(player.id)} away={player.presence === 'away'} labelled />
       )
     )
   }
@@ -112,7 +114,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
                 <span aria-hidden="true">{rankLabel(r)}</span>
                 <span className="visually-hidden">{rankName(r)}:</span>
               </span>
-              {player && <PlayerDot player={player} away={presence !== 'present'} labelled />}
+              {player && <PlayerDot player={player} initial={initials.get(player.id)} away={presence !== 'present'} labelled />}
               <span className="standing-name">
                 <span className="standing-name-text">{nameById.get(entry.playerId) ?? '?'}</span>
                 {you && <span className="standing-you">You</span>}

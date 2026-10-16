@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { MARK_COUNT } from '@smoosh/protocol'
-import { initialOf, markFor, markOf, SHAPES } from './playerMark'
+import { initialOf, initialsFor, markFor, markOf, SHAPES } from './playerMark'
 
 describe('seats', () => {
   it('is the seat number the server handed out, not the place in the list', () => {
@@ -57,5 +57,35 @@ describe('initials', () => {
   it('is ? for an empty name', () => {
     expect(initialOf('')).toBe('?')
     expect(initialOf('   ')).toBe('?')
+  })
+})
+
+describe('initials on the dots', () => {
+  const ids = (names: string[]) => names.map((name, i) => ({ id: `p${i}`, name }))
+  const letters = (names: string[]) => [...initialsFor(ids(names)).values()]
+
+  it('one letter where it is theirs alone', () => {
+    expect(letters(['Mara', 'Teo', 'Bob'])).toEqual(['M', 'T', 'B'])
+  })
+
+  it('two letters where initials match: the first and the second', () => {
+    expect(letters(['Mara', 'Teo', 'Mx', 'Bob'])).toEqual(['Ma', 'T', 'Mx', 'B'])
+    expect(letters(['mara', 'Milo'])).toEqual(['Ma', 'Mi'])
+  })
+
+  it('the first and the last where the second matches too', () => {
+    expect(letters(['Mara', 'Max'])).toEqual(['Ma', 'Mx'])
+    expect(letters(['Teo', 'Tea', 'Tom'])).toEqual(['To', 'Ta', 'To'])
+  })
+
+  it('counts a whole emoji or accented letter as one, and skips spaces', () => {
+    expect(letters(['🦊 fox', '🦊 kit'])).toEqual(['🦊f', '🦊k'])
+    expect(letters(['Élan', 'Émile'])).toEqual(['Él', 'Ém'])
+  })
+
+  it('eight players still get a short mark each', () => {
+    const all = letters(['Mara', 'Max', 'Milo', 'Teo', 'Tom', 'Bob', 'Bea', 'Ilya'])
+    expect(all).toEqual(['Ma', 'Mx', 'Mi', 'Te', 'To', 'Bo', 'Be', 'I'])
+    expect(all.every((l) => [...l].length <= 2)).toBe(true)
   })
 })

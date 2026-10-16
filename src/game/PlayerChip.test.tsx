@@ -48,7 +48,8 @@ describe('player dots', () => {
     expect(renderToStaticMarkup(<PlayerDot player={teo} away />)).toContain('aria-label="Teo, away"')
     const pending = renderToStaticMarkup(<PlayerDot player={ilya} pending />)
     expect(pending).toContain('aria-label="Ilya, not done yet"')
-    expect(pending).not.toContain('<svg')
+    // still wearing their shape, only faded
+    expect(pending).toContain('<polygon points="5,0.8 9.4,9 0.6,9">')
   })
 
   it('stays out of the way when the name is written beside it', () => {

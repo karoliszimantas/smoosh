@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import PlayerDot from '../PlayerDot'
+import { initialsFor } from '../playerMark'
 import PlayerChip from '../PlayerChip'
 import Burst from '../Burst'
 import RealStamp from '../RealStamp'
@@ -38,6 +39,7 @@ export default function RevealView({ snapshot, emit }: PhaseProps) {
   // nobody wrote a fake: there was nothing to guess, only the real one to see
   const noFakes = lies.length === 0
   const table = snapshot.players.filter((p) => p.presence !== 'left')
+  const initials = initialsFor(snapshot.players)
 
   return (
     <div className="reveal-view">
@@ -114,7 +116,7 @@ export default function RevealView({ snapshot, emit }: PhaseProps) {
                         return (
                           player && (
                             <li key={id}>
-                              <PlayerDot player={player} youId={youId} />
+                              <PlayerDot player={player} youId={youId} initial={initials.get(id)} />
                             </li>
                           )
                         )
@@ -143,7 +145,7 @@ export default function RevealView({ snapshot, emit }: PhaseProps) {
                   {delta > 0 && signedPoints(delta)}
                 </span>
                 <span className="dot-name score-ribbon-name" aria-hidden="true">
-                  <PlayerDot player={player} away={player.presence === 'away'} labelled />
+                  <PlayerDot player={player} initial={initials.get(player.id)} away={player.presence === 'away'} labelled />
                   <span>{player.name}</span>
                 </span>
                 <span className="score-ribbon-total" aria-hidden="true">
