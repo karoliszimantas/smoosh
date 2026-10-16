@@ -1562,10 +1562,12 @@ h2 {
 }
 
 /* the paper cards make the host's lobby tall: on a short screen it scrolls
-   rather than cutting off the room code */
+   rather than cutting off the room code. The top keeps clear of the menu
+   in the corner, which the full-width code card would otherwise run under */
 .lobby-view {
   justify-content: safe center;
   overflow-y: auto;
+  padding-top: calc(56px + env(safe-area-inset-top));
 }
 
 /* the room code, on its own taped paper card (Lobby.dc.html) */
