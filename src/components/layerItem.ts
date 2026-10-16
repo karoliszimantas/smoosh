@@ -42,6 +42,10 @@ export type LayerItem = {
   // asset sheet keys its tabs), so that word's chip shows as used. Local
   // only: never part of what's sent. Absent = placed some other way
   fromWord?: string
+  // the whole picture, standing in while it's cut on this phone: the token
+  // of that cut, which swaps the cut-out in when it lands (cutSwap.ts).
+  // Never outlives the page — a canvas restored after a reload drops it
+  cutting?: string
 }
 
 // the prompt words with a layer on the canvas placed from their search tab:
@@ -117,4 +121,6 @@ export type Placement = {
   pixabayId: number | null
   // placed from a prompt word's tab (or a search for exactly that word)
   fromWord?: string
+  // the whole picture, while it's cut: the cut's token
+  cutting?: string
 }

@@ -97,8 +97,17 @@ const DraggableImage = memo(function DraggableImage({
   isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
 }) {
-  const [img, setImg] = useState<HTMLImageElement | null>(null)
-  const [dims, setDims] = useState({ w: 120, h: 120 })
+  // the image on show, the src it's from, and its size on the canvas
+  const [shown, setShown] = useState<{ src: string; img: HTMLImageElement; dims: { w: number; h: number } } | null>(null)
+  const img = shown?.img ?? null
+  const dims = shown?.dims ?? { w: 120, h: 120 }
+  // The layer as it was when its image last matched its src. A new src
+  // (a cut-out swapped in for the whole picture, a local cut for its shared
+  // copy) comes with new geometry for the new image — scale, crop, erasing —
+  // so until that image has decoded, the old one is drawn as it was
+  const [fitted, setFitted] = useState(item)
+  if (shown?.src === item.src && fitted !== item) setFitted(item)
+  const drawn = shown?.src === item.src ? item : fitted
   const ref = useRef<Konva.Image>(null)
   const blockedDrag = useRef(false)
   const hitMask = useRef<{
@@ -112,8 +121,8 @@ const DraggableImage = memo(function DraggableImage({
   // strokes change (a new array), never per frame, and shared with any
   // duplicate that still has the same strokes
   const erased = useMemo(
-    () => (img && item.erase && item.erase.length > 0 ? erasedFor(img, item.erase) : img),
-    [img, item.erase],
+    () => (img && drawn.erase && drawn.erase.length > 0 ? erasedFor(img, drawn.erase) : img),
+    [img, drawn.erase],
   )
 
   useEffect(() => {
@@ -125,8 +134,7 @@ const DraggableImage = memo(function DraggableImage({
     loadImage(item.src)
       .then((small) => {
         if (cancelled) return
-        setDims(baseSize(small))
-        setImg(small)
+        setShown({ src: item.src, img: small, dims: baseSize(small) })
       })
       .catch((err: unknown) => console.error('failed to load', item.src, err))
 
@@ -154,7 +162,7 @@ const DraggableImage = memo(function DraggableImage({
     onChange(item.id, { x: node.x(), y: node.y() })
   }
 
-  const crop = item.crop ?? FULL_CROP
+  const crop = drawn.crop ?? FULL_CROP
 
   // the part of the image to draw — the crop is in the original image's terms
   const W = img?.width ?? 1
@@ -171,7 +179,7 @@ const DraggableImage = memo(function DraggableImage({
   // Konva scales shadow sizes by the node's absolute scale; divide out the
   // layer's own scale so the shadow is the theme's size whatever the layer's,
   // and undo a mirror's sign so the shadow still falls downward
-  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(item.scale, MIN_SCALE)
+  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(drawn.scale, MIN_SCALE)
 
   const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
     const source = erased
@@ -220,7 +228,7 @@ const DraggableImage = memo(function DraggableImage({
   const edge = theme.stickerEdge
   const radius =
     edge && erased && !isOpaque(erased)
-      ? stickerRadius(CANVAS_UNITS_PER_THEME_PX, edge.width, u, Math.max(item.scale, MIN_SCALE), Math.max(src.width, src.height))
+      ? stickerRadius(CANVAS_UNITS_PER_THEME_PX, edge.width, u, Math.max(drawn.scale, MIN_SCALE), Math.max(src.width, src.height))
       : 0
   const edgeColor = edge?.color
   const edgeWidth = edge?.width ?? 0
@@ -251,7 +259,7 @@ const DraggableImage = memo(function DraggableImage({
   // past the node's box on any side — freezeOthers reads it to size a
   // snapshot that holds them all
   const spritePad = sprite
-    ? sprite.reach * u + (sprite.shadow ? Math.hypot(dropX, dropY) / Math.max(item.scale, MIN_SCALE) : 0)
+    ? sprite.reach * u + (sprite.shadow ? Math.hypot(dropX, dropY) / Math.max(drawn.scale, MIN_SCALE) : 0)
     : 0
 
   // The sprite (the rim, with the image on top) drawn spilling past the
@@ -285,11 +293,11 @@ const DraggableImage = memo(function DraggableImage({
       id={item.id}
       ref={ref}
       image={erased}
-      x={item.x}
-      y={item.y}
-      scaleX={item.scale * (item.mirrored ? -1 : 1)}
-      scaleY={item.scale}
-      rotation={item.rotation}
+      x={drawn.x}
+      y={drawn.y}
+      scaleX={drawn.scale * (drawn.mirrored ? -1 : 1)}
+      scaleY={drawn.scale}
+      rotation={drawn.rotation}
       width={width}
       height={height}
       offsetX={offsetX}
@@ -301,7 +309,7 @@ const DraggableImage = memo(function DraggableImage({
       shadowColor={liveShadow ? theme.layerShadowColor : undefined}
       shadowEnabled={liveShadow}
       shadowBlur={theme.layerShadowBlur * shadowScale}
-      shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (item.mirrored ? -1 : 1)}
+      shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (drawn.mirrored ? -1 : 1)}
       shadowOffsetY={theme.layerShadowOffset.y * shadowScale}
       visible={!hidden}
       opacity={item.opacity * (dimmed ? 0.4 : 1)}

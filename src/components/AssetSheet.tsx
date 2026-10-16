@@ -15,8 +15,10 @@ import { LocalAssetSource, SearchError, pixabaySource } from '../assets'
 import { mergeResults, promptTabs } from '../assets/search'
 import { buildIndex, searchAssets } from '../assetSearch'
 import { recordMissingWord } from '../assets/missingWords'
-import { CutFailed, canCutOnDevice, cutImage, subscribeCutAvailability, type CutProgress } from '../cutting/cutClient'
+import { canCutOnDevice, cutImage, subscribeCutAvailability, type CutTrim } from '../cutting/cutClient'
 import type { Placement } from './layerItem'
+import type { CutUpdate } from './cutSwap'
+import { generateId } from '../id'
 import ReportDialog from './ReportDialog'
 import { preparePhoto, releaseCanvas } from '../photos/photoCut'
 import { savePhoto } from '../photos/photoStore'
@@ -72,7 +74,8 @@ type TermState = {
   error: string | null
 }
 
-type CardStatus = { kind: 'download'; pct: number } | { kind: 'cutting' } | { kind: 'error'; message: string }
+// a cut being made on this phone, and the layers waiting on it
+type DeviceCut = { done: Promise<{ image: ImageVariant; trim: CutTrim }>; tokens: Set<string> }
 
 const PER_PAGE = 20
 
@@ -99,6 +102,7 @@ export default function AssetSheet({
   onClose,
   onExpand,
   onPlace,
+  onCut,
   onCutShared,
   tabRequest = null,
 }: {
@@ -114,6 +118,9 @@ export default function AssetSheet({
   // the canvas decides where the sheet goes next (a peek, or closed at the
   // layer limit); false when nothing was placed
   onPlace: (placement: Placement) => boolean
+  // a cut made on this device for a layer placed whole meanwhile (the
+  // placement's `cutting` token): its progress, the cut-out, or a failure
+  onCut: (token: string, update: CutUpdate) => void
   // a cut made on this device finished uploading — the canvas swaps its
   // local blob: URL for the shared one so the layer survives a reload
   onCutShared: (localSrc: string, shared: ImageVariant) => void
@@ -131,7 +138,6 @@ export default function AssetSheet({
   const [debouncedInput, setDebouncedInput] = useState('')
   const [terms, setTerms] = useState<Record<string, TermState>>({})
   const [curated, setCurated] = useState<CuratedEntry[] | null>(null)
-  const [cardStatus, setCardStatus] = useState<Record<string, CardStatus>>({})
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set())
   const [reportTarget, setReportTarget] = useState<number | null>(null)
   const cutAvailable = useSyncExternalStore(subscribeCutAvailability, canCutOnDevice)
@@ -398,14 +404,6 @@ export default function AssetSheet({
     else setTabIndex(lastTabIndex)
   }
 
-  const setStatus = (key: string, status: CardStatus | null) =>
-    setCardStatus((prev) => {
-      const next = { ...prev }
-      if (status) next[key] = status
-      else delete next[key]
-      return next
-    })
-
   // the prompt word what's showing was searched for: its tab, or a search
   // typed for exactly that word. Read when the player taps, since a cut
   // lands later, after they may have moved on
@@ -415,7 +413,7 @@ export default function AssetSheet({
     return tabIndex === null ? tabs.find((t) => t.kind === 'word' && t.key === typed)?.key : undefined
   }
 
-  const place = (result: SearchResult, image: ImageVariant, fromWord: string | undefined) => {
+  const place = (result: SearchResult, image: ImageVariant, fromWord: string | undefined, cutting?: string): boolean =>
     // curated assets carry a Pixabay id only for deduping — they aren't
     // reportable (the blocklist can't touch the manifest), so the layer
     // mustn't offer a report control either
@@ -424,31 +422,38 @@ export default function AssetSheet({
       label: result.label,
       pixabayId: result.tier === 1 ? null : result.pixabayId,
       ...(fromWord ? { fromWord } : {}),
+      ...(cutting ? { cutting } : {}),
     })
-  }
 
+  // the cuts made on this phone, by the picture they're cut from: the same
+  // picture cut twice waits on the one cut rather than making another
+  const deviceCuts = useRef(new Map<string, DeviceCut>())
+
+  // Cut never blocks: the whole picture goes on now, and the canvas swaps
+  // the cut-out in when it's ready (cutSwap.ts). The card isn't kept busy —
+  // the layer shows how the cut is going, the first download included
   const cutOnDevice = (result: SearchResult) => {
-    const { pixabayId, rect, key } = result
-    const fromWord = currentWord()
+    const { pixabayId, rect } = result
     if (pixabayId === null || !rect) return
-    setStatus(key, { kind: 'download', pct: 0 })
+    const token = generateId()
+    if (!place(result, rect, currentWord(), token)) return
 
-    const onProgress = (p: CutProgress) =>
-      setStatus(
-        key,
-        p.stage === 'cutting'
-          ? { kind: 'cutting' }
-          : { kind: 'download', pct: p.total > 0 ? Math.floor((p.loaded / p.total) * 100) : 0 },
+    const known = deviceCuts.current.get(rect.full)
+    if (known) {
+      known.tokens.add(token)
+      known.done.then(
+        (cut) => onCut(token, { kind: 'done', ...cut }),
+        () => onCut(token, { kind: 'failed' }),
       )
-
-    cutImage(rect.full, onProgress).then(
-      (output) => {
-        setStatus(key, null)
-        const localUrl = URL.createObjectURL(output.place)
-        place(result, { full: localUrl, thumb: localUrl }, fromWord)
-
-        // the player never waits on this — the cut is already on their canvas
-        if (!output.upload) return
+      return
+    }
+    const tokens = new Set([token])
+    const done = cutImage(rect.full, (progress) => {
+      for (const t of tokens) onCut(t, { kind: 'progress', progress })
+    }).then((output) => {
+      const localUrl = URL.createObjectURL(output.place)
+      // the player never waits on this — the cut is already on their canvas
+      if (output.upload) {
         pixabaySource.uploadCut(pixabayId, output.upload).then(
           (shared) => {
             onCutShared(localUrl, shared)
@@ -456,11 +461,17 @@ export default function AssetSheet({
           },
           (err: unknown) => console.warn('cut upload failed (kept locally)', err),
         )
-      },
+      }
+      return { image: { full: localUrl, thumb: localUrl }, trim: output.trim }
+    })
+    deviceCuts.current.set(rect.full, { done, tokens })
+    done.then(
+      (cut) => onCut(token, { kind: 'done', ...cut }),
       (err: unknown) => {
-        const message = err instanceof CutFailed ? err.message : 'Cutting failed — use Full instead.'
-        setStatus(key, { kind: 'error', message })
-        window.setTimeout(() => setStatus(key, null), 4000)
+        console.warn('cut failed', err)
+        // tried again from scratch next time
+        deviceCuts.current.delete(rect.full)
+        onCut(token, { kind: 'failed' })
       },
     )
   }
@@ -642,7 +653,6 @@ export default function AssetSheet({
               <ResultCard
                 key={result.key}
                 result={result}
-                status={cardStatus[result.key] ?? null}
                 cutAvailable={cutAvailable}
                 onCut={handleCut}
                 onFull={(r) => r.rect && place(r, r.rect, currentWord())}
@@ -699,14 +709,12 @@ function applyCuts(terms: Record<string, TermState>, found: ReadonlyMap<number, 
 
 function ResultCard({
   result,
-  status,
   cutAvailable,
   onCut,
   onFull,
   onReport,
 }: {
   result: SearchResult
-  status: CardStatus | null
   cutAvailable: boolean
   onCut: (result: SearchResult) => void
   onFull: (result: SearchResult) => void
@@ -718,26 +726,11 @@ function ResultCard({
   const showFull = result.rect !== null
   // backgrounds default to Full: never nudge anyone into cutting a landscape
   const primary = !showCut || result.isBackground ? 'full' : 'cut'
-  const busy = status?.kind === 'download' || status?.kind === 'cutting'
 
   return (
     <div className={`result-card${isCut ? ' is-cut' : ''}`}>
       <div className="result-thumb">
         <img src={result.thumb} alt={result.label} loading="lazy" />
-        {status && (
-          <div className={`result-status${status.kind === 'error' ? ' error' : ''}`} role="status">
-            {status.kind === 'download' && (
-              <>
-                <span>Getting cutter… {status.pct}%</span>
-                <span className="result-progress">
-                  <span style={{ width: `${status.pct}%` }} />
-                </span>
-              </>
-            )}
-            {status.kind === 'cutting' && <span>Cutting…</span>}
-            {status.kind === 'error' && <span>{status.message}</span>}
-          </div>
-        )}
       </div>
 
       {result.tier !== 1 && result.pixabayId !== null && (
@@ -754,7 +747,6 @@ function ResultCard({
         {showCut && (
           <button
             className={`result-action${primary === 'cut' ? ' primary' : ''}`}
-            disabled={busy}
             onClick={() => onCut(result)}
             aria-label={`Cut ${result.label}`}
           >
@@ -764,7 +756,6 @@ function ResultCard({
         {showFull && (
           <button
             className={`result-action${primary === 'full' ? ' primary' : ''}`}
-            disabled={busy}
             onClick={() => onFull(result)}
             aria-label={`Full ${result.label}`}
           >
