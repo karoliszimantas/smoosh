@@ -1590,6 +1590,37 @@ h2 {
 
 /* the settings, on one paper card: the host's controls, or the summary
    everyone else reads */
+/* a first lobby's rules, on a note between the players and the settings */
+.lobby-howto {
+  width: min(100%, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.lobby-howto h2 {
+  margin: 0;
+}
+
+.lobby-howto-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 15px/21px var(--font-ui);
+}
+
+.lobby-howto-steps strong {
+  font-weight: 700;
+}
+
+.lobby-howto-done {
+  align-self: flex-end;
+}
+
 .lobby-card {
   width: min(100%, 400px);
   display: flex;
@@ -6352,18 +6383,6 @@ html[data-torn='false'] .wordmark-tile {
   font-size: 14px;
   line-height: 20px;
   letter-spacing: 2px;
-}
-
-.htp-points {
-  position: absolute;
-  right: 12px;
-  top: calc(50% - 12px);
-  font: 400 22px/24px var(--font-display);
-  color: var(--burst-figure);
-  -webkit-text-stroke: 2px var(--line);
-  paint-order: stroke fill;
-  text-shadow: var(--burst-figure-shadow);
-  transform: rotate(-8deg);
 }
 
 /* a new card is dealt: in held frames on a stepped desk, a quick slide on a
