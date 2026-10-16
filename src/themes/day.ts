@@ -27,6 +27,10 @@ export const day: Theme = {
   surfaceSunkenText: INK,
   focus: '#B8320A',
   ghost: '#5C5348',
+  // ink, not the drawn orange: on a light desk the outlined orange reads as
+  // a smudge; ink on the yellow star is 13:1
+  burstFigure: INK,
+  burstFigureShadow: 'none',
 
   shadow: { ...night.shadow, burst: '4px 5px 0 rgba(26,23,20,.85)' },
   paper: { ...night.paper, dot: 'rgba(26,23,20,.06)' },
