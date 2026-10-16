@@ -3,6 +3,7 @@ import type { Player } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import { actionErrorText } from '../roomMessages'
 import PlayerDot from '../PlayerDot'
+import { initialsFor } from '../playerMark'
 import { PlayerAvatar } from '../PlayerChip'
 import Tape from '../../components/Tape'
 import { ampersandList, finalPlaces, type Place } from '../finalStandings'
@@ -65,6 +66,7 @@ export default function FinalView({ snapshot, emit, onLeave }: PhaseProps & { on
 
   const youId = snapshot.you.playerId
   const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
+  const initials = initialsFor(snapshot.players)
   const playersOf = (place: Place) =>
     place.entries.map((e) => playerById.get(e.playerId)).filter((p): p is Player => p !== undefined)
   // first, second and third stand on the podium — fewer steps when ties
@@ -147,7 +149,7 @@ export default function FinalView({ snapshot, emit, onLeave }: PhaseProps & { on
                   <span aria-hidden="true">{rankLabel(r)}</span>
                   <span className="visually-hidden">{rankName(r)}:</span>
                 </span>
-                {player && <PlayerDot player={player} away={player.presence !== 'present'} labelled />}
+                {player && <PlayerDot player={player} initial={initials.get(player.id)} away={player.presence !== 'present'} labelled />}
                 <span className="final-rest-name">{player?.name ?? '?'}</span>
                 <span className="final-rest-total">{formatPoints(r.entry.total)}</span>
               </li>

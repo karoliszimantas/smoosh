@@ -5221,12 +5221,14 @@ select.field {
   height: 14px;
 }
 
-/* someone the room is still waiting on: a dashed ghost, no colour yet */
+/* someone the room is still waiting on: their colour and shape kept, the
+   fill faded toward the desk (40% keeps the desk's text at 4.5:1 or more
+   on every seat, both themes) under a dashed ghost edge */
 .player-dot.pending {
-  background: none;
+  background: color-mix(in srgb, var(--p-bg) 40%, var(--page-bg));
   box-shadow: none;
   border: 2px dashed var(--ghost);
-  color: var(--ghost);
+  color: var(--text);
 }
 
 /* a dot before a name, in a row */
@@ -5482,11 +5484,6 @@ select.field {
   position: absolute;
   top: 0;
   left: 0;
-}
-
-/* a ghost over a dot shouldn't show the dot through it */
-.done-dot .player-dot.pending {
-  background: var(--page-bg);
 }
 
 /* a round's screen: the strip, then the phase's own view in what's left of

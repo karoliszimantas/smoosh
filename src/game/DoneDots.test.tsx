@@ -61,4 +61,19 @@ describe('the dots', () => {
     expect(html.match(/class="player-dot"/g)).toHaveLength(4)
     expect(html).not.toContain('M1.6 5.4')
   })
+
+  it('tells Mara from Max with two letters, and keeps a waiting player’s colour and shape', () => {
+    const snapshot = snap('build', ['alice'])
+    snapshot.players = snapshot.players.map((p) =>
+      p.id === 'alice' ? { ...p, name: 'Mara' } : p.id === 'bob' ? { ...p, name: 'Max' } : p,
+    )
+    const html = renderToStaticMarkup(<DoneDots snapshot={snapshot} />)
+    const pending = html.match(/<span class="player-dot pending" style="([^"]*)"[^>]*>([^<]*)<span class="player-badge">(<svg[^]*?<\/svg>)/)
+    expect(pending?.[1]).toContain('--p-bg:')
+    expect(pending?.[2]).toBe('Ma')
+    // the seat's shape (Alice's circle), not a blank ghost
+    expect(pending?.[3]).toContain('<circle')
+    expect(html).toMatch(/>Mx<span class="player-badge">/)
+    expect(html).toMatch(/>S<span class="player-badge">/)
+  })
 })

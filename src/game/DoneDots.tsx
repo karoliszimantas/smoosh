@@ -1,10 +1,11 @@
 import type { RoomSnapshot } from '@smoosh/protocol'
 import PlayerDot from './PlayerDot'
 import { whoIsDone } from './whoIsDone'
+import { initialsFor } from './playerMark'
 
 // Who's done, at a glance: a dot per player in seat order — filled with a
-// check once they've answered, a dashed ghost while the room waits on them,
-// grey while they're away. Between pictures (nobody answers) just who's
+// check once they've answered, faded under a dashed edge while the room
+// waits on them, grey while they're away. Two letters where initials match. Between pictures (nobody answers) just who's
 // playing. One image for a screen reader, named in a sentence: "Mara is
 // done. Teo and Bob are still building."
 //
@@ -13,12 +14,14 @@ import { whoIsDone } from './whoIsDone'
 export default function DoneDots({ snapshot }: { snapshot: RoomSnapshot }) {
   const { dots, label } = whoIsDone(snapshot)
   if (dots.length === 0) return null
+  const initials = initialsFor(snapshot.players)
   return (
     <div className="done-dots" role="img" aria-label={label}>
       {dots.map(({ player, state }) => (
         <span key={player.id} className="done-dot">
           <PlayerDot
             player={player}
+            initial={initials.get(player.id)}
             labelled
             done={state === 'done'}
             pending={state === 'pending'}
