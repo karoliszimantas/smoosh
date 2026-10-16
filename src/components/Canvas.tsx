@@ -39,6 +39,7 @@ import FrameDecor from './FrameDecor'
 import { hideForExport } from './canvasExport'
 import Tape from './Tape'
 import SelectionOverlay from './SelectionOverlay'
+import type { SheetMode } from './AssetSheet'
 
 Konva.hitOnDragEnabled = true
 
@@ -184,7 +185,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // every change to the layers goes through here, and so into history
   const setItems = useCallback((change: (prev: LayerItem[]) => LayerItem[]) => setDoc((d) => commitDoc(d, change)), [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetMode, setSheetMode] = useState<SheetMode>('closed')
   // the prompt word chip that last asked for its tab, numbered so that
   // asking again for the same word is still a new request
   const [tabRequest, setTabRequest] = useState<{ key: string; seq: number } | null>(null)
@@ -371,6 +372,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     // the selection
     if (editing) return
     const id = e.target.getClassName() === 'Image' ? e.target.id() : null
+    // With the sheet peeking, a tap off the layers puts it away — that tap
+    // alone: the new layer stays selected. A layer can still be taken and
+    // moved, with the peek staying, ready for the next one
+    if (sheetMode === 'peek' && id === null) {
+      closeSheet()
+      return
+    }
     gestureOwner.current = id
     // selecting must not reorder — the items array is the single source of
     // truth for z-order; Konva's own child order is never touched
@@ -798,22 +806,37 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const openSheet = useCallback(() => {
     sheetOpener.current = addButtonRef.current
-    setSheetOpen(true)
+    setSheetMode('open')
   }, [])
   // a prompt word's chip: the sheet, on that word's tab
   const openSheetOn = useCallback((term: string) => {
     sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setTabRequest((prev) => ({ key: term, seq: (prev?.seq ?? 0) + 1 }))
-    setSheetOpen(true)
+    setSheetMode('open')
   }, [])
+  const expandSheet = useCallback(() => setSheetMode('open'), [])
   const closeSheet = useCallback(() => {
-    setSheetOpen(false)
+    setSheetMode('closed')
     const opener = sheetOpener.current ?? addButtonRef.current
     opener?.focus()
   }, [])
   // the prompt words with a layer on the canvas placed from their tab
   const usedWords = useMemo(() => usedPromptWords(items), [items])
-  const handleAssetSelect = useCallback((placement: Placement) => addItem(placement), [addItem])
+  // After a placement the sheet drops to its peek, the new layer selected on
+  // the canvas above it — and it's Add that gets the focus back when it's
+  // put away. At the layer limit there's no next one: it closes instead.
+  const handleAssetSelect = useCallback(
+    (placement: Placement): boolean => {
+      const count = itemsRef.current.length
+      if (count >= layerCapRef.current) return false
+      addItem(placement)
+      sheetOpener.current = addButtonRef.current
+      if (count + 1 >= layerCapRef.current) closeSheet()
+      else setSheetMode('peek')
+      return true
+    },
+    [addItem, closeSheet],
+  )
 
   const exportImage = useCallback(async (): Promise<Blob | null> => {
     const stage = stageRef.current
@@ -1050,11 +1073,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       <Suspense fallback={null}>
         <AssetSheet
           key={promptText}
-          open={sheetOpen}
+          mode={sheetMode}
           promptText={promptText}
           freestyle={freestyle}
           allowPhotos={allowPhotos}
           onClose={closeSheet}
+          onExpand={expandSheet}
           onPlace={handleAssetSelect}
           onCutShared={handleCutShared}
           tabRequest={tabRequest}
