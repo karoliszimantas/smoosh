@@ -26,7 +26,7 @@ export function registerLieHandlers(_io: TypedServer, socket: TypedSocket, deps:
       const rejection = validateLie(text, truth, existingLieTexts(room, pictureIndex))
       // the same reply whether it matched the truth or another lie, so a
       // refusal never tells the player they guessed the real prompt
-      if (rejection !== null) throw new GameError('LIE_REJECTED', 'Try a different fake')
+      if (rejection !== null) throw new GameError('LIE_REJECTED', 'Someone already has that one — write another')
 
       recordLie(room, pictureIndex, seat.playerId, text)
       touchRoom(room)
