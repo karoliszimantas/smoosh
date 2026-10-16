@@ -2000,6 +2000,13 @@ h2 {
   text-align: left;
 }
 
+/* the deadline's rule, said quietly under a draft */
+.lie-autosend {
+  margin: 0;
+  font: 400 14px/20px var(--font-ui);
+  color: var(--text-muted);
+}
+
 /* the send button keeps to the foot of the screen, under the thumb */
 .lie-send {
   flex: none;

@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import LieView from './phases/LieView'
 import { fixtureSnapshot, YOU_ID } from '../dev/fixtures'
+import { lieDraftKey } from './lieDraft'
 
 const emit = () => Promise.reject(new Error('not used'))
 
@@ -43,5 +44,24 @@ describe('writing a lie', () => {
     expect(text).toContain('This one’s yours. Keep a straight face.')
     expect(text).toContain('Waiting for Bob and Cara')
     expect(html).not.toContain('<form')
+  })
+
+  describe('with a draft kept from before a reload', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('puts the words back, and says they go in by themselves', () => {
+      const snap = fixtureSnapshot('lie')
+      if (snap.phase.phase !== 'lie') throw new Error('fixture')
+      const key = lieDraftKey(snap.roomCode, snap.phase.round, snap.phase.pictureIndex)
+      vi.stubGlobal('localStorage', { getItem: (k: string) => (k === key ? 'a goat at a wedding' : null) })
+      const html = renderToStaticMarkup(<LieView snapshot={snap} emit={emit} />)
+      expect(html).toMatch(/<textarea[^>]*>a goat at a wedding<\/textarea>/)
+      expect(html).toContain('<p class="lie-autosend">Sends by itself when time runs out</p>')
+    })
+
+    it('an empty box says nothing about it', () => {
+      const html = renderToStaticMarkup(<LieView snapshot={fixtureSnapshot('lie')} emit={emit} />)
+      expect(html).not.toContain('lie-autosend')
+    })
   })
 })
