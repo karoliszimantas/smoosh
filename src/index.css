@@ -1950,58 +1950,137 @@ h2,
   overflow-wrap: anywhere;
 }
 
-/* ---------- guess view ---------- */
+/* ---------- guess view ----------
+   The picture, the question and the options scroll; Lock in (or where the
+   room is, once you're locked in) stays at the foot */
 
 .guess-view {
+  --picture-room: 330px;
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+}
+
+.guess-view.author {
+  --picture-room: 200px;
+}
+
+.guess-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 16px;
+  /* room at the foot for the last card's shadow */
+  padding: 16px 16px 8px;
+}
+
+.guess-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.guess-foot .form-error {
+  padding: 0;
+}
+
+.guess-foot .round-note + .room-progress {
+  margin-top: -8px;
+}
+
+/* a heading on the desk, Archivo Black 28/32 */
+.round-heading {
+  margin: 0;
+  font-size: 28px;
+  line-height: 32px;
+  color: var(--text);
+}
+
+.guess-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .guess-options {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
 }
 
+.guess-option-slot {
+  position: relative;
+}
+
+/* a torn scrap of paper (.torn), the prompt in Archivo 650 19/25 */
 .guess-option {
-  min-height: 44px;
-  width: min(320px, 90vw);
-  padding: 0 16px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border: none;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--surface-text);
-  font-size: 14px;
-  font-weight: 600;
+  background: none;
+  text-align: left;
+  font: 650 19px/25px var(--font-ui);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.guess-option-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guess-option:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 
 .guess-option.picked {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  --torn-paper: var(--picked);
 }
 
+.guess-option[aria-disabled='true'] {
+  cursor: default;
+}
+
+/* your own lie: a grey chalk scrap lying flat, with a dashed stamp */
 .guess-option.own-lie {
-  background: var(--surface-sunken);
-  box-shadow: none;
+  --torn-paper: var(--surface-sunken);
   color: var(--surface-sunken-text);
 }
 
-/* why an option can't be picked, inside the option itself */
-.option-note {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  font-weight: 600;
+.your-lie-label {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border: 1.5px dashed currentColor;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+}
+
+/* PICKED: an ink tab on the picked card's top edge, tipped +3° */
+.picked-label {
+  position: absolute;
+  z-index: 1;
+  top: -11px;
+  right: 10px;
+  padding: 5px 8px;
+  border-radius: 2px;
+  background: var(--line);
+  color: var(--picked);
+  font: 400 13px/1 var(--font-display);
+  text-transform: uppercase;
+  transform: rotate(3deg);
+  pointer-events: none;
 }
 
 /* a waiting player's view of the room: how far along, and who's left */
@@ -2026,10 +2105,6 @@ h2,
 .room-progress-names {
   font-size: 14px;
   color: var(--text-muted);
-}
-
-.guess-option:disabled:not(.own-lie) {
-  opacity: 0.6;
 }
 
 /* ---------- reveal view ---------- */
