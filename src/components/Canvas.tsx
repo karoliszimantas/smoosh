@@ -39,6 +39,9 @@ import FrameDecor from './FrameDecor'
 import { hideForExport } from './canvasExport'
 import Tape from './Tape'
 import SelectionOverlay from './SelectionOverlay'
+import CutOverlay from './CutOverlay'
+import { dropCut, landCuts, withoutCut, type CutUpdate, type LandedCut } from './cutSwap'
+import './canvas.css'
 import type { SheetMode } from './AssetSheet'
 
 Konva.hitOnDragEnabled = true
@@ -65,6 +68,8 @@ const TAPE_OFFSET = { x: -12, y: -10 }
 const SLIDER_SPAN = 0.72
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
+// how long a passing note over the canvas stays
+const TOAST_MS = 4000
 
 // long-press a layer to change its depth: hold still this long…
 const LONG_PRESS_MS = 400
@@ -180,7 +185,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 ) {
   // the layers and their undo history, changed together in one update so
   // every change is exactly one step (history.ts)
-  const [doc, setDoc] = useState<Doc<LayerItem[]>>(() => ({ items: initialItems ?? [], past: [] }))
+  // a cut that was running when the page went has gone with it
+  const [doc, setDoc] = useState<Doc<LayerItem[]>>(() => ({ items: initialItems?.map(withoutCut) ?? [], past: [] }))
   const items = doc.items
   // every change to the layers goes through here, and so into history
   const setItems = useCallback((change: (prev: LayerItem[]) => LayerItem[]) => setDoc((d) => commitDoc(d, change)), [])
@@ -198,6 +204,30 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // a mode that owns the canvas: no selecting, dragging or reordering layers
   const editing = cropping !== null || erasing !== null
   const [depth, setDepth] = useState<DepthDrag | null>(null)
+  // a passing note over the canvas, said once (a cut that didn't work)
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), TOAST_MS)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  // Cut-outs made on this phone, landed and waiting to go on (cutSwap.ts).
+  // They go on as soon as they're here — except onto a layer crop or erase
+  // has open, which works on the whole picture's pixels until it's closed
+  const [landed, setLanded] = useState<LandedCut[]>([])
+  const heldCut = [cropping?.id, erasing?.id]
+    .map((id) => (id ? items.find((i) => i.id === id)?.cutting : undefined))
+    .find((token) => token !== undefined)
+  if (landed.some((l) => l.token !== heldCut)) {
+    const ready = landed.filter((l) => l.token !== heldCut)
+    setLanded(landed.filter((l) => l.token === heldCut))
+    setDoc((d) => rewriteDoc(d, (list) => landCuts(list, ready)))
+  }
+  // where each running cut has got to, for the chip on its layer: read as
+  // the chip is drawn, so progress never re-renders anything
+  const cutStatus = useRef(new Map<string, string>())
+  const cutLabel = useCallback((token: string) => cutStatus.current.get(token) ?? 'Cutting…', [])
 
   // where the square frame sits on screen, and the stage scale that maps
   // CANVAS_SIZE canvas units onto it — centered, as large as fits
@@ -319,6 +349,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         opacity: 1,
         ...(placement.pixabayId !== null ? { pixabayId: placement.pixabayId } : {}),
         ...(placement.fromWord ? { fromWord: placement.fromWord } : {}),
+        ...(placement.cutting ? { cutting: placement.cutting } : {}),
       },
       ]
     })
@@ -335,6 +366,33 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setDoc((d) =>
       rewriteDoc(d, (list) => list.map((i) => (i.src === localSrc ? { ...i, src: shared.full, thumb: shared.thumb } : i))),
     )
+    // a cut-out still waiting for crop or erase to close goes on as the shared copy
+    setLanded((prev) =>
+      prev.some((l) => l.image.full === localSrc)
+        ? prev.map((l) => (l.image.full === localSrc ? { ...l, image: { full: shared.full, thumb: shared.thumb } } : l))
+        : prev,
+    )
+  }, [])
+
+  // The sheet's word on a cut it's making for a layer showing the whole
+  // picture: how far it's got, the cut-out, or that it didn't work — then
+  // the whole picture stays, and the player is told so. A layer deleted (or
+  // undone) meanwhile simply isn't there to change.
+  const handleCut = useCallback((token: string, update: CutUpdate) => {
+    if (update.kind === 'progress') {
+      const p = update.progress
+      const pct = p.stage === 'download' && p.total > 0 ? Math.floor((p.loaded / p.total) * 100) : 0
+      cutStatus.current.set(token, p.stage === 'download' ? `Getting the cutter… ${pct}%` : 'Cutting…')
+      return
+    }
+    cutStatus.current.delete(token)
+    if (update.kind === 'done') {
+      setLanded((prev) => [...prev, { token, image: update.image, trim: update.trim }])
+      return
+    }
+    const showing = itemsRef.current.some((i) => i.cutting === token)
+    setDoc((d) => rewriteDoc(d, (list) => dropCut(list, token)))
+    if (showing) setToast((prev) => ({ id: (prev?.id ?? 0) + 1, text: 'Couldn’t cut that one. Kept the full image.' }))
   }, [])
 
   // stable identities: DraggableImage is memoized, so these must not be
@@ -912,6 +970,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           : 'idle'
   // during a long-press reorder the stack previews the new order live
   const shownItems = depth ? moveToIndex(items, depth.id, depth.to) : items
+  const cuttingLayers = useMemo(() => items.flatMap((i) => (i.cutting ? [{ id: i.id, token: i.cutting }] : [])), [items])
 
   return (
     <div className={concealed ? 'app concealed' : 'app'}>
@@ -979,6 +1038,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               />
             )}
           </Layer>
+          <CutOverlay
+            cutting={cuttingLayers}
+            stageScale={frame.scale}
+            status={cutLabel}
+            paper={theme.surface}
+            ink={theme.surfaceText}
+            font={theme.fontLabel}
+          />
           {/* above the images: the frame's dimmed surround and its shadow */}
           <FrameDecor scale={frame.scale} pageBg={theme.pageBg} shadow={theme.shadow.card} />
           {erasing && erasingItem && (
@@ -1016,6 +1083,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             onGestureEnd={thawAll}
           />
         )}
+        {/* said once, then gone; never over the frame's middle */}
+        <div className="canvas-toasts" aria-live="polite">
+          {toast && (
+            <p key={toast.id} className="notice notice-toast" style={{ animationDuration: `${TOAST_MS}ms` }}>
+              {toast.text}
+            </p>
+          )}
+        </div>
         {depth && (
           <div className={`depth-badge${depth.below ? ' below' : ''}`} style={{ left: depth.x, top: depth.y }} aria-live="polite">
             <span className="depth-badge-hint" aria-hidden="true">
@@ -1080,6 +1155,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onClose={closeSheet}
           onExpand={expandSheet}
           onPlace={handleAssetSelect}
+          onCut={handleCut}
           onCutShared={handleCutShared}
           tabRequest={tabRequest}
         />

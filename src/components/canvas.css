@@ -1,0 +1,24 @@
+/* ---------- canvas: passing notes ----------
+   A note over the top of the canvas (a cut that didn't work), in the
+   notices' own look (.notice), clear of the middle of the frame. */
+
+.canvas-toasts {
+  position: absolute;
+  top: 6px;
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.canvas-toasts .notice {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-toasts .notice-toast {
+    animation-name: none;
+  }
+}
