@@ -17,7 +17,8 @@ import { cleanAlpha } from '../cutting/maskCleanup'
 //      passes, linear time)
 //   5. alpha = smoothstep across the rim's outer line, one pixel wide
 //   6. scaled up into a canvas the crop's size plus the padding, in the
-//      source's own pixels, and the image drawn on top
+//      source's own pixels, and the image drawn on top, trimmed to the
+//      rim's outer line as a die-cut sticker is
 //   7. the lift shadow baked from the same silhouette, blurred once — so
 //      no layer pays for a live blurred shadow every frame
 //
@@ -155,7 +156,8 @@ export type StickerOptions = {
 }
 
 export type StickerSprite = {
-  // the edge with the crop of the image on top, in source pixels
+  // the edge with the crop of the image on top (trimmed to it), in source
+  // pixels
   canvas: HTMLCanvasElement
   // source pixels of padding on every side: the crop starts at (pad, pad)
   pad: number
@@ -222,8 +224,16 @@ export function buildStickerSprite(source: Source, src: SourceRect, opts: Sticke
   if (!ctx) return null
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(work, 0, 0, gw / k, gh / k)
+  // Die-cut: the image first, trimmed to the rim's outer line — a soft
+  // eraser fringe or a faint wisp past it would otherwise lie over the rim
+  // and blur its edge, and a speck the clean-up left out of the rim is
+  // trimmed with it — then the rim slipped in underneath
   ctx.drawImage(source, src.x, src.y, src.width, src.height, pad, pad, src.width, src.height)
+  ctx.globalCompositeOperation = 'destination-in'
+  ctx.drawImage(work, 0, 0, gw / k, gh / k)
+  ctx.globalCompositeOperation = 'destination-over'
+  ctx.drawImage(work, 0, 0, gw / k, gh / k)
+  ctx.globalCompositeOperation = 'source-over'
 
   // The shadow, once, from the rim's silhouette (which holds the image's):
   // the rim drawn off the canvas with a canvas shadow thrown back onto it,
