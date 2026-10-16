@@ -1616,6 +1616,8 @@ h2 {
 }
 
 .lobby-view > .lobby-start {
+  /* the lobby scrolls when it runs long: the button keeps its height */
+  flex: none;
   width: min(100%, 400px);
 }
 
