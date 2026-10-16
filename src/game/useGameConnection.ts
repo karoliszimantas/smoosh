@@ -4,7 +4,7 @@ import { useGameServices, type AckArg, type EmitPayload, type GameTransport } fr
 import { clearActiveRoom, getActiveRoom, getSessionId, setActiveRoom, type ActiveRoom } from './session'
 import { pruneGameCanvases } from './canvasStorage'
 import { noteServerTime } from './serverClock'
-import { leftText, rejoinFailedText, roomEventText } from './roomMessages'
+import { couldNotRejoinText, leftText, rejoinFailedText, roomEventText } from './roomMessages'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting'
 
@@ -114,7 +114,7 @@ export function useGameConnection(): GameConnection {
       rejoinTimer = setTimeout(() => {
         rejoinTimer = null
         devLog('rejoin: no answer', { roomCode: active.roomCode })
-        if (getActiveRoom()?.roomCode === active.roomCode) setRejoinProblem('Couldn’t get back into the game.')
+        if (getActiveRoom()?.roomCode === active.roomCode) setRejoinProblem(couldNotRejoinText(active.roomCode))
       }, REJOIN_TIMEOUT_MS)
       socket.emit('room:join', { roomCode: active.roomCode, name: active.name }, (res) => {
         if (rejoinTimer) clearTimeout(rejoinTimer)

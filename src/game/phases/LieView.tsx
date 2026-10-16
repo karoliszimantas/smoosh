@@ -101,7 +101,11 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
               enterKeyHint="send"
               autoComplete="off"
               value={text}
-              onChange={(e) => setText(oneLine(e.target.value))}
+              onChange={(e) => {
+                setText(oneLine(e.target.value))
+                // whatever was wrong was about the old words
+                setError(null)
+              }}
               onKeyDown={onKeyDown}
             />
             {error && <p className="form-error">{error}</p>}

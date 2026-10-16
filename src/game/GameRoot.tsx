@@ -26,7 +26,7 @@ import { statusLine } from './statusLine'
 import { promptWindowEndsAt, useBefore } from './promptWindow'
 import ReplacedView from './ReplacedView'
 import { useStuckWatchdog } from './stuckWatchdog'
-import { STUCK_TEXT } from './roomMessages'
+import { RECONNECTING_BUILD_TEXT, RECONNECTING_TEXT, STUCK_TEXT } from './roomMessages'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
 import { forgetInvite, invitedRoom, stillInGameText } from './invite'
 
@@ -117,6 +117,8 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   }
 
   const isLobby = snapshot.phase.phase === 'lobby'
+  // a canvas on screen, saved on this phone as it changes
+  const building = snapshot.phase.phase === 'build' || snapshot.phase.phase === 'pass'
   // in a round: the status strip over the phase's screen, holding the clock,
   // who's done, the theme switch and the menu
   const status = statusLine(snapshot)
@@ -143,6 +145,7 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
       </div>
       <NoticeRegion
         reconnecting={game.showReconnecting}
+        reconnectingText={building ? RECONNECTING_BUILD_TEXT : RECONNECTING_TEXT}
         // a problem with a way out comes first; then news to dismiss
         alert={game.rejoinProblem ?? (stuck ? STUCK_TEXT : notice)}
         {...(game.rejoinProblem || stuck ? { alertAction: rejoin } : {})}
