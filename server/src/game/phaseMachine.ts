@@ -348,6 +348,13 @@ function startGuess(room: Room, deps: PhaseMachineDeps): void {
     authorId: lieAuthorId,
   }))
   const truthOption: PictureOption = { id: crypto.randomUUID(), text: truth, authorId: null }
+  // nobody wrote a fake: one option is nothing to guess between, so straight
+  // to the reveal, which shows the real prompt on its own and scores nothing
+  if (lieOptions.length === 0) {
+    room.optionsByPictureIndex.set(pictureIndex, [truthOption])
+    startReveal(room, deps)
+    return
+  }
   const options = shuffle([truthOption, ...lieOptions], deps.random)
   room.optionsByPictureIndex.set(pictureIndex, options)
 
