@@ -11,6 +11,8 @@ import type { ChainStructure, GameMode, GameSettings } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import ThemeSwitcher from '../../themes/ThemeSwitcher'
 import PlayerChip from '../PlayerChip'
+import DymoLabel from '../DymoLabel'
+import Tape from '../../components/Tape'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
   guess: { label: 'Guess', blurb: 'Secret prompts — fool the others with fake ones' },
@@ -93,9 +95,16 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="lobby-view">
+      {/* the room's heading is its code, spelled out: the label above is
+          for the eye only, the Dymo strip already says "Room code" */}
       <div className="paper-card lobby-code">
-        <p className="field-label on-paper">Room code</p>
-        <h1>Room {roomCode}</h1>
+        <p className="field-label on-paper" aria-hidden="true">
+          Room code
+        </p>
+        <h1 className="lobby-code-heading">
+          <DymoLabel code={roomCode} />
+        </h1>
+        <Tape />
       </div>
 
       <div className="lobby-seats">

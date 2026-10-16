@@ -1568,17 +1568,26 @@ h2 {
   overflow-y: auto;
 }
 
-/* the room code, on its own paper card */
+/* the room code, on its own taped paper card (Lobby.dc.html) */
 .lobby-code {
+  position: relative;
+  flex: none;
+  width: min(100%, 400px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 18px 20px 22px;
 }
 
-.lobby-view .lobby-code h1 {
-  margin-bottom: 0;
+.lobby-code .field-label {
+  margin: 0;
+}
+
+.lobby-view .lobby-code-heading {
+  margin: 0;
+  font-size: inherit;
+  line-height: 0;
 }
 
 /* the settings, on one paper card: the host's controls, or the summary
@@ -5713,4 +5722,31 @@ html[data-torn='false'] .prompt-chip {
 
 html[data-torn='false'] .wordmark-tile {
   clip-path: none;
+}
+
+/* ---------- the Dymo label ----------
+   game/DymoLabel.tsx: the room code punched into black embossing tape —
+   a sheen on top, a shade below, white letters pressed up out of it */
+.dymo {
+  display: inline-flex;
+  gap: 12px;
+  padding: 8px 18px;
+  border-radius: 2px;
+  background-color: var(--dymo-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 40%, rgba(0, 0, 0, 0.25));
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  color: var(--dymo-text);
+  font: 700 48px/52px var(--font-label);
+  text-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: rotate(-1deg);
+  white-space: nowrap;
+}
+
+.dymo-sm {
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 26px;
+  line-height: 32px;
 }
