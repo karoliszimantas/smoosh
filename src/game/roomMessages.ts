@@ -61,7 +61,7 @@ export function joinFailedText(roomCode: string, code: ErrorCode): string {
     case 'ROOM_NOT_FOUND':
       return `There’s no game with the code ${roomCode}. Check the code?`
     case 'ALREADY_STARTED':
-      return `Game ${roomCode} has already started.`
+      return `Game ${roomCode} has already started. Ask the host to invite you after this game.`
     case 'ROOM_FULL':
       return `Game ${roomCode} is full.`
     default:

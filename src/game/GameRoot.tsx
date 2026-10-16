@@ -28,7 +28,7 @@ import ReplacedView from './ReplacedView'
 import { useStuckWatchdog } from './stuckWatchdog'
 import { RECONNECTING_BUILD_TEXT, RECONNECTING_TEXT, STUCK_TEXT } from './roomMessages'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
-import { forgetInvite, invitedRoom, stillInGameText } from './invite'
+import { forgetInvite, invitedRoom, invitesOpen, stillInGameText } from './invite'
 
 // on Home and on screens without a status strip (but not the lobby, which
 // shows the full swatch row): one swatch in the corner. In a round it's in
@@ -125,7 +125,9 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   return (
     <>
       {!status && !isLobby && <FloatingThemeSwitcher />}
-      {!status && <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} onLeave={openLeave} />}
+      {!status && (
+        <GameMenu roomCode={snapshot.roomCode} isLobby={isLobby} canInvite={invitesOpen(snapshot)} onLeave={openLeave} />
+      )}
       <div className={status ? 'game-screen' : 'game-screen bare'}>
         {status &&
           (promptWindowOpen && windowEndsAt !== null ? (

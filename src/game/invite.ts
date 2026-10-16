@@ -1,4 +1,4 @@
-import { RoomCodeSchema } from '@smoosh/protocol'
+import { RoomCodeSchema, type RoomSnapshot } from '@smoosh/protocol'
 
 // An invitation to a room is a link to the home screen carrying its code —
 // /?join=KRPT — sent from the Lobby's Copy link and Share (or the menu's
@@ -42,6 +42,14 @@ export function invitedRoom(): string | null {
 
 export function forgetInvite(): void {
   invited = null
+}
+
+// Whether an invitation leads anywhere now: in the lobby, and once the game
+// is over (Play again brings everyone back to one). While a game runs the
+// server lets nobody in, so the menu doesn't offer a link that can't work.
+export function invitesOpen(snapshot: RoomSnapshot): boolean {
+  const { phase } = snapshot
+  return phase.phase === 'lobby' || (phase.phase === 'scores' && phase.isFinalRound)
 }
 
 // reopened into a different game than the one the link was for: the seat
