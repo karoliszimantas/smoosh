@@ -140,6 +140,9 @@ type CanvasProps = {
   storageArea?: CanvasStorageArea
   // label for the toolbar's export button
   doneLabel?: string
+  // seconds until the picture is sent by itself, in the last ten: Done
+  // says so
+  doneAutoIn?: number | null
   // no prompt to seed the asset sheet's tabs from — it offers the curated
   // categories instead
   freestyle?: boolean
@@ -177,6 +180,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     storageKey,
     storageArea = 'session',
     doneLabel,
+    doneAutoIn = null,
     freestyle = false,
     allowPhotos = true,
     underlay,
@@ -997,6 +1001,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         submitLabel={doneLabel ?? 'Done'}
         onSubmit={() => void exportImage()}
         holdToSubmit={onSubmit !== undefined}
+        submitAutoIn={doneAutoIn}
       />
 
       <div className="canvas-container" ref={containerRef}>

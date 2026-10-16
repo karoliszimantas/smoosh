@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Canvas, { type CanvasHandle } from '../../components/Canvas'
+import AutoSendLine from '../../components/AutoSendLine'
+import { autoSendSeconds } from '../../components/autoSend'
 import type { LayerItem } from '../../components/layerItem'
 import type { PhaseProps } from '../types'
 import { useCountdown } from '../useCountdown'
@@ -140,9 +142,12 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
   const freestyle = (snapshot.settings.mode === 'gallery' && !snapshot.settings.prompted) || (pass !== null && pass.prompt === null)
   const prompt = pass ? (pass.prompt ?? '') : (snapshot.you.secretPrompt ?? '')
   const showWindow = promptWindowOpen && snapshot.you.build !== null && !submitted
+  // the last ten seconds of this player's own clock, until the picture goes
+  const autoIn = deadline !== null && shownState.status === 'editing' && !showWindow ? autoSendSeconds(remainingMs) : null
 
   return (
     <div className="build-view">
+      <AutoSendLine seconds={autoIn} />
       <UploadStatus
         state={shownState}
         onRetry={() => void canvasRef.current?.exportImage()}
@@ -160,6 +165,7 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
         storageArea="local"
         // still laid out and measured under the prompt window, just not shown
         concealed={showWindow}
+        doneAutoIn={autoIn}
         {...(pass ? { underlay: pass.underlay, maxLayers: PASS_LAYER_CAP, transparentExport: true } : {})}
       />
       {showWindow && snapshot.you.build && (
