@@ -28,6 +28,7 @@ import ReplacedView from './ReplacedView'
 import { useStuckWatchdog } from './stuckWatchdog'
 import { STUCK_TEXT } from './roomMessages'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
+import { forgetInvite, invitedRoom, stillInGameText } from './invite'
 
 // on Home and on screens without a status strip (but not the lobby, which
 // shows the full swatch row): one swatch in the corner. In a round it's in
@@ -65,6 +66,17 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const openLeave = useCallback(() => setConfirmLeave(true), [])
   useBackGuard(snapshot !== null, openLeave)
+  // opened from an invite but put straight back into the game they still
+  // had a seat in: said once. The invitation waits for the home screen,
+  // should they leave
+  const roomCode = snapshot?.roomCode ?? null
+  const [inviteCheckedFor, setInviteCheckedFor] = useState<string | null>(null)
+  if (roomCode && roomCode !== inviteCheckedFor) {
+    setInviteCheckedFor(roomCode)
+    const invited = invitedRoom()
+    if (invited === roomCode) forgetInvite()
+    else if (invited) setNotice((n) => n ?? stillInGameText(roomCode, invited))
+  }
   // the phase's own screen, watched for the one state nobody can get out
   // of alone: the room waiting on them, nothing for them to press
   const phaseRoot = useRef<HTMLDivElement>(null)

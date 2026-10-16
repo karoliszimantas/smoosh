@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { GameConnection, ConnectionStatus } from './useGameConnection'
 import { getActiveRoom } from './session'
 import { joinFailedText } from './roomMessages'
 import Wordmark from './Wordmark'
+import { forgetInvite, invitedRoom } from './invite'
 
 export default function HomeView({
   emit,
@@ -19,9 +20,15 @@ export default function HomeView({
   // the game they were last in, ready to join again
   lastRoomCode: string | null
 }) {
-  const [mode, setMode] = useState<'create' | 'join'>(lastRoomCode ? 'join' : 'create')
+  // opened from an invite: the code filled in, Join picked, the name to type
+  const [invited] = useState(invitedRoom)
+  const [mode, setMode] = useState<'create' | 'join'>(invited || lastRoomCode ? 'join' : 'create')
   const [name, setName] = useState('')
-  const [roomCode, setRoomCode] = useState(lastRoomCode ?? '')
+  const [roomCode, setRoomCode] = useState(invited ?? lastRoomCode ?? '')
+  const nameRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (invited) nameRef.current?.focus()
+  }, [invited])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // still seated in a live game, but heading for a different one
@@ -42,6 +49,8 @@ export default function HomeView({
     const res = await emit('room:join', { roomCode: active.roomCode, name: active.name })
     setBusy(false)
     if (!res.ok) setError(joinFailedText(active.roomCode, res.code))
+    // back to the game they had, by choice
+    else forgetInvite()
   }
 
   const handleCreate = async () => {
@@ -55,6 +64,8 @@ export default function HomeView({
     const res = await emit('room:create', { name: trimmed })
     setBusy(false)
     if (!res.ok) setError('Couldn’t start a game. Try again?')
+    // a game of their own instead: the invitation is spent
+    else forgetInvite()
   }
 
   const handleJoin = async () => {
@@ -69,6 +80,7 @@ export default function HomeView({
     const res = await emit('room:join', { roomCode: code, name: trimmed })
     setBusy(false)
     if (!res.ok) setError(joinFailedText(code, res.code))
+    else forgetInvite()
   }
 
   return (
@@ -88,6 +100,7 @@ export default function HomeView({
             Your name
           </label>
           <input
+            ref={nameRef}
             id="home-name"
             className="field"
             placeholder="Your name"
