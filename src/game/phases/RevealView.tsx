@@ -7,6 +7,7 @@ import Burst from '../Burst'
 import RealStamp from '../RealStamp'
 import Tape from '../../components/Tape'
 import { formatPoints, nameList, revealSummary } from '../revealSummary'
+import { NO_FAKES_TEXT } from '../roomMessages'
 
 // The truth is… (Reveal.dc.html): the picture small, what you won in a
 // burst, the real prompt stamped REAL with who found it, each lie with who
@@ -23,6 +24,8 @@ export default function RevealView({ snapshot }: PhaseProps) {
   const pointsOf = new Map(phase.pointsThisPicture.map((p) => [p.playerId, p.points]))
   const { truth, lies, you } = summary
   const finders = truth?.pickedBy ?? []
+  // nobody wrote a fake: there was nothing to guess, only the real one to see
+  const noFakes = lies.length === 0
   const table = snapshot.players.filter((p) => p.presence !== 'left')
 
   return (
@@ -32,7 +35,11 @@ export default function RevealView({ snapshot }: PhaseProps) {
           <Picture imagePath={phase.imagePath} />
         </div>
         <h1 className="round-heading reveal-title">The truth is…</h1>
-        {you.points > 0 ? <Burst points={you.points} note={you.note} /> : <p className="reveal-note">{you.note}</p>}
+        {you.points > 0 ? (
+          <Burst points={you.points} note={you.note} />
+        ) : (
+          you.note && <p className="reveal-note">{you.note}</p>
+        )}
       </header>
 
       {truth && (
@@ -40,7 +47,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
           <section className="torn torn-c reveal-truth-card" aria-label="The real prompt">
             <p className="field-label on-paper">The real prompt</p>
             <p className="reveal-truth-text">{optionText(truth.text)}</p>
-            {finders.length > 0 ? (
+            {noFakes ? null : finders.length > 0 ? (
               <>
                 <p className="reveal-found">Found it · +{formatPoints(summary.foundEach)} each</p>
                 <ul className="reveal-finders" aria-label={`Found by ${nameList(finders.map(nameOf))}`}>
@@ -65,7 +72,9 @@ export default function RevealView({ snapshot }: PhaseProps) {
         </div>
       )}
 
-      {lies.length > 0 && (
+      {noFakes ? (
+        <p className="round-note reveal-no-fakes">{NO_FAKES_TEXT}</p>
+      ) : (
         <section className="reveal-lies" aria-labelledby="reveal-lies-title">
           <h2 id="reveal-lies-title" className="field-label">
             The lies

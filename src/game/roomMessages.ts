@@ -117,3 +117,12 @@ export const STUCK_TEXT = 'Your screen has stopped responding.'
 // a picture that isn't there, as everyone else sees it, and as its player does
 export const NO_PICTURE_TEXT = 'No picture this round'
 export const YOUR_PICTURE_MISSING_TEXT = "Your picture didn't make it this round"
+
+// a picture that arrived with nothing on it: skipped, no lies for a blank
+// page. By name — a blank one is nobody's bad luck; `null` is your own
+export function blankPictureText(authorName: string | null): string {
+  return `${authorName === null ? 'Your' : `${authorName}’s`} picture is blank — skipping it`
+}
+
+// a reveal where nobody wrote a fake: only the real prompt to show
+export const NO_FAKES_TEXT = 'Nobody wrote a fake'

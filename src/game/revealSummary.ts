@@ -23,7 +23,8 @@ export type RevealLie = {
 }
 
 // what this picture did for you: the points, and the few words on the
-// note stuck to the burst (or, with nothing won, on its own)
+// note stuck to the burst (or, with nothing won, on its own; empty when
+// there's nothing to say)
 export type YourReveal = { points: number; note: string }
 
 export type RevealSummary = {
@@ -66,6 +67,8 @@ function yourNote(snapshot: RoomSnapshot, points: number, truth: RevealOption | 
   const { phase, you, players } = snapshot
   if (phase.phase !== 'reveal') return ''
   const found = truth?.pickedBy ?? []
+  // no fakes, no guessing: nothing to say beyond the screen's own line
+  if (lies.length === 0 && points === 0) return ''
   if (phase.authorId === you.playerId) {
     return found.length === 0 ? 'nobody got yours' : `${found.length} found yours`
   }

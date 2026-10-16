@@ -161,6 +161,18 @@ describe('missing-picture placeholder', () => {
     expect(text).toBe("Your picture didn't make it this round")
   })
 
+  it('a blank picture: skipped, said by name to everyone, and to you as yours', () => {
+    const blank = (authorId: string) => {
+      const snap = fixtureSnapshot('missing', FIXTURE_BASE, { authorId })
+      if (snap.phase.phase !== 'missing') throw new Error('fixture')
+      return { ...snap, phase: { ...snap.phase, blank: true } }
+    }
+    const theirs = textOf(renderToStaticMarkup(<MissingView snapshot={blank('bob')} emit={emit} />))
+    expect(theirs).toBe('Bob’s picture is blank — skipping it')
+    const yours = textOf(renderToStaticMarkup(<MissingView snapshot={blank(YOU_ID)} emit={emit} />))
+    expect(yours).toBe('Your picture is blank — skipping it')
+  })
+
   it('a calm tag in the strip: the turn is skipped, nothing to hurry', () => {
     const snapshot = fixtureSnapshot('missing', FIXTURE_BASE, { authorId: 'bob' }) // 4s left: hot, by the usual clock
     const html = renderToStaticMarkup(<StatusStrip snapshot={snapshot} status={statusLine(snapshot)!} onLeave={noop} />)
