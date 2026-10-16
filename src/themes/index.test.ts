@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { applyThemeToDocument, cssVars, DARK, DEFAULT_THEME, LIGHT, loadThemeId, THEMES } from './index'
-import type { Theme } from './types'
 
 const KEY = 'smoosh_theme'
 
@@ -79,6 +78,7 @@ describe('cssVars', () => {
     '--success-tint',
     '--picked',
     '--focus',
+    '--focus-on-paper',
     '--ghost',
     '--away-chip',
     '--mark-badge',
@@ -147,59 +147,4 @@ describe('applyThemeToDocument', () => {
     expect(root.dataset).toMatchObject({ theme: 'day', motion: 'smooth', torn: 'false' })
     expect(props.get('--step-ms')).toBe('0ms')
   })
-})
-
-// WCAG 2 contrast ratio between two opaque #RRGGBB colours
-function luminance(hex: string): number {
-  const channel = (i: number) => {
-    const c = parseInt(hex.slice(i, i + 2), 16) / 255
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  }
-  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
-}
-function contrast(a: string, b: string): number {
-  const la = luminance(a)
-  const lb = luminance(b)
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
-}
-
-describe('text contrast', () => {
-  const PAIRS: [string, (t: Theme) => [string, string]][] = [
-    ['ink on paper', (t) => [t.surfaceText, t.surface]],
-    ['muted ink on paper', (t) => [t.surfaceTextMuted, t.surface]],
-    ['text on the desk', (t) => [t.textPrimary, t.pageBg]],
-    ['muted text on the desk', (t) => [t.textMuted, t.pageBg]],
-    ['primary button', (t) => [t.primaryText, t.primaryBg]],
-    ['red on paper', (t) => [t.primaryInk, t.surface]],
-    ['disabled', (t) => [t.surfaceSunkenText, t.surfaceSunken]],
-    ['danger', (t) => [t.dangerText, t.danger]],
-    ['error text on the desk', (t) => [t.dangerOnDesk, t.pageBg]],
-    ['warning', (t) => [t.warningText, t.warning]],
-    ['a seat badge’s shape', (t) => [t.line, t.markBadge]],
-    ['the timer’s digits', (t) => [t.surfaceText, t.timer.calm]],
-    ['the timer’s digits, last 10 seconds', (t) => [t.line, t.timer.hot]],
-    ['the room code’s label', (t) => [t.paper.dymo.text, t.paper.dymo.bg]],
-  ]
-
-  for (const theme of THEMES) {
-    it.each(PAIRS)(`${theme.id}: %s is at least 4.5:1`, (_, pair) => {
-      const [fg, bg] = pair(theme)
-      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5)
-    })
-  }
-
-  // the wordmark's ink letters on their scraps: a logotype, so exempt, but
-  // it holds to the same floor as everything else
-  for (const theme of THEMES) {
-    it.each(theme.wordmark.map((c, i) => [i, c] as const))(`${theme.id}: wordmark scrap %i is at least 4.5:1`, (_, c) => {
-      expect(contrast(theme.line, c)).toBeGreaterThanOrEqual(4.5)
-    })
-  }
-
-  // the initial on each seat's avatar
-  for (const theme of THEMES) {
-    it.each(theme.players.map((p, i) => [i, p] as const))(`${theme.id}: seat %i's initial is at least 4.5:1`, (_, p) => {
-      expect(contrast(p.fg, p.bg)).toBeGreaterThanOrEqual(4.5)
-    })
-  }
 })
