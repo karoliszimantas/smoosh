@@ -8,6 +8,7 @@ import Tape from '../../components/Tape'
 import { ampersandList, finalPlaces, type Place } from '../finalStandings'
 import { rankLabel, rankName } from '../ranking'
 import { formatPoints } from '../revealSummary'
+import { playAgain } from '../playAgain'
 
 // the podium's three steps, by place: the winner's in the middle and
 // tallest, second to its left, third to its right (Final.dc.html)
@@ -76,22 +77,19 @@ export default function FinalView({ snapshot, emit, onLeave }: PhaseProps & { on
   const winners = podium[0] ? playersOf(podium[0]).map((p) => p.name) : []
   const host = snapshot.players.find((p) => p.isHost && p.presence !== 'left')
 
-  // Play again deals the same table straight back in with the same
-  // settings: back to the lobby (the only way a game ends) and start at
-  // once. Change settings stops in the lobby, where the host sets the game
-  const restart = async (start: boolean) => {
+  // Play again takes everyone back to the lobby, same settings, where the
+  // host starts the next game. Change settings goes there too and opens on
+  // the settings card
+  const again = async (changeSettings: boolean) => {
     if (busy) return
     setBusy(true)
     setError(null)
-    const res = await emit('room:playAgain', {})
+    const res = await playAgain(emit, { changeSettings })
+    // on success the lobby has taken over this screen by now
     if (!res.ok) {
       setBusy(false)
       setError(actionErrorText(res.code))
-      return
     }
-    // the lobby has taken over this screen by now; if the start is refused
-    // (too few here), the host is simply in the lobby with Start to hand
-    if (start) await emit('room:start', {})
   }
 
   return (
@@ -162,10 +160,10 @@ export default function FinalView({ snapshot, emit, onLeave }: PhaseProps & { on
         {error && <p className="form-error">{error}</p>}
         {snapshot.you.isHost ? (
           <>
-            <button className="btn btn-primary btn-block" disabled={busy} onClick={() => void restart(true)}>
+            <button className="btn btn-primary btn-block" disabled={busy} onClick={() => void again(false)}>
               Play again
             </button>
-            <button className="btn btn-secondary btn-block" disabled={busy} onClick={() => void restart(false)}>
+            <button className="btn btn-secondary btn-block" disabled={busy} onClick={() => void again(true)}>
               Change settings
             </button>
           </>

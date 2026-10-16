@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import {
   ROUND_OPTIONS,
   BUILD_TIME_OPTIONS,
@@ -13,6 +14,7 @@ import ThemeSwitcher from '../../themes/ThemeSwitcher'
 import PlayerChip from '../PlayerChip'
 import DymoLabel from '../DymoLabel'
 import Tape from '../../components/Tape'
+import { takeSettingsRequest } from '../playAgain'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
   guess: { label: 'Guess', blurb: 'Secret prompts — fool the others with fake ones' },
@@ -75,6 +77,16 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
   const canStart = you.isHost && presentCount >= MIN_PLAYERS_TO_START
   const estimateMin = Math.max(1, Math.round(estimateDurationSec(settings, players.length) / 60))
 
+  // back from a finished game by Change settings: open on the settings —
+  // scrolled into view and focused, so a screen reader starts there too
+  const settingsRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!takeSettingsRequest()) return
+    const card = settingsRef.current
+    card?.scrollIntoView({ block: 'start' })
+    card?.focus({ preventScroll: true })
+  }, [])
+
   const updateSettings = (patch: Partial<GameSettings>) => {
     void emit('room:updateSettings', { ...settings, ...patch })
   }
@@ -131,7 +143,12 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
       </div>
       {awayCount > 0 && <p className="lobby-away-note">Anyone away when the game starts sits it out.</p>}
 
-      <section className={`paper-card lobby-card${you.isHost ? '' : ' readonly'}`} aria-label="Game settings">
+      <section
+        ref={settingsRef}
+        className={`paper-card lobby-card${you.isHost ? '' : ' readonly'}`}
+        aria-label="Game settings"
+        tabIndex={-1}
+      >
         {you.isHost ? (
           <>
             <div className="lobby-mode">
