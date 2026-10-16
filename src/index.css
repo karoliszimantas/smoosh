@@ -425,6 +425,7 @@ h2,
 .prompt-words-connector {
   color: var(--text-muted);
   font: 700 13px/1.2 var(--font-label);
+  text-transform: lowercase;
 }
 
 /* Done: a paper tag on an ink ledge, "hold" typed under the word */
