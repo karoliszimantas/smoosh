@@ -82,6 +82,16 @@ describe('lie:submit refusals', () => {
     expect(submitLie(s.room, s.deps, s.liars[0], s.pictureIndex, '  vampire   BUNNY hotel reception ')).toEqual(rejected)
   })
 
+  it('the real prompt is dealt in sentence case, and its Title Case form is still refused', () => {
+    const s = roomInLie()
+    room = s.room
+    if (s.room.phase.phase !== 'lie') throw new Error('expected lie')
+    const authorId = s.room.phase.authorId
+    // as a Title Case pool entry is dealt
+    s.room.promptByPlayer.set(authorId, 'Pug in sunglasses on a pirate galleon')
+    expect(submitLie(s.room, s.deps, s.liars[0], s.pictureIndex, 'Pug in Sunglasses on a Pirate Galleon')).toEqual(rejected)
+  })
+
   it('a lie someone else already wrote gets the very same refusal', () => {
     const s = roomInLie()
     room = s.room

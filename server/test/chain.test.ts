@@ -134,7 +134,7 @@ describe('a chain round', () => {
     const { room, submit } = chainGame(4)
     expect(expectPhase(room, 'pass').deadline - Date.now()).toBe((90 + FIRST_PASS_BONUS_SEC) * 1000)
     for (const id of ids(4)) {
-      expect(snap(room, id).you.pass?.prompt).toMatch(/^prompt /)
+      expect(snap(room, id).you.pass?.prompt).toMatch(/^Prompt \d+$/)
       expect(snap(room, id).you.pass?.underlay).toEqual([])
     }
     for (const id of ids(4)) submit(id) // all in: on to pass 2 at once

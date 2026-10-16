@@ -16,6 +16,7 @@ import {
   chainRevealTimeline,
   passSeconds,
   planChains,
+  promptSentenceCase,
   type GameMode,
 } from '@smoosh/protocol'
 import type { Room, PictureOption, PictureSlot } from '../rooms/Room.ts'
@@ -33,6 +34,14 @@ export type PhaseMachineDeps = {
   random?: () => number
   // console by default; tests pass a quiet one
   log?: Pick<Console, 'info' | 'warn' | 'error'>
+}
+
+// The prompts a game in this mode deals, as players are dealt them:
+// sentence case, whatever case they're stored in, so the real prompt never
+// stands out among the fakes by its capitals. Two that differ only in case
+// are one prompt.
+export function dealablePrompts(deps: PhaseMachineDeps, mode: GameMode): string[] {
+  return [...new Set(deps.prompts(mode).map(promptSentenceCase))]
 }
 
 function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
@@ -173,7 +182,8 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   room.pictureIndex = -1
 
   const seatPlayerIds = [...room.seats.values()].map((s) => s.playerId)
-  const availablePool = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p))
+  const dealable = dealablePrompts(deps, room.settings.mode)
+  const availablePool = dealable.filter((p) => !room.usedPrompts.has(p))
   if (room.settings.mode === 'guess') {
     const { assignments, used } = assignPrompts(seatPlayerIds, availablePool)
     room.promptByPlayer = assignments
@@ -198,7 +208,7 @@ export function startBuild(room: Room, deps: PhaseMachineDeps): void {
   // closes when the last one runs out
   const now = Date.now()
   room.buildStartedAt = now
-  room.swapPool = deps.prompts(room.settings.mode)
+  room.swapPool = dealable
   openBuildWindows(room, now)
   room.rearmWindows = () => armWindowTimer(room, deps)
   room.phase = { phase: 'build', round: room.round, totalRounds: room.settings.rounds, deadline: buildEndsAt(room, now), collecting: false }
@@ -549,7 +559,7 @@ function startChainRound(room: Room, deps: PhaseMachineDeps): void {
   )
   room.chainPlan = planChains(players, room.settings.chainStructure)
   room.chainIds = room.chainPlan.chains.map((_, i) => `c${room.round}-${i + 1}`)
-  const available = deps.prompts(room.settings.mode).filter((p) => !room.usedPrompts.has(p))
+  const available = dealablePrompts(deps, room.settings.mode).filter((p) => !room.usedPrompts.has(p))
   const { assignments, used } = assignPrompts(room.chainIds, available)
   for (const p of used) room.usedPrompts.add(p)
   room.chainPrompts = assignments
