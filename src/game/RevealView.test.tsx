@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { promptSentenceCase } from '@smoosh/protocol'
 import type { RoomSnapshot } from '@smoosh/protocol'
 import RevealView from './phases/RevealView'
 import { fixtureSnapshot, YOU_ID } from '../dev/fixtures'
@@ -58,8 +59,8 @@ describe('the reveal', () => {
   it('prices each lie, names who fell for it, and marks the best fib', () => {
     const text = textOf(renderToStaticMarkup(<RevealView snapshot={found()} emit={emit} />))
     // yours fooled Bob; Bob's fooled nobody this time
-    expect(text).toContain('a dog in a bathtub Fake · by you · +350 ×1')
-    expect(text).toContain('grandma at the beach Fake · by Bob · no takers')
+    expect(text).toContain('A dog in a bathtub Fake · by you · +350 ×1')
+    expect(text).toContain('Grandma at the beach Fake · by Bob · no takers')
     const html = renderToStaticMarkup(<RevealView snapshot={found()} emit={emit} />)
     expect(html.match(/class="best-fib"/g)).toHaveLength(1)
     expect(html).toContain('aria-label="Picked by Bob"')
@@ -69,5 +70,21 @@ describe('the reveal', () => {
     const text = textOf(renderToStaticMarkup(<RevealView snapshot={found()} emit={emit} />))
     expect(text).toContain('Sam: 1,500, up 1,750')
     expect(text).toContain('Bob: 500 B Bob 500')
+  })
+
+  it('sets the real prompt and the fakes in one form, so only the words differ', () => {
+    const snap = found()
+    if (snap.phase.phase !== 'reveal') throw new Error('fixture')
+    const words: Record<string, string> = {
+      'opt-truth': promptSentenceCase('Pug in Sunglasses on a Pirate Galleon'),
+      'opt-yours': '  sloth   fails swim test. ',
+      'opt-theirs': 'lazy Baywatch audition',
+    }
+    const options = snap.phase.options.map((o) => ({ ...o, text: words[o.id] ?? o.text }))
+    const html = renderToStaticMarkup(<RevealView snapshot={{ ...snap, phase: { ...snap.phase, options } }} emit={emit} />)
+    const texts = [...html.matchAll(/<p class="reveal-(?:truth|lie)-text">([^<]*)<\/p>/g)].map((m) => m[1])
+    expect(texts).toEqual(['Pug in sunglasses on a pirate galleon', 'Sloth fails swim test', 'Lazy Baywatch audition'])
+    for (const t of texts) expect(t).toMatch(/^[A-Z]\S*( \S+)*$/)
+    for (const t of texts) expect(t).not.toMatch(/\.$/)
   })
 })

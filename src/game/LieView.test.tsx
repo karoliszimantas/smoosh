@@ -16,7 +16,7 @@ describe('writing a lie', () => {
     expect(html).toContain('<label class="field-label" for="lie-text">Your fake prompt</label>')
     expect(html).toMatch(/<textarea id="lie-text"[^>]*rows="3"[^>]*maxLength="80"/)
     expect(html).toContain('type="submit"')
-    expect(textOf(html)).toContain('Real prompts look like: a thing in a place')
+    expect(textOf(html)).toContain('Real prompts look like: someone, in something, doing something, somewhere')
     expect(textOf(html)).toContain('Send lie')
     // no counter until it's worth watching
     expect(html).not.toContain('lie-count')

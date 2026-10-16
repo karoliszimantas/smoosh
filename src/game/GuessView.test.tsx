@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { promptSentenceCase } from '@smoosh/protocol'
 import GuessView from './phases/GuessView'
 import { fixtureSnapshot } from '../dev/fixtures'
 
@@ -55,5 +56,20 @@ describe('guessing', () => {
     expect(html).toContain('<span class="picked-label" aria-hidden="true">Locked</span>')
     expect(textOf(html)).toContain('Waiting for Cara')
     expect(textOf(html)).not.toContain('Lock in')
+  })
+
+  it('sets the real prompt and the fakes in one form, so only the words differ', () => {
+    const snap = fixtureSnapshot('guess')
+    if (snap.phase.phase !== 'guess') throw new Error('fixture')
+    const options = [
+      { id: 'a', text: '  sloth   fails swim test. ' },
+      { id: 'opt-truth', text: promptSentenceCase('Pug in Sunglasses on a Pirate Galleon') },
+      { id: 'b', text: 'lazy Baywatch audition' },
+    ]
+    const html = renderToStaticMarkup(<GuessView snapshot={{ ...snap, phase: { ...snap.phase, options } }} emit={emit} />)
+    const texts = [...html.matchAll(/<span class="guess-option-text">([^<]*)<\/span>/g)].map((m) => m[1])
+    expect(texts).toEqual(['Sloth fails swim test', 'Pug in sunglasses on a pirate galleon', 'Lazy Baywatch audition'])
+    for (const t of texts) expect(t).toMatch(/^[A-Z]\S*( \S+)*$/)
+    for (const t of texts) expect(t).not.toMatch(/\.$/)
   })
 })

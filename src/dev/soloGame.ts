@@ -12,6 +12,7 @@ import {
   awardsTimeline,
   galleryResults,
   runnerUpRequired,
+  promptSentenceCase,
   type AckResult,
   type RoomEvent,
   type ClientToServerEvents,
@@ -34,6 +35,7 @@ import { FIXTURE_PLAYERS, YOU_ID, samplePicture, soloPicturePath } from './fixtu
 
 const ROOM_CODE = 'SOLO'
 
+// dealt in sentence case, as the server deals them
 const PROMPTS = [
   'a cat riding a bicycle',
   'grandma at the beach',
@@ -43,7 +45,7 @@ const PROMPTS = [
   'two ducks on a date',
   'a haunted vending machine',
   'a horse doing taxes',
-]
+].map(promptSentenceCase)
 
 const BOT_LIES = ['a goat at a wedding', 'the last slice of pizza', 'a sad clown on holiday', 'robots at the gym']
 

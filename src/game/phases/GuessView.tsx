@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react'
+import { optionText } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import { actionErrorText } from '../roomMessages'
@@ -14,7 +15,8 @@ const PREV_KEYS = new Set(['ArrowUp', 'ArrowLeft'])
 // sends it — one guess per picture, as before, only now with a moment to
 // change your mind. A pick still not locked in when time runs out is sent
 // anyway (autoLock.ts). Your own lie lies flat on the desk, greyed,
-// unpickable.
+// unpickable. Every option is set in one form (optionText), the real one
+// and the fakes alike, so only the words can give one away.
 export default function GuessView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
   const phase = snapshot.phase
@@ -129,7 +131,7 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
                       className={`guess-option ${edge}${state}`}
                       onClick={() => pick(opt.id)}
                     >
-                      <span className="guess-option-text">{opt.text}</span>
+                      <span className="guess-option-text">{optionText(opt.text)}</span>
                       {isOwnLie && (
                         <>
                           {/* a comma, so it's read as "…, your lie" */}

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
-import { LIE_TEXT_MAX_LEN } from '@smoosh/protocol'
+import { LIE_TEXT_MAX_LEN, optionText } from '@smoosh/protocol'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import { actionErrorText } from '../roomMessages'
@@ -66,7 +66,7 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
             {sent !== null ? (
               <>
                 <p className="field-label on-paper">Your lie</p>
-                <p className="lie-sent-text">{sent}</p>
+                <p className="lie-sent-text">{optionText(sent)}</p>
               </>
             ) : (
               <p className="lie-sent-text">Your lie is in.</p>
@@ -77,7 +77,7 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
       ) : (
         <>
           <p className="lie-hint">
-            Real prompts look like: <strong>a thing in a place</strong>
+            Real prompts look like: <strong>someone, in something, doing something, somewhere</strong>
           </p>
           <form className="lie-form" onSubmit={(e) => void handleSubmit(e)}>
             <div className="lie-field-head">
