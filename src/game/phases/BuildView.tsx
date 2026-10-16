@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import Canvas, { type CanvasHandle } from '../../components/Canvas'
+import Canvas, { type CanvasHandle, type ExportInfo } from '../../components/Canvas'
 import AutoSendLine from '../../components/AutoSendLine'
 import { autoSendSeconds } from '../../components/autoSend'
 import type { LayerItem } from '../../components/layerItem'
@@ -8,7 +8,7 @@ import { useCountdown } from '../useCountdown'
 import { canvasStorageKey, loadCanvasItems, clearCanvasItems } from '../canvasStorage'
 import { SERVER_URL } from '../serverUrl'
 import { useGameServices } from '../services'
-import { uploadPicture } from '../upload'
+import { pictureUploadUrl, uploadPicture } from '../upload'
 import { shrinkPicture } from '../reencode'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
 import PromptWindow from './PromptWindow'
@@ -72,12 +72,20 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
     }
   }, [])
 
-  const submit = async (blob: Blob): Promise<void> => {
+  const submit = async (blob: Blob, info: ExportInfo): Promise<void> => {
     if (busyRef.current) return
     busyRef.current = true
     setUpload({ status: 'sending' })
 
-    const url = `${SERVER_URL}/submissions/${snapshot.roomCode}/${round}/${snapshot.you.playerId}`
+    // still sent when there's nothing on it, flagged so the round can skip
+    // it — in BUILD only: a chain pass goes over the passes before it, so
+    // the picture it adds to is never blank
+    const url = pictureUploadUrl(SERVER_URL, {
+      roomCode: snapshot.roomCode,
+      round,
+      playerId: snapshot.you.playerId,
+      blank: phase.phase === 'build' && info.blank,
+    })
     // a chain pass is sent with its transparency, and shrunk keeping it
     const result = await uploadPicture(send, url, blob, shrinkPicture(phase.phase === 'pass'))
     if (result.ok) {
@@ -158,7 +166,7 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
         promptText={pass && pass.prompt === null ? BLIND_PASS_PROMPT : freestyle || !prompt ? FREESTYLE_PROMPT : prompt}
         freestyle={freestyle}
         allowPhotos={snapshot.settings.allowPhotos}
-        onSubmit={(blob) => void submit(blob)}
+        onSubmit={(blob, info) => void submit(blob, info)}
         initialItems={initialItems}
         storageKey={submitted ? undefined : storageKey}
         // survives the tab being closed, not just reloaded

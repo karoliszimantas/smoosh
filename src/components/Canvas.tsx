@@ -36,7 +36,7 @@ import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
 import { useTheme } from '../themes/useTheme'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
 import FrameDecor from './FrameDecor'
-import { applyExportLook, hideForExport } from './canvasExport'
+import { applyExportLook, hideForExport, nothingInFrame } from './canvasExport'
 import { EXPORT_LOOK } from '../themes/exportLook'
 import Tape from './Tape'
 import SelectionOverlay from './SelectionOverlay'
@@ -122,13 +122,19 @@ export type CanvasHandle = {
   exportImage: () => Promise<Blob | null>
 }
 
+// what the export knows about the picture beyond its pixels
+export type ExportInfo = {
+  // nothing on it: no layers, or none inside the frame
+  blank: boolean
+}
+
 type CanvasProps = {
   promptText: string
   // called with the flattened picture once exportImage succeeds — WebP, or
   // JPEG/PNG where the browser can't write WebP (encodePicture) — the caller
   // (BuildView) owns what happens with it (upload, etc.). Omit it and the
   // export is downloaded instead (the sandbox, which has no game to submit to)
-  onSubmit?: (blob: Blob) => void
+  onSubmit?: (blob: Blob, info: ExportInfo) => void
   // seeds the items array on mount, e.g. restoring a canvas persisted after
   // a reload mid-BUILD
   initialItems?: LayerItem[]
@@ -935,6 +941,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       stage.batchDraw()
 
       // only the frame is the picture; anything parked outside it is cut off
+      const blank = nothingInFrame(
+        itemsRef.current.map((item) => stage.findOne(`#${item.id}`)?.getClientRect() ?? null),
+        { x: frame.x, y: frame.y, width: frame.size, height: frame.size },
+      )
       const canvas = stage.toCanvas({
         x: frame.x,
         y: frame.y,
@@ -949,7 +959,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       const blob = await encodePicture(canvas, transparentExport, 0.8, 0.85)
       if (!blob) throw new Error('failed to encode export')
 
-      if (onSubmit) onSubmit(blob)
+      if (onSubmit) onSubmit(blob, { blank })
       else downloadBlob(blob)
       return blob
     } catch (err) {
