@@ -9,3 +9,7 @@ export const UPLOAD_MESSAGES = {
   not_owner: 'session does not own this player',
   failed: 'upload failed',
 } as const
+
+// the query flag a client adds to a picture upload when nothing is on it —
+// the server skips that picture's Lie and Guess (it also checks the pixels)
+export const BLANK_PICTURE_PARAM = 'blank'

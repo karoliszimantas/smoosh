@@ -293,7 +293,7 @@ export class SoloGame {
       authorId: slot.authorId,
     }
     if (!slot.hasPicture) {
-      this.phase = { ...context, phase: 'missing', deadline: Date.now() + 4_000 }
+      this.phase = { ...context, phase: 'missing', blank: false, deadline: Date.now() + 4_000 }
     } else {
       this.phase = {
         ...context,
@@ -462,6 +462,7 @@ export class SoloGame {
         return ok
       case 'chainVote:submit':
       case 'chainReveal:skip':
+      case 'reveal:next':
         return refused('not in solo')
       case 'room:playAgain':
         this.round = 0

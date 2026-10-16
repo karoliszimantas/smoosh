@@ -161,10 +161,12 @@ export const PhaseStateSchema = z.discriminatedUnion('phase', [
     deadline: z.number(),
   }),
 
-  // a player's slot in the picture order whose picture never arrived — shown
-  // to everyone, so a missing picture is visible rather than silently skipped
+  // a player's slot in the picture order whose picture never arrived, or
+  // arrived blank (`blank`) — shown to everyone, so a skipped picture is
+  // visible rather than silently left out
   PictureContextSchema.omit({ imagePath: true }).extend({
     phase: z.literal('missing'),
+    blank: z.boolean(),
     deadline: z.number(),
   }),
 

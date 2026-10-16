@@ -33,13 +33,14 @@ describe('game settings', () => {
   })
 
   // a default game (guess, 5 rounds, 90s builds, 120s to answer), as
-  // typically played: 5 × (10 + 92 + n × (45 + 20 + 8)) + 4 × 6 seconds
+  // typically played: 5 × (10 + 92 + n × (45 + 20 + 7 + 1.8 × (n − 1))) +
+  // 4 × 6 seconds — each reveal runs longer the more fakes it has
   it.each([
-    [3, 1629, 27],
-    [5, 2359, 39],
-    [8, 3454, 58],
+    [3, 1668, 28],
+    [5, 2514, 42],
+    [8, 3918, 65],
   ])('estimates a default game for %i players at %is, about %i min', (players, sec, min) => {
-    expect(estimateDurationSec(DEFAULT_SETTINGS, players)).toBe(sec)
+    expect(estimateDurationSec(DEFAULT_SETTINGS, players)).toBeCloseTo(sec, 6)
     expect(Math.round(sec / 60)).toBe(min)
   })
 

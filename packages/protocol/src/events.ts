@@ -43,6 +43,8 @@ export const SubmitChainVoteSchema = z.object({ round: z.number().int().positive
 export const SkipChainRevealSchema = z.object({ round: z.number().int().positive() })
 // the host cuts the awards short: straight to the full wall
 export const SkipAwardsSchema = z.object({ round: z.number().int().positive() })
+// guess: the host moves on from a reveal before its time is up
+export const NextPictureSchema = z.object({ pictureIndex: z.number().int().nonnegative() })
 
 // handshake `auth` payload, validated in an io.use middleware before any
 // event handler runs
@@ -72,6 +74,7 @@ export interface ClientToServerEvents {
   'chainVote:submit': (payload: z.infer<typeof SubmitChainVoteSchema>, ack: (r: AckResult) => void) => void
   'chainReveal:skip': (payload: z.infer<typeof SkipChainRevealSchema>, ack: (r: AckResult) => void) => void
   'awards:skip': (payload: z.infer<typeof SkipAwardsSchema>, ack: (r: AckResult) => void) => void
+  'reveal:next': (payload: z.infer<typeof NextPictureSchema>, ack: (r: AckResult) => void) => void
 }
 
 export interface ServerToClientEvents {

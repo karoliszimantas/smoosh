@@ -3,7 +3,7 @@ import {
   BUILD_GRACE_SEC,
   PROMPT_WINDOW_SEC,
   MISSING_PHASE_SEC,
-  REVEAL_PHASE_SEC,
+  revealPhaseSec,
   SCORES_PHASE_SEC,
   type GameSettings,
   type PhaseState,
@@ -247,7 +247,7 @@ describe('disconnects and reconnects', () => {
     const { pictureIndex, authorId } = expectPhase(room, 'reveal')
 
     for (const id of ['player-1', 'player-2', 'player-3'].filter((id) => id !== authorId)) disconnect(room, deps, id)
-    vi.advanceTimersByTime(REVEAL_PHASE_SEC * 1000 - 1)
+    vi.advanceTimersByTime(revealPhaseSec(expectPhase(room, 'reveal').options.length - 1) * 1000 - 1)
     expect(expectPhase(room, 'reveal').pictureIndex).toBe(pictureIndex)
     vi.advanceTimersByTime(1)
     expect(expectPhase(room, 'lie').pictureIndex).toBe(pictureIndex + 1)
@@ -261,7 +261,7 @@ describe('disconnects and reconnects', () => {
     // walk the order until player-2's placeholder comes up
     while (room.phase.phase !== 'missing' && room.phase.phase !== 'scores') {
       for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
-      if (room.phase.phase === 'reveal') vi.advanceTimersByTime(REVEAL_PHASE_SEC * 1000)
+      if (room.phase.phase === 'reveal') vi.advanceTimersByTime(revealPhaseSec(room.phase.options.length - 1) * 1000)
     }
     const { pictureIndex, authorId } = expectPhase(room, 'missing')
     expect(authorId).toBe('player-2')

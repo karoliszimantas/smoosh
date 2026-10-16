@@ -1,9 +1,9 @@
 import {
   CHAIN_AWARDS_SEC,
   MISSING_PHASE_SEC,
-  REVEAL_PHASE_SEC,
   SCORES_PHASE_SEC,
   passSeconds,
+  revealPhaseSec,
   type GameSettings,
   type PhaseState,
 } from '@smoosh/protocol'
@@ -28,7 +28,7 @@ export function phaseDurationSec(phase: PhaseState, settings: GameSettings): num
     case 'chainVote':
       return settings.answerTimeSec
     case 'reveal':
-      return REVEAL_PHASE_SEC
+      return revealPhaseSec(phase.options.filter((o) => !o.isTruth).length)
     case 'missing':
       return MISSING_PHASE_SEC
     case 'scores':
