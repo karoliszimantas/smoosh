@@ -13,7 +13,7 @@ import type { PhaseProps } from '../types'
 import ThemeSwitcher from '../../themes/ThemeSwitcher'
 import PlayerChip from '../PlayerChip'
 import RoomCodeCard from '../RoomCodeCard'
-import HowToPlay from '../HowToPlay'
+import HowToPlayNote from '../HowToPlayNote'
 import { howToPlaySeen, markHowToPlaySeen } from '../howToPlaySeen'
 import { takeSettingsRequest } from '../playAgain'
 
@@ -92,12 +92,9 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
     card?.focus({ preventScroll: true })
   }, [])
 
-  // a player's first Lobby: the how-to-play cards, while they wait anyway.
-  // Seen as soon as they're shown, so they come up once
+  // a player's first Lobby: the rules on a note, while they wait anyway —
+  // until they say Got it
   const [howToPlay, setHowToPlay] = useState(() => !howToPlaySeen())
-  useEffect(() => {
-    if (howToPlay) markHowToPlaySeen()
-  }, [howToPlay])
 
   const updateSettings = (patch: Partial<GameSettings>) => {
     void emit('room:updateSettings', { ...settings, ...patch })
@@ -144,6 +141,15 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
         </ul>
       </div>
       {awayCount > 0 && <p className="lobby-away-note">Anyone away when the game starts sits it out.</p>}
+
+      {howToPlay && (
+        <HowToPlayNote
+          onDone={() => {
+            markHowToPlaySeen()
+            setHowToPlay(false)
+          }}
+        />
+      )}
 
       <section
         ref={settingsRef}
@@ -298,8 +304,6 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
           {canStart ? 'Start game' : `Need at least ${MIN_PLAYERS_TO_START} players`}
         </button>
       )}
-
-      {howToPlay && <HowToPlay onClose={() => setHowToPlay(false)} />}
     </div>
   )
 }

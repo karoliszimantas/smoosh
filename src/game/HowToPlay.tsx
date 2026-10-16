@@ -2,39 +2,26 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDialog } from './useDialog'
 import Tape from '../components/Tape'
+import { HOW_TO_PLAY_STEPS } from './howToPlayText'
 
 // a swipe this far across the card turns it
 const SWIPE_PX = 40
 
 // Each card: a little scrap-paper picture (decoration, hidden from screen
 // readers — the words carry it), a title and a line or two.
-const HOW_TO_PLAY_CARDS = [
-  {
-    title: 'Build it.',
-    text: 'You get a secret, silly prompt. Smoosh photos together to show it.',
-    art: <BuildArt />,
-  },
-  {
-    title: 'Fake it.',
-    text: 'Everyone else invents a fake prompt for your picture.',
-    art: <FakeArt />,
-  },
-  {
-    title: 'Spot it.',
-    text: 'Find the real one: +1000 to you and the builder. Fool someone with your fake: +500 each.',
-    art: <SpotArt />,
-  },
-] as const
+const ART = [<BuildArt />, <FakeArt />, <SpotArt />]
 
 // The three how-to-play cards, on a paper card over the desk: Next (or a
 // swipe, or the arrow keys) through them, Back, and Skip always there.
-// Opens by itself in a player's first Lobby; also from Home and the menu.
+// Opened by the player, from Home and the menu (a first Lobby has the
+// quiet HowToPlayNote instead).
 export default function HowToPlay({ onClose, returnFocus }: { onClose: () => void; returnFocus?: () => HTMLElement | null }) {
   const [step, setStep] = useState(0)
   const ref = useDialog<HTMLDivElement>(onClose, returnFocus)
   const swipeFrom = useRef<number | null>(null)
-  const last = HOW_TO_PLAY_CARDS.length - 1
-  const card = HOW_TO_PLAY_CARDS[step] ?? HOW_TO_PLAY_CARDS[0]
+  const last = HOW_TO_PLAY_STEPS.length - 1
+  const { title, text } = HOW_TO_PLAY_STEPS[step] ?? HOW_TO_PLAY_STEPS[0]
+  const art = ART[step]
   const next = () => (step < last ? setStep(step + 1) : onClose())
   const back = () => setStep(Math.max(0, step - 1))
 
@@ -57,7 +44,7 @@ export default function HowToPlay({ onClose, returnFocus }: { onClose: () => voi
         <h2 id="htp-title" className="field-label on-paper htp-head">
           <span>How to play</span>
           <span>
-            {step + 1} of {HOW_TO_PLAY_CARDS.length}
+            {step + 1} of {HOW_TO_PLAY_STEPS.length}
           </span>
         </h2>
         <div
@@ -78,14 +65,14 @@ export default function HowToPlay({ onClose, returnFocus }: { onClose: () => voi
           {/* keyed, so each card arrives afresh (the stepped deal) */}
           <div key={step} className="htp-card">
             <div className="htp-art" aria-hidden="true">
-              {card.art}
+              {art}
             </div>
-            <h3 className="htp-title">{card.title}</h3>
-            <p className="htp-text">{card.text}</p>
+            <h3 className="htp-title">{title}</h3>
+            <p className="htp-text">{text}</p>
           </div>
         </div>
         <ol className="htp-dots" aria-hidden="true">
-          {HOW_TO_PLAY_CARDS.map((c, i) => (
+          {HOW_TO_PLAY_STEPS.map((c, i) => (
             <li key={c.title} className={i === step ? 'on' : undefined} />
           ))}
         </ol>
@@ -138,7 +125,7 @@ function FakeArt() {
   )
 }
 
-// three captions, the real one stamped, the points beside it
+// three captions, the real one stamped
 function SpotArt() {
   return (
     <div className="htp-spot">
@@ -148,7 +135,6 @@ function SpotArt() {
         <span className="real-stamp htp-stamp">Real</span>
       </span>
       <span className="htp-slip">A dog at the dentist</span>
-      <span className="htp-points">+1000</span>
     </div>
   )
 }

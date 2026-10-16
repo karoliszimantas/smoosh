@@ -1,7 +1,7 @@
-// The three how-to-play cards open by themselves the first time a player
-// is in a Lobby — remembered on this device, so they open once. Storage can
-// be missing or refuse (some private modes): then they're remembered for
-// this visit only, and the next visit shows them again. Nothing worse.
+// The rules sit on a note in a player's Lobby until they say Got it —
+// remembered on this device, so it's put away for good. Storage can
+// be missing or refuse (some private modes): then it's remembered for
+// this visit only, and the next visit shows it again. Nothing worse.
 
 const SEEN_KEY = 'smoosh_how_to_play_seen'
 
