@@ -224,28 +224,59 @@ const DraggableImage = memo(function DraggableImage({
       : 0
   const edgeColor = edge?.color
   const edgeWidth = edge?.width ?? 0
+  // The lift shadow goes under the rim. Konva would blur it afresh for
+  // every layer on every frame — the costliest part of a frame — so the
+  // sprite bakes it in once instead, from the same silhouette and in the
+  // theme's terms: colour, and blur in canvas units
+  const shadowColor = shadowed ? theme.layerShadowColor : null
+  const shadowBlur = theme.layerShadowBlur * CANVAS_UNITS_PER_THEME_PX
   const sprite = useMemo(() => {
     if (!erased || !edgeColor || radius <= 0) return null
     const w = erased.width
     const h = erased.height
     const rect = { x: crop.x * w, y: crop.y * h, width: crop.width * w, height: crop.height * h }
-    // a working pixel per canvas unit of rim
-    return stickerSprite(erased, rect, radius, edgeColor, edgeWidth * CANVAS_UNITS_PER_THEME_PX)
-  }, [erased, crop, radius, edgeColor, edgeWidth])
-  // in canvas units, how far the sprite reaches past the node's box on each
-  // side — freezeOthers reads it to size a snapshot that holds the rim
-  const spritePad = sprite ? sprite.pad * u : 0
+    return stickerSprite(erased, rect, {
+      radius,
+      color: edgeColor,
+      // what the rounded radius stands for: the rim's width in units over it
+      unitsPerSourcePx: (edgeWidth * CANVAS_UNITS_PER_THEME_PX) / radius,
+      shadow: shadowColor ? { color: shadowColor, blur: shadowBlur } : null,
+    })
+  }, [erased, crop, radius, edgeColor, edgeWidth, shadowColor, shadowBlur])
+
+  // the baked shadow's drop, in canvas units: straight down the frame
+  const dropX = theme.layerShadowOffset.x * CANVAS_UNITS_PER_THEME_PX
+  const dropY = theme.layerShadowOffset.y * CANVAS_UNITS_PER_THEME_PX
+  // in node units, how far the sprite, its shadow and the shadow's drop reach
+  // past the node's box on any side — freezeOthers reads it to size a
+  // snapshot that holds them all
+  const spritePad = sprite
+    ? sprite.reach * u + (sprite.shadow ? Math.hypot(dropX, dropY) / Math.max(item.scale, MIN_SCALE) : 0)
+    : 0
 
   // The sprite (the rim, with the image on top) drawn spilling past the
-  // node's box by the padding: width, height, offsets, hitFunc and the
-  // transform maths all stay the image's own, so the selection, hit tests
-  // and gestures don't know the rim is there. Konva sets the shadow before
-  // drawing, so it falls under the rim, as the artboard's lift shadow does.
+  // node's box: width, height, offsets, hitFunc and the transform maths all
+  // stay the image's own, so the selection, hit tests and gestures don't
+  // know the rim is there. The shadow first, its drop taken back through the
+  // node's own turn, scale and mirror — read live, so it still falls
+  // straight down mid-gesture.
   const sceneFunc = sprite
-    ? (ctx: Konva.Context) => {
-        ctx.drawImage(sprite.canvas, -spritePad, -spritePad, sprite.canvas.width * u, sprite.canvas.height * u)
+    ? (ctx: Konva.Context, shape: Konva.Shape) => {
+        const p = sprite.pad
+        const shadow = sprite.shadow
+        if (shadow) {
+          const t = (shape.rotation() * Math.PI) / 180
+          const cos = Math.cos(t)
+          const sin = Math.sin(t)
+          const ox = (dropX * cos + dropY * sin) / shape.scaleX()
+          const oy = (dropY * cos - dropX * sin) / shape.scaleY()
+          ctx.drawImage(shadow.canvas, (shadow.x - p) * u + ox, (shadow.y - p) * u + oy, shadow.width * u, shadow.height * u)
+        }
+        ctx.drawImage(sprite.canvas, -p * u, -p * u, sprite.canvas.width * u, sprite.canvas.height * u)
       }
     : undefined
+  // with the shadow baked in, Konva's own stays off
+  const liveShadow = shadowed && !sprite?.shadow
 
   if (!img || !erased) return null
 
@@ -267,8 +298,8 @@ const DraggableImage = memo(function DraggableImage({
       // non-destructive and can always be widened again. Always a full
       // object — Konva's setter can't take undefined when a crop is reset
       crop={src}
-      shadowColor={shadowed ? theme.layerShadowColor : undefined}
-      shadowEnabled={shadowed}
+      shadowColor={liveShadow ? theme.layerShadowColor : undefined}
+      shadowEnabled={liveShadow}
       shadowBlur={theme.layerShadowBlur * shadowScale}
       shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (item.mirrored ? -1 : 1)}
       shadowOffsetY={theme.layerShadowOffset.y * shadowScale}
