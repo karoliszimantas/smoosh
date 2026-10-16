@@ -6,12 +6,16 @@ import App from './App.tsx'
 import ThemeProvider from './themes/ThemeProvider'
 import { applyThemeToDocument, initialTheme } from './themes'
 import { captureCodeFromUrl } from './prompts/access'
+import { captureJoinFromUrl } from './game/invite'
 import { prunePhotos } from './photos/photoStore'
 import { defaultServices, GameServicesProvider, type GameServices } from './game/services'
 
 // a /prompts?code=… link: keep the code, and get it out of the address bar
 // before anything renders
 captureCodeFromUrl()
+// an invite, /?join=KRPT: kept for the home screen, and out of the address
+// bar the same way
+captureJoinFromUrl()
 // photos left behind by a tab that crashed or was closed mid-game
 void prunePhotos()
 
