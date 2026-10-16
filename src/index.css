@@ -5766,3 +5766,104 @@ html[data-torn='false'] .wordmark-tile {
   font-size: 26px;
   line-height: 32px;
 }
+
+/* ---------- stepped arrivals ----------
+   The REAL stamp thumps down, the burst pops, the points jolt into place:
+   each once, on mount, in held frames of --step-ms (83ms, ~12fps), two to a
+   keyframe, so it reads as stop-frame rather than a tween. Only on a stepped
+   desk and only when nobody asked for less motion; otherwise everything is
+   simply there, in its final pose. Each 100% keyframe is the element's own
+   resting transform, so the hand-off at the end is seamless */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion='stepped'] .real-stamp {
+    animation: stamp-land calc(var(--step-ms) * 6) steps(2, end);
+  }
+
+  html[data-motion='stepped'] .burst-star {
+    animation: burst-pop calc(var(--step-ms) * 6) steps(2, end);
+  }
+
+  html[data-motion='stepped'] .burst-points {
+    animation: burst-points-pop calc(var(--step-ms) * 6) steps(2, end);
+  }
+
+  html[data-motion='stepped'] .burst-note {
+    animation: burst-note-stick calc(var(--step-ms) * 4) steps(2, end);
+  }
+
+  html[data-motion='stepped'] .score-ribbon-delta,
+  html[data-motion='stepped'] .standing-delta {
+    animation: delta-jolt calc(var(--step-ms) * 4) steps(2, end);
+  }
+}
+
+/* dropped from a little above, then settles to −6° */
+@keyframes stamp-land {
+  0% {
+    transform: rotate(-14deg) scale(1.5);
+  }
+  33% {
+    transform: rotate(-3deg) scale(0.92);
+  }
+  66% {
+    transform: rotate(-8deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(-6deg);
+  }
+}
+
+@keyframes burst-pop {
+  0% {
+    transform: rotate(-25deg) scale(0.4);
+  }
+  33% {
+    transform: rotate(8deg) scale(1.15);
+  }
+  66% {
+    transform: rotate(-3deg) scale(0.95);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* the figure starts from nothing, a beat behind the star */
+@keyframes burst-points-pop {
+  0% {
+    transform: rotate(-7deg) scale(0);
+  }
+  33% {
+    transform: rotate(-12deg) scale(1.3);
+  }
+  66% {
+    transform: rotate(-4deg) scale(0.95);
+  }
+  100% {
+    transform: rotate(-7deg);
+  }
+}
+
+@keyframes burst-note-stick {
+  0% {
+    transform: rotate(16deg) scale(0.6);
+  }
+  50% {
+    transform: rotate(1deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes delta-jolt {
+  0% {
+    transform: translateY(8px) scale(0.6);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.15);
+  }
+  100% {
+    transform: none;
+  }
+}
