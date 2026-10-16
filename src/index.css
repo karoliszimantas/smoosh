@@ -646,8 +646,9 @@ h2,
 /* ---------- toolbar ----------
    One cream paper strip at the foot of the screen (Build.dc.html): Add as
    the riso-red action on its ledge, then the tools as ink icons with typed
-   labels. One row, always — a second row would come out of the canvas. On
-   a phone too narrow for every tool it scrolls sideways instead. */
+   labels. One row, always — a second row would come out of the canvas. In
+   layer mode the rarer tools wait behind More (.toolbar-more-menu), so the
+   row fits a 375px phone; it can still scroll sideways as a last resort. */
 
 .toolbar-wrap {
   position: relative;
@@ -790,6 +791,16 @@ h2,
   background: var(--picked);
   box-shadow: inset 0 0 0 2px var(--line);
   color: var(--line);
+}
+
+/* More's card: a .paper-card (sized in the paper chrome section), here
+   placed above the strip's right end — the toolbar is at the foot of the
+   screen, so it opens upward. Over the canvas and its sliders */
+.toolbar-more-menu {
+  position: absolute;
+  right: 16px;
+  bottom: 100%;
+  z-index: 30;
 }
 
 /* opacity takes the toolbar row over while it's open */
@@ -4171,6 +4182,60 @@ select.field {
   gap: 10px;
   min-width: 200px;
   padding: 12px;
+}
+
+/* the build toolbar's More: one row per tool, icon then typed label, ink
+   on the paper like the tools on the strip */
+.paper-card.toolbar-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 168px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+}
+
+.toolbar-more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--surface-text);
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.toolbar-more-item:active:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.toolbar-more-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* Mirror while on: the strip's yellow scrap */
+.toolbar-more-item.toolbar-btn-on {
+  background: var(--picked);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--line);
+}
+
+/* the strip's dashed cut-out, as a row */
+.toolbar-more-item:disabled {
+  border: 2px dashed var(--surface-sunken-text);
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
+  cursor: not-allowed;
 }
 
 /* ---------- player marks ----------
