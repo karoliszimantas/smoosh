@@ -7,7 +7,7 @@ import MissingView from './phases/MissingView'
 import StatusStrip from './StatusStrip'
 import { statusLine } from './statusLine'
 import { PICTURE_MESSAGES, uploadPicture, UPLOAD_ATTEMPTS, UPLOAD_BUDGET_MS } from './upload'
-import { actionErrorText } from './roomMessages'
+import { actionErrorText, RECONNECTING_BUILD_TEXT } from './roomMessages'
 import { fixtureSnapshot, FIXTURE_BASE, YOU_ID } from '../dev/fixtures'
 
 // The screens only the unluckiest player sees — nobody hits them by
@@ -108,6 +108,13 @@ describe('notice region', () => {
 
   it('a dropped connection', () => {
     expect(textOf(renderToStaticMarkup(<NoticeRegion reconnecting toasts={[]} onToastDone={noop} />))).toBe('Reconnecting…')
+  })
+
+  it('a dropped connection while building: keep going, nothing is lost', () => {
+    const html = renderToStaticMarkup(
+      <NoticeRegion reconnecting reconnectingText={RECONNECTING_BUILD_TEXT} toasts={[]} onToastDone={noop} />,
+    )
+    expect(textOf(html)).toBe('Reconnecting… keep building, nothing’s lost.')
   })
 
   it('the connection beats a refusal: one message while reconnecting', () => {
@@ -265,7 +272,7 @@ describe('uploading a picture', () => {
 
 describe('a tap that did not count', () => {
   it('is told in fixed words, never the server text', () => {
-    expect(actionErrorText('LIE_REJECTED')).toBe('Try a different fake.')
+    expect(actionErrorText('LIE_REJECTED')).toBe('Someone already has that one — write another.')
     expect(actionErrorText('INVALID_PAYLOAD')).toBe('That didn’t work. Try again.')
   })
 })

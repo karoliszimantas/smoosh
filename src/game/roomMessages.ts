@@ -41,8 +41,13 @@ export function rejoinFailedText(roomCode: string, code: ErrorCode): string {
     case 'ALREADY_STARTED':
       return `Game ${roomCode} is already under way, and this device isn’t in it.`
     default:
-      return `Couldn’t get you back into game ${roomCode}.`
+      return couldNotRejoinText(roomCode)
   }
+}
+
+// getting back in failed or went unanswered: what to do about it, too
+export function couldNotRejoinText(roomCode: string): string {
+  return `Couldn’t get back into game ${roomCode}. Try again, or join with the code.`
 }
 
 export function leftText(roomCode: string): string {
@@ -86,8 +91,10 @@ export function leaveDialogText(opts: { roomCode: string; isLobby: boolean; isHo
 // count — fixed words, never the server's own text
 export function actionErrorText(code: ErrorCode): string {
   switch (code) {
+    // true of a duplicate and of the real prompt alike (its builder "has"
+    // it), so it never gives the truth away
     case 'LIE_REJECTED':
-      return 'Try a different fake.'
+      return 'Someone already has that one — write another.'
     case 'CANNOT_PICK_OWN':
       return 'That one’s yours — pick another.'
     case 'ALREADY_ACTED':
@@ -100,6 +107,8 @@ export function actionErrorText(code: ErrorCode): string {
 }
 
 export const RECONNECTING_TEXT = 'Reconnecting…'
+// while building, the canvas is kept on the phone: say so, so nobody stops
+export const RECONNECTING_BUILD_TEXT = 'Reconnecting… keep building, nothing’s lost.'
 
 // the server is waiting on this player and their screen offers nothing to
 // press — said plainly, with Rejoin beside it

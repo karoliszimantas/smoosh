@@ -24,6 +24,7 @@ function ToastItem({ toast, onDone }: { toast: Toast; onDone: (id: number) => vo
 // Each message is said once: a toast repeating the alert's words is dropped.
 export default function NoticeRegion({
   reconnecting = false,
+  reconnectingText = RECONNECTING_TEXT,
   alert = null,
   onDismissAlert,
   alertAction,
@@ -31,6 +32,8 @@ export default function NoticeRegion({
   onToastDone,
 }: {
   reconnecting?: boolean
+  // what the connection notice says (the building screens reassure)
+  reconnectingText?: string
   alert?: string | null
   onDismissAlert?: () => void
   // in place of dismissing: the one thing that fixes it (Rejoin)
@@ -52,7 +55,7 @@ export default function NoticeRegion({
     <ul className="notice-region" aria-live="polite">
       {reconnecting ? (
         <li className="notice notice-connection" role="status">
-          {RECONNECTING_TEXT}
+          {reconnectingText}
         </li>
       ) : (
         <>

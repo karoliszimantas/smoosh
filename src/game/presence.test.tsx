@@ -96,6 +96,10 @@ describe('what players read', () => {
       expect(joinFailedText('ABCD', code)).not.toMatch(/[A-Z]{2,}_[A-Z]+/)
     }
     expect(joinFailedText('WXYZ', 'ROOM_NOT_FOUND')).toBe('There’s no game with the code WXYZ. Check the code?')
+    // and what to do about it
+    expect(rejoinFailedText('ABCD', 'INVALID_PAYLOAD')).toBe(
+      'Couldn’t get back into game ABCD. Try again, or join with the code.',
+    )
   })
 
   it('after leaving, how to come back', () => {
