@@ -103,4 +103,15 @@ describe('the reveal', () => {
     expect(html).not.toContain('reveal-found')
     expect(html).not.toContain('reveal-note')
   })
+
+  it('gives the host, and only the host, a way on: Next picture, or Scores after the last', () => {
+    const snap = found()
+    if (snap.phase.phase !== 'reveal') throw new Error('fixture')
+    const host = renderToStaticMarkup(<RevealView snapshot={snap} emit={emit} />)
+    expect(host).toContain('<button class="btn btn-primary btn-block reveal-next">Next picture</button>')
+    const last = { ...snap, phase: { ...snap.phase, pictureIndex: snap.phase.pictureCount - 1 } }
+    expect(renderToStaticMarkup(<RevealView snapshot={last} emit={emit} />)).toContain('reveal-next">Scores</button>')
+    const guest = { ...snap, you: { ...snap.you, isHost: false } }
+    expect(renderToStaticMarkup(<RevealView snapshot={guest} emit={emit} />)).not.toContain('reveal-next')
+  })
 })

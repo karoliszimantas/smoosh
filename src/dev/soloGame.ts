@@ -13,6 +13,7 @@ import {
   galleryResults,
   runnerUpRequired,
   promptSentenceCase,
+  revealPhaseSec,
   type AckResult,
   type RoomEvent,
   type ClientToServerEvents,
@@ -365,7 +366,7 @@ export class SoloGame {
       })),
       realOptionId: truth?.id ?? '',
       pointsThisPicture: [...points].map(([playerId, n]) => ({ playerId, points: n })),
-      deadline: Date.now() + 8_000,
+      deadline: Date.now() + revealPhaseSec(this.lies.size) * 1000,
     }
   }
 
@@ -464,8 +465,14 @@ export class SoloGame {
         return ok
       case 'chainVote:submit':
       case 'chainReveal:skip':
-      case 'reveal:next':
         return refused('not in solo')
+      // the host (you) moves on from a reveal early: the next picture
+      case 'reveal:next':
+        if (phase.phase !== 'reveal' || phase.pictureIndex !== (payload as EmitPayload<'reveal:next'>).pictureIndex) {
+          return refused('not now')
+        }
+        this.nextSlot()
+        return ok
       case 'room:playAgain':
         this.round = 0
         this.exhibition = []
