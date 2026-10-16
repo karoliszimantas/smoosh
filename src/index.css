@@ -1484,12 +1484,6 @@ h2 {
   margin: 0;
 }
 
-.home-status {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
 .home-error {
   margin: 0;
   color: var(--danger-on-desk);
@@ -1514,10 +1508,12 @@ h2 {
   gap: 8px;
 }
 
-/* "Room code", and "Join only" at the far end while creating */
-.home-code-label {
-  display: flex;
-  justify-content: space-between;
+/* what a field still needs, under it: asked, not scolded */
+.home-hint {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .home-sandbox {
