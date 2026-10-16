@@ -4598,29 +4598,35 @@ select.field {
   }
 }
 
-/* who's done: 28px dots in seat order, 6px apart while they fit. Past that
-   each dot's slot shrinks (down to a 4px sliver) and the dot spills over
-   the next slot, so later dots sit over earlier ones and the last is
-   always whole. The badge pokes out 3px. */
+/* who's done: 28px dots in seat order, never squeezed or stacked. As many
+   to a row as the strip's right end holds, at most four; past that they
+   wrap to another row, and the strip grows to fit (about 34px a row).
+   Rows fill from the left, the block sits at the right. 6px apart, or 2px
+   where 6 would cost a dot a row (a 375px phone fits three). The box
+   reaches 4px into the gap before the tag, so a fraction of a pixel short
+   doesn't cost one either; the dots stay right of it. The badge pokes out
+   3px, over the gap and into the bottom padding. */
 .done-dots {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-  padding: 0 3px 3px 0;
+  --dot-gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 28px);
+  justify-content: end;
+  gap: 6px var(--dot-gap);
+  width: calc(100% + 4px);
+  max-width: calc(4 * 28px + 3 * var(--dot-gap));
+  padding-bottom: 3px;
 }
 
-/* the dot hangs out of its slot, so the slot alone sets how much room a
-   dot takes — a slot's content never props the strip open */
+@container status-side (max-width: 95px) {
+  .done-dots {
+    --dot-gap: 2px;
+  }
+}
+
 .done-dot {
   position: relative;
-  flex: 0 1 34px;
-  min-width: 4px;
-  height: 28px;
-}
-
-.done-dot:last-child {
-  flex: none;
   width: 28px;
+  height: 28px;
 }
 
 .done-dot > .player-dot {
@@ -4660,9 +4666,11 @@ select.field {
   height: auto;
 }
 
-/* in a round the notices drop below the strip, clear of the timer tag */
+/* in a round the notices drop below the strip, clear of the timer tag and
+   the dots. --status-strip-h is the strip's height, kept by StatusStrip —
+   it grows a row when the dots wrap */
 .game-screen:not(.bare) ~ .notice-region {
-  top: calc(92px + env(safe-area-inset-top));
+  top: calc(var(--status-strip-h, calc(97px + env(safe-area-inset-top))) - 5px);
   left: 16px;
   right: 16px;
 }
@@ -4709,9 +4717,11 @@ select.field {
 }
 
 /* the right end: the theme switch and the menu, the done-dots under them.
-   Short of room it narrows down to the two buttons, and the dots squeeze */
+   Its width is what's left beside the tag (88px at 375 wide, 99px at 390):
+   the dots fit as many to a row as that holds, so it's a size container */
 .status-side {
   flex: 1 1 96px;
+  container: status-side / inline-size;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -4721,10 +4731,6 @@ select.field {
 .status-tools {
   display: flex;
   gap: 6px;
-}
-
-.status-side .done-dots {
-  align-self: stretch;
 }
 
 /* the menu, here rather than in the corner; its popover over the dots */

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { RoomSnapshot } from '@smoosh/protocol'
 import ThemeSwitcher from '../themes/ThemeSwitcher'
 import DoneDots from './DoneDots'
@@ -17,8 +18,26 @@ export default function StatusStrip({
   status: StatusLine
   onLeave: () => void
 }) {
+  // the strip's height, as --status-strip-h on the page, for what places
+  // itself under the strip from outside it (the notices). It changes when
+  // the done-dots wrap to a second row
+  const ref = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const strip = ref.current
+    if (!strip) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty('--status-strip-h', `${strip.offsetHeight}px`)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(strip)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--status-strip-h')
+    }
+  }, [])
+
   return (
-    <header className="status-strip">
+    <header className="status-strip" ref={ref}>
       <p className="status-where">
         <span>{status.round}</span> <span className="status-step">{status.step}</span>
       </p>

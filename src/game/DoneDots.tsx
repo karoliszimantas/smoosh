@@ -8,8 +8,8 @@ import { whoIsDone } from './whoIsDone'
 // playing. One image for a screen reader, named in a sentence: "Mara is
 // done. Teo and Bob are still building."
 //
-// Squeezed for room: past what fits, the dots overlap, each later one over
-// the one before (see .done-dots).
+// Never squeezed: past what fits in a row (at most four), the dots wrap to
+// another row and the strip grows to hold it (see .done-dots).
 export default function DoneDots({ snapshot }: { snapshot: RoomSnapshot }) {
   const { dots, label } = whoIsDone(snapshot)
   if (dots.length === 0) return null
