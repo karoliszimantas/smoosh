@@ -1450,39 +1450,95 @@ h2 {
   text-align: center;
 }
 
-.home-view h1,
 .lobby-view h1 {
   font-size: 22px;
   margin-bottom: 8px;
 }
 
+/* Main.dc.html: the wordmark and its tagline, then the form, stacked from
+   the bottom up, so the form sits under the thumb and the wordmark lands in
+   the upper third. A short phone scrolls rather than losing the top */
+.home-view {
+  justify-content: safe flex-end;
+  gap: 24px;
+  padding: calc(56px + env(safe-area-inset-top)) 16px calc(34px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.home-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.home-title {
+  margin: 0;
+  line-height: 1;
+}
+
+.home-tagline {
+  margin: 0;
+}
+
 .home-status {
+  margin: 0;
   color: var(--text-muted);
   font-size: 13px;
 }
 
 .home-error {
+  margin: 0;
   color: var(--danger-on-desk);
   font-size: 13px;
   font-weight: 600;
+  text-align: center;
 }
 
 /* the form keeps to a phone's width, even on a big screen */
-.home-tabs,
-.home-field,
-.home-view > .home-go {
-  width: min(320px, 100%);
+.home-form {
+  flex: none;
+  width: min(358px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  text-align: left;
 }
 
 .home-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  text-align: left;
 }
 
-.home-view > .home-sandbox {
-  margin-top: 16px;
+/* "Room code", and "Join only" at the far end while creating */
+.home-code-label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.home-sandbox {
+  flex: none;
+}
+
+/* a short phone: the same stack, closer together */
+@media (max-height: 700px) {
+  .home-view {
+    gap: 16px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .home-head {
+    gap: 12px;
+    padding-bottom: 8px;
+  }
+
+  .home-form {
+    gap: 16px;
+  }
 }
 
 /* ---------- lobby view ---------- */
@@ -3043,7 +3099,9 @@ button.theme-choice-option.active {
 
 /* why you're on the home screen — calm, not an error */
 .home-notice {
-  max-width: 320px;
+  flex: none;
+  width: min(358px, 100%);
+  margin: 0;
   padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--surface);
@@ -3054,7 +3112,6 @@ button.theme-choice-option.active {
 }
 
 .home-still-in {
-  max-width: 320px;
   text-align: center;
 }
 
