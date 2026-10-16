@@ -12,7 +12,7 @@ export const UPLOAD_BUDGET_MS = 12_000
 // never the server's own text or a status code.
 export const PICTURE_MESSAGES = {
   tooLate: "Didn't make it in time — the pictures were already showing. Your work is saved.",
-  generic: 'Something went wrong sending your picture',
+  generic: "Couldn't send your picture. It's saved on this phone.",
 } as const
 
 export type UploadResult = { ok: true } | { ok: false; message: string; final: boolean }
