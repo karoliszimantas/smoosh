@@ -9,6 +9,8 @@ import LieView from './phases/LieView'
 import GuessView from './phases/GuessView'
 import RevealView from './phases/RevealView'
 import ScoresView from './phases/ScoresView'
+import FinalView from './phases/FinalView'
+import { showsExhibition } from './finalStandings'
 import VoteView from './phases/VoteView'
 import AwardsView from './phases/AwardsView'
 import ChainRevealView from './chain/ChainRevealView'
@@ -118,7 +120,13 @@ export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
             <StatusStrip snapshot={snapshot} status={status} onLeave={openLeave} />
           ))}
         <div className="phase-root" ref={phaseRoot}>
-          <PhaseView snapshot={snapshot} emit={emit} onNotice={setNotice} promptWindowOpen={promptWindowOpen} />
+          <PhaseView
+            snapshot={snapshot}
+            emit={emit}
+            onNotice={setNotice}
+            onLeave={openLeave}
+            promptWindowOpen={promptWindowOpen}
+          />
         </div>
       </div>
       <NoticeRegion
@@ -150,11 +158,13 @@ function PhaseView({
   snapshot,
   emit,
   onNotice,
+  onLeave,
   promptWindowOpen,
 }: {
   snapshot: RoomSnapshot
   emit: GameConnection['emit']
   onNotice: (message: string) => void
+  onLeave: () => void
   promptWindowOpen: boolean
 }) {
   const phase = snapshot.phase
@@ -196,6 +206,11 @@ function PhaseView({
     case 'missing':
       return <MissingView key={`missing-${phase.round}-${phase.pictureIndex}`} snapshot={snapshot} emit={emit} />
     case 'scores':
+      // the game's end: the podium (Gallery's own ending, the exhibition,
+      // stays with the scores)
+      if (phase.isFinalRound && !showsExhibition(snapshot)) {
+        return <FinalView key={`final-${phase.round}`} snapshot={snapshot} emit={emit} onLeave={onLeave} />
+      }
       return <ScoresView key={`scores-${phase.round}`} snapshot={snapshot} emit={emit} />
   }
 }

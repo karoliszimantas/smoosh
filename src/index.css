@@ -2513,6 +2513,209 @@ h2 {
   color: var(--text);
 }
 
+/* ---------- final view ----------
+   Final.dc.html: GAME OVER over a torn banner naming the winner, a podium
+   of three torn steps with the players standing on top, anyone further
+   down on one paper card, then the way on. No status strip: the corner
+   buttons sit over the top padding. */
+
+.final-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: calc(56px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.final-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.final-head .field-label {
+  margin: 0;
+}
+
+.final-banner-wrap {
+  position: relative;
+}
+
+.final-banner {
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 32px;
+  line-height: 36px;
+  overflow-wrap: anywhere;
+}
+
+/* three columns, the steps standing on one line; the winner's column is
+   the middle one whatever order they're listed in */
+.podium {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.podium-place {
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.podium-place.first {
+  grid-column: 2;
+}
+
+.podium-place.second {
+  grid-column: 1;
+}
+
+.podium-place.third {
+  grid-column: 3;
+}
+
+/* the pill on top of a step, as wide as the step; a long name is cut
+   short (the gap between the steps leaves room for the You ring) */
+.podium-chip {
+  max-width: 100%;
+  gap: 6px;
+  padding-right: 10px;
+}
+
+.podium-chip .player-name {
+  font-size: 16px;
+}
+
+.podium-chip.joint {
+  gap: 4px;
+  padding-right: 10px;
+}
+
+/* three or more sharing a step: the avatars overlap */
+.podium-chip.joint .player-avatar + .player-avatar + .player-avatar {
+  margin-left: -18px;
+}
+
+.podium-step {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 8px 12px;
+  text-align: center;
+}
+
+.first .podium-step {
+  height: 192px;
+  gap: 6px;
+  padding: 22px 8px 16px;
+}
+
+.second .podium-step {
+  height: 160px;
+}
+
+.third .podium-step {
+  height: 140px;
+  gap: 2px;
+  padding: 16px 8px 10px;
+}
+
+.podium-rank {
+  font: 400 40px/44px var(--font-display);
+}
+
+.podium-ring {
+  position: absolute;
+  top: 15px;
+  left: calc(50% - 31px);
+  color: var(--primary-ink);
+  pointer-events: none;
+}
+
+.podium-joint {
+  max-width: 100%;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--surface-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.podium-total {
+  font: 400 16px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* everyone below the podium: one row each on a single cut card */
+.final-rest {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px 10px 10px;
+  list-style: none;
+}
+
+.final-rest li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.final-rest-rank {
+  flex: none;
+  width: 38px;
+  text-align: center;
+  font: 400 18px/22px var(--font-display);
+}
+
+.final-rest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 700 16px/22px var(--font-ui);
+}
+
+.final-rest-total {
+  flex: none;
+  font: 400 16px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.final-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+}
+
+.final-actions .form-error {
+  padding: 0;
+}
+
+.final-leave {
+  align-self: center;
+}
+
 /* ---------- theme switcher ---------- */
 
 /* in a round: one button in the top-left corner that flips light/dark.
@@ -4483,6 +4686,11 @@ h1.prompt-window-kicker {
   text-transform: none;
   letter-spacing: 0;
   cursor: pointer;
+}
+
+/* the same, straight on the desk: desk text, red there is too faint */
+.btn-link.on-desk {
+  color: var(--text);
 }
 
 .btn-link:focus-visible {
