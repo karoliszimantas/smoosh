@@ -7,7 +7,7 @@ import { PlayerAvatar } from '../PlayerChip'
 import Tape from '../../components/Tape'
 import { ampersandList, finalPlaces, type Place } from '../finalStandings'
 import { rankLabel, rankName } from '../ranking'
-import { formatPoints } from '../revealSummary'
+import { formatPoints } from '../points'
 import { playAgain } from '../playAgain'
 
 // the podium's three steps, by place: the winner's in the middle and

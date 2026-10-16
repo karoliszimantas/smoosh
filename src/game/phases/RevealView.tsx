@@ -6,7 +6,8 @@ import PlayerChip from '../PlayerChip'
 import Burst from '../Burst'
 import RealStamp from '../RealStamp'
 import Tape from '../../components/Tape'
-import { formatPoints, nameList, revealSummary } from '../revealSummary'
+import { nameList, revealSummary } from '../revealSummary'
+import { formatPoints, signedPoints } from '../points'
 import { NO_FAKES_TEXT } from '../roomMessages'
 
 // The truth is… (Reveal.dc.html): the picture small, what you won in a
@@ -49,7 +50,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
             <p className="reveal-truth-text">{optionText(truth.text)}</p>
             {noFakes ? null : finders.length > 0 ? (
               <>
-                <p className="reveal-found">Found it · +{formatPoints(summary.foundEach)} each</p>
+                <p className="reveal-found">Found it · {signedPoints(summary.foundEach)} each</p>
                 <ul className="reveal-finders" aria-label={`Found by ${nameList(finders.map(nameOf))}`}>
                   {finders.map((id) => {
                     const player = playerById.get(id)
@@ -89,7 +90,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
                       Fake · by {nameOf(lie.authorId)} ·{' '}
                       {lie.fooled.length > 0 ? (
                         <span className="reveal-lie-points">
-                          +{formatPoints(lie.pointsEach)} ×{lie.fooled.length}
+                          {signedPoints(lie.pointsEach)} ×{lie.fooled.length}
                         </span>
                       ) : (
                         'no takers'
@@ -129,7 +130,7 @@ export default function RevealView({ snapshot }: PhaseProps) {
                   {delta > 0 && `, up ${formatPoints(delta)}`}
                 </span>
                 <span className="score-ribbon-delta" aria-hidden="true">
-                  {delta > 0 && `+${delta}`}
+                  {delta > 0 && signedPoints(delta)}
                 </span>
                 <span className="dot-name score-ribbon-name" aria-hidden="true">
                   <PlayerDot player={player} away={player.presence === 'away'} labelled />

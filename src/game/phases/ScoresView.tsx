@@ -5,7 +5,7 @@ import PlayerDot from '../PlayerDot'
 import Tape from '../../components/Tape'
 import { useCountdown } from '../useCountdown'
 import { rankLabel, rankName, rankWithTies } from '../ranking'
-import { formatPoints } from '../revealSummary'
+import { formatPoints, signedPoints } from '../points'
 import { showsExhibition } from '../finalStandings'
 
 export default function ScoresView({ snapshot, emit }: PhaseProps) {
@@ -74,7 +74,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
                     {entry.total === top && <span className="prize-grand">Grand Prize</span>}
                   </span>
                 </span>
-                <span className="prize-points">{entry.total}</span>
+                <span className="prize-points">{formatPoints(entry.total)}</span>
               </li>
             ))}
           </ol>
@@ -118,7 +118,8 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
               </span>
               {delta !== null && (
                 <span className={delta > 0 ? 'standing-delta' : 'standing-delta zero'}>
-                  <span className="visually-hidden">, this round </span>+{delta}
+                  <span className="visually-hidden">, this round </span>
+                  {signedPoints(delta)}
                 </span>
               )}
               <span className="standing-total">

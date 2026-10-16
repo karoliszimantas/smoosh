@@ -41,7 +41,7 @@ describe('the reveal', () => {
 
   it('bursts with your points when you won some', () => {
     const html = renderToStaticMarkup(<RevealView snapshot={found()} emit={emit} />)
-    expect(html).toContain('class="burst" role="img" aria-label="Plus 1750 points: you found it"')
+    expect(html).toContain('class="burst" role="img" aria-label="Plus 1,750 points: you found it"')
     expect(textOf(html)).toContain('Found it · +1,400 each')
     expect(html).toContain('aria-label="Found by you and Cara"')
   })
