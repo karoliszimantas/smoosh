@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { dilate, edgeAlpha, squaredDistance, stickerRadius, stickerSprite, type StickerSprite } from './stickerEdge'
+import { dilate, edgeAlpha, squaredDistance, stickerRadius, stickerSprite, type StickerOptions, type StickerSprite } from './stickerEdge'
 
 function mask(w: number, h: number, inside: (x: number, y: number) => boolean): Uint8Array {
   const m = new Uint8Array(w * h)
@@ -168,14 +168,20 @@ describe('stickerRadius', () => {
 describe('stickerSprite cache', () => {
   type Src = HTMLCanvasElement
   const fake = () => ({ width: 100, height: 80 }) as unknown as Src
-  const sprite = (): StickerSprite => ({ canvas: {} as HTMLCanvasElement, pad: 5, ms: 0 })
+  const sprite = (): StickerSprite => ({ canvas: {} as HTMLCanvasElement, pad: 5, shadow: null, reach: 5, ms: 0 })
   const crop = { x: 0, y: 0, width: 100, height: 80 }
+  const o = (radius: number, color: string, shadow: StickerOptions['shadow'] = null): StickerOptions => ({
+    radius,
+    color,
+    unitsPerSourcePx: 0.375,
+    shadow,
+  })
 
   it('builds once for the same erased source, crop, radius and colour', () => {
     const build = vi.fn(sprite)
     const source = fake()
-    const a = stickerSprite(source, crop, 3, '#FFFFFF', 8, build)
-    const b = stickerSprite(source, { ...crop }, 3, '#FFFFFF', 8, build)
+    const a = stickerSprite(source, crop, o(3, '#FFFFFF'), build)
+    const b = stickerSprite(source, { ...crop }, o(3, '#FFFFFF'), build)
     expect(b).toBe(a)
     expect(build).toHaveBeenCalledTimes(1)
   })
@@ -183,29 +189,30 @@ describe('stickerSprite cache', () => {
   it('builds anew for a new erased source, a new crop, radius or colour', () => {
     const build = vi.fn(sprite)
     const source = fake()
-    const a = stickerSprite(source, crop, 3, '#FFFFFF', 8, build)
+    const a = stickerSprite(source, crop, o(3, '#FFFFFF'), build)
     // a new erase set is a new canvas: the edge regrows
-    expect(stickerSprite(fake(), crop, 3, '#FFFFFF', 8, build)).not.toBe(a)
-    expect(stickerSprite(source, { ...crop, width: 50 }, 3, '#FFFFFF', 8, build)).not.toBe(a)
-    expect(stickerSprite(source, crop, 4, '#FFFFFF', 8, build)).not.toBe(a)
-    expect(stickerSprite(source, crop, 3, '#FBF7EE', 8, build)).not.toBe(a)
-    expect(build).toHaveBeenCalledTimes(5)
+    expect(stickerSprite(fake(), crop, o(3, '#FFFFFF'), build)).not.toBe(a)
+    expect(stickerSprite(source, { ...crop, width: 50 }, o(3, '#FFFFFF'), build)).not.toBe(a)
+    expect(stickerSprite(source, crop, o(4, '#FFFFFF'), build)).not.toBe(a)
+    expect(stickerSprite(source, crop, o(3, '#FBF7EE'), build)).not.toBe(a)
+    expect(stickerSprite(source, crop, o(3, '#FFFFFF', { color: 'rgba(0,0,0,.3)', blur: 25 }), build)).not.toBe(a)
+    expect(build).toHaveBeenCalledTimes(6)
   })
 
   it('remembers a failed build too', () => {
     const build = vi.fn(() => null)
     const source = fake()
-    expect(stickerSprite(source, crop, 3, '#FFFFFF', 8, build)).toBeNull()
-    expect(stickerSprite(source, crop, 3, '#FFFFFF', 8, build)).toBeNull()
+    expect(stickerSprite(source, crop, o(3, '#FFFFFF'), build)).toBeNull()
+    expect(stickerSprite(source, crop, o(3, '#FFFFFF'), build)).toBeNull()
     expect(build).toHaveBeenCalledTimes(1)
   })
 
   it('keeps only a few per source', () => {
     const build = vi.fn(sprite)
     const source = fake()
-    const first = stickerSprite(source, crop, 1, '#FFFFFF', 8, build)
-    for (let r = 2; r <= 5; r++) stickerSprite(source, crop, r, '#FFFFFF', 8, build)
-    expect(stickerSprite(source, crop, 1, '#FFFFFF', 8, build)).not.toBe(first)
+    const first = stickerSprite(source, crop, o(1, '#FFFFFF'), build)
+    for (let r = 2; r <= 5; r++) stickerSprite(source, crop, o(r, '#FFFFFF'), build)
+    expect(stickerSprite(source, crop, o(1, '#FFFFFF'), build)).not.toBe(first)
     expect(build).toHaveBeenCalledTimes(6)
   })
 })

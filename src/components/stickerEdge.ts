@@ -4,8 +4,7 @@ import { cleanAlpha } from '../cutting/maskCleanup'
 // theme's paper round its silhouette, as Build.dc.html draws it with four
 // 3px drop-shadows. Here it's a sprite per layer — the edge, then the image
 // on top — built once per (erased) image, crop and radius, and drawn with a
-// single drawImage per frame, so the Konva shadow under it is the only
-// shadow and the per-frame cost is what it was without the edge.
+// couple of drawImages per frame, shadow included.
 //
 // The edge is the layer's alpha mask grown by the radius:
 //   1. a working copy of the crop at about one pixel per canvas unit — the
@@ -19,6 +18,8 @@ import { cleanAlpha } from '../cutting/maskCleanup'
 //   5. alpha = smoothstep across the rim's outer line, one pixel wide
 //   6. scaled up into a canvas the crop's size plus the padding, in the
 //      source's own pixels, and the image drawn on top
+//   7. the lift shadow baked from the same silhouette, blurred once — so
+//      no layer pays for a live blurred shadow every frame
 //
 // The maths (steps 2–5) is DOM-free and exported for the tests; only the
 // sprite builder touches canvases.
@@ -140,11 +141,30 @@ export function stickerRadius(
 
 export type SourceRect = { x: number; y: number; width: number; height: number }
 
+export type StickerOptions = {
+  // the rim, in source pixels (stickerRadius)
+  radius: number
+  color: string
+  // canvas units per source pixel at the layer's scale: the working copy is
+  // made at about a pixel per canvas unit, and the shadow is sized in units
+  unitsPerSourcePx: number
+  // the lift shadow under the sticker, baked in: its colour and blur (canvas
+  // shadowBlur, in canvas units). Its offset is the drawer's, so it can fall
+  // straight down the frame however the layer is turned. null bakes none
+  shadow: { color: string; blur: number } | null
+}
+
 export type StickerSprite = {
   // the edge with the crop of the image on top, in source pixels
   canvas: HTMLCanvasElement
   // source pixels of padding on every side: the crop starts at (pad, pad)
   pad: number
+  // the shadow, a blurred silhouette, and where it sits in the sprite's
+  // pixels (it spills past the sprite)
+  shadow: { canvas: HTMLCanvasElement; x: number; y: number; width: number; height: number } | null
+  // how far, in source pixels, the sprite and its shadow reach past the crop
+  // on any side (before the shadow's offset)
+  reach: number
   // how long it took to build
   ms: number
 }
@@ -158,21 +178,17 @@ function newCanvas(w: number, h: number): HTMLCanvasElement {
   return c
 }
 
-// `rimWorkPx`: how many working pixels the rim is across — the rim's width
-// in canvas units, for a pixel per unit. The working copy is scaled to
-// match; the sprite itself stays in the source's pixels.
-export function buildStickerSprite(
-  source: Source,
-  src: SourceRect,
-  radius: number,
-  color: string,
-  rimWorkPx: number,
-): StickerSprite | null {
+// a canvas shadow's blur reaches about 1.5× its value (3σ, σ = blur / 2)
+const BLUR_REACH = 1.5
+
+export function buildStickerSprite(source: Source, src: SourceRect, opts: StickerOptions): StickerSprite | null {
   const started = performance.now()
+  const { radius, color, unitsPerSourcePx: ups, shadow } = opts
   const pad = Math.ceil(radius + 2)
   const sw = Math.ceil(src.width) + 2 * pad
   const sh = Math.ceil(src.height) + 2 * pad
-  const k = Math.min(1, WORK_MAX_PX / Math.max(sw, sh), Math.max(rimWorkPx, WORK_MIN_RADIUS) / radius)
+  // working pixels per source pixel
+  const k = Math.min(1, WORK_MAX_PX / Math.max(sw, sh), Math.max(ups, WORK_MIN_RADIUS / radius))
   const gw = Math.max(1, Math.ceil(sw * k))
   const gh = Math.max(1, Math.ceil(sh * k))
 
@@ -208,6 +224,29 @@ export function buildStickerSprite(
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(work, 0, 0, gw / k, gh / k)
   ctx.drawImage(source, src.x, src.y, src.width, src.height, pad, pad, src.width, src.height)
+
+  // The shadow, once, from the rim's silhouette (which holds the image's):
+  // the rim drawn off the canvas with a canvas shadow thrown back onto it,
+  // so only the blur lands. A canvas shadow, not ctx.filter, which Safari
+  // doesn't do dependably. Working resolution is plenty for a blur.
+  let baked: StickerSprite['shadow'] = null
+  let reach = pad
+  if (shadow) {
+    const blur = (shadow.blur * k) / ups
+    const bp = Math.ceil(blur * BLUR_REACH) + 2
+    const shw = gw + 2 * bp
+    const shh = gh + 2 * bp
+    const shadowCanvas = newCanvas(shw, shh)
+    const sctx = shadowCanvas.getContext('2d')
+    if (sctx) {
+      sctx.shadowColor = shadow.color
+      sctx.shadowBlur = blur
+      sctx.shadowOffsetX = shw
+      sctx.drawImage(work, bp - shw, bp)
+      baked = { canvas: shadowCanvas, x: -bp / k, y: -bp / k, width: shw / k, height: shh / k }
+      reach = pad + bp / k
+    }
+  }
   work.width = 0
   work.height = 0
 
@@ -217,10 +256,10 @@ export function buildStickerSprite(
   } catch {
     // timing only
   }
-  return { canvas, pad, ms }
+  return { canvas, pad, shadow: baked, reach, ms }
 }
 
-// Sprites by source image, then crop, radius and colour. The source is the
+// Sprites by source image, then crop and options. The source is the
 // layer's erased canvas — rebuilt whenever its strokes change — or its image
 // when nothing's erased, so a new erase set gets a new edge and duplicates
 // share one. A few per source, for a crop or scale being tried back and forth.
@@ -230,13 +269,12 @@ const sprites = new WeakMap<object, Map<string, StickerSprite | null>>()
 export function stickerSprite(
   source: Source,
   src: SourceRect,
-  radius: number,
-  color: string,
-  rimWorkPx: number,
+  opts: StickerOptions,
   // the builder, for the tests
   build: typeof buildStickerSprite = buildStickerSprite,
 ): StickerSprite | null {
-  const key = `${src.x},${src.y},${src.width},${src.height}|${radius}|${rimWorkPx}|${color}`
+  const { radius, color, unitsPerSourcePx, shadow } = opts
+  const key = [src.x, src.y, src.width, src.height, radius, color, unitsPerSourcePx, shadow?.color, shadow?.blur].join('|')
   let bySource = sprites.get(source)
   if (!bySource) {
     bySource = new Map()
@@ -249,7 +287,7 @@ export function stickerSprite(
     bySource.set(key, known)
     return known
   }
-  const sprite = build(source, src, radius, color, rimWorkPx)
+  const sprite = build(source, src, opts)
   bySource.set(key, sprite)
   // another layer may still be drawing an evicted sprite: let it go to the
   // collector rather than empty it
