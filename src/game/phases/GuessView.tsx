@@ -1,9 +1,10 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react'
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import { actionErrorText } from '../roomMessages'
 import RoomProgress from '../RoomProgress'
 import Tape from '../../components/Tape'
+import { scheduleAutoLock } from '../autoLock'
 
 const NEXT_KEYS = new Set(['ArrowDown', 'ArrowRight'])
 const PREV_KEYS = new Set(['ArrowUp', 'ArrowLeft'])
@@ -11,7 +12,9 @@ const PREV_KEYS = new Set(['ArrowUp', 'ArrowLeft'])
 // Which one is real? (Guess.dc.html): the picture, then every prompt on a
 // torn scrap. A tap picks one (yellow, PICKED on its edge) and Lock in
 // sends it — one guess per picture, as before, only now with a moment to
-// change your mind. Your own lie lies flat on the desk, greyed, unpickable.
+// change your mind. A pick still not locked in when time runs out is sent
+// anyway (autoLock.ts). Your own lie lies flat on the desk, greyed,
+// unpickable.
 export default function GuessView({ snapshot, emit }: PhaseProps) {
   const { Picture } = useGameServices()
   const phase = snapshot.phase
@@ -21,28 +24,22 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
   // sent from this screen; after a reload, the server's record says it
   const [sent, setSent] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // in flight: a tap on Lock in and the time-out landing together send once
+  const sendingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const optionRefs = useRef(new Map<string, HTMLButtonElement>())
 
-  if (phase.phase !== 'guess') return null
-
-  const isAuthor = phase.authorId === snapshot.you.playerId
-  const ownLie = snapshot.you.ownOptionId
+  const guessing = phase.phase === 'guess'
+  const isAuthor = guessing && phase.authorId === snapshot.you.playerId
   const lockedId = sent ?? snapshot.you.ownGuessId
   const locked = lockedId !== null || snapshot.you.hasActedThisPhase
-  const picked = locked ? lockedId : choice
-  const pickable = phase.options.filter((o) => o.id !== ownLie).map((o) => o.id)
-
-  const pick = (optionId: string) => {
-    if (locked || optionId === ownLie) return
-    setChoice(optionId)
-    setError(null)
-  }
 
   const lockIn = async () => {
-    if (locked || busy || choice === null) return
+    if (phase.phase !== 'guess' || locked || sendingRef.current || choice === null) return
+    sendingRef.current = true
     setBusy(true)
     const res = await emit('guess:submit', { pictureIndex: phase.pictureIndex, optionId: choice })
+    sendingRef.current = false
     setBusy(false)
     if (!res.ok) {
       setError(actionErrorText(res.code))
@@ -50,6 +47,26 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
     }
     setError(null)
     setSent(choice)
+  }
+
+  // time's up with a pick not locked in: lock it in. Re-armed when the
+  // deadline moves (the clock paused while nobody was here); disarmed once
+  // locked, and on leaving this picture
+  const onTimeUp = useEffectEvent(() => void lockIn())
+  const deadline = guessing ? phase.deadline : null
+  const armed = guessing && !isAuthor && !locked && choice !== null
+  useEffect(() => scheduleAutoLock(deadline, armed, onTimeUp), [deadline, armed])
+
+  if (phase.phase !== 'guess') return null
+
+  const ownLie = snapshot.you.ownOptionId
+  const picked = locked ? lockedId : choice
+  const pickable = phase.options.filter((o) => o.id !== ownLie).map((o) => o.id)
+
+  const pick = (optionId: string) => {
+    if (locked || optionId === ownLie) return
+    setChoice(optionId)
+    setError(null)
   }
 
   // a radio group: the arrow keys move the pick (and focus) between the
