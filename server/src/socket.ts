@@ -3,7 +3,7 @@ import type { Server as HttpServer } from 'node:http'
 import { HandshakeAuthSchema, type ClientToServerEvents, type ServerToClientEvents } from '@smoosh/protocol'
 import { buildSnapshot } from './snapshot.ts'
 import { gamePrompts } from './prompts/gamePrompts.ts'
-import { hasSubmission, deleteRoomSubmissions } from './submissions/store.ts'
+import { hasSubmission, isBlankSubmission, deleteRoomSubmissions } from './submissions/store.ts'
 import type { PresenceDeps } from './rooms/presence.ts'
 import { deleteRoom, findSeatBySession, getRoom, type Room } from './rooms/Room.ts'
 import { logPhaseChange, roomLog, who } from './roomLog.ts'
@@ -47,6 +47,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
   const deps: PresenceDeps = {
     prompts: gamePrompts,
     hasSubmission,
+    isBlank: isBlankSubmission,
     onSnapshot: broadcastRoom,
     onEvent: (room, event, playerId) => {
       for (const seat of room.seats.values()) {

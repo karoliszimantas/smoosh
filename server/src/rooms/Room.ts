@@ -34,7 +34,9 @@ export type PictureOption = { id: string; text: string; authorId: string | null 
 // one slot per player in a round's presentation order. Built once when BUILD
 // closes and consumed by index — never spliced — so every player's picture
 // comes up exactly once; `hasPicture: false` slots show a placeholder.
-export type PictureSlot = { authorId: string; hasPicture: boolean }
+// `blank`: a picture arrived with nothing on it — a placeholder too, one
+// that says so, and never offered as a picture.
+export type PictureSlot = { authorId: string; hasPicture: boolean; blank: boolean }
 
 export type Room = {
   code: string

@@ -329,6 +329,7 @@ describe('BUILD waits for away players', () => {
     expect(h.room.pictureQueue.find((slot) => slot.authorId === 'player-3')).toEqual({
       authorId: 'player-3',
       hasPicture: false,
+      blank: false,
     })
   })
 
