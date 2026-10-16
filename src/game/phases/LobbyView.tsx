@@ -75,7 +75,11 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
   // nobody who left is listed — in the lobby the server frees their seat
   const seated = players.filter((p) => p.presence !== 'left')
   const canStart = you.isHost && presentCount >= MIN_PLAYERS_TO_START
-  const estimateMin = Math.max(1, Math.round(estimateDurationSec(settings, players.length) / 60))
+  // a typical game for whoever would be dealt in now (at least a startable table)
+  const estimateMin = Math.max(
+    1,
+    Math.round(estimateDurationSec(settings, Math.max(MIN_PLAYERS_TO_START, presentCount)) / 60),
+  )
 
   // back from a finished game by Change settings: open on the settings —
   // scrolled into view and focused, so a screen reader starts there too
@@ -280,7 +284,7 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
             </p>
           </>
         )}
-        <p className="lobby-estimate">Estimated length: ~{estimateMin} min</p>
+        <p className="lobby-estimate">Estimated length: about {estimateMin} min</p>
       </section>
 
       {/* per player and per device — your pick, not the room's */}

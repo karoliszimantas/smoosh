@@ -32,6 +32,35 @@ describe('game settings', () => {
     expect(promptsNeeded(settings({ mode: 'gallery', prompted: false, rounds: 5 }), 4)).toBe(0)
   })
 
+  // a default game (guess, 5 rounds, 90s builds, 120s to answer), as
+  // typically played: 5 × (10 + 92 + n × (45 + 20 + 8)) + 4 × 6 seconds
+  it.each([
+    [3, 1629, 27],
+    [5, 2359, 39],
+    [8, 3454, 58],
+  ])('estimates a default game for %i players at %is, about %i min', (players, sec, min) => {
+    expect(estimateDurationSec(DEFAULT_SETTINGS, players)).toBe(sec)
+    expect(Math.round(sec / 60)).toBe(min)
+  })
+
+  it('counts one build a round, however many build at once', () => {
+    const at = (buildTimeSec: GameSettings['buildTimeSec'], players: number) =>
+      estimateDurationSec(settings({ buildTimeSec }), players)
+    expect(at(120, 8) - at(90, 8)).toBe(5 * 30)
+    expect(at(120, 3) - at(90, 3)).toBe(5 * 30)
+  })
+
+  it('takes answers at a typical time, never past the limit', () => {
+    // the typical answer is already inside every limit: a longer limit
+    // changes nothing
+    expect(estimateDurationSec(settings({ answerTimeSec: 300 }), 5)).toBe(estimateDurationSec(DEFAULT_SETTINGS, 5))
+    for (const mode of ['guess', 'gallery', 'chain'] as const) {
+      const s = settings({ mode, prompted: true })
+      expect(estimateDurationSec(s, 5)).toBeGreaterThan(0)
+      expect(estimateDurationSec(s, 8)).toBeGreaterThanOrEqual(estimateDurationSec(s, 3))
+    }
+  })
+
   it('estimates prompted and freestyle gallery the same', () => {
     const prompted = estimateDurationSec(settings({ mode: 'gallery', prompted: true }), 5)
     const freestyle = estimateDurationSec(settings({ mode: 'gallery', prompted: false }), 5)

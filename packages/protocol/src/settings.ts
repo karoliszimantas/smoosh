@@ -88,29 +88,59 @@ export function promptsNeeded(settings: GameSettings, playerCount: number): numb
   return settings.prompted ? settings.rounds : 0
 }
 
-// one formula shared by the host's live estimate and any server echo, so
-// they can never drift apart
+// How long a game typically takes, for the lobby's "about N min". One
+// formula, so anything else that shows it can't drift from the lobby.
+//
+// It follows the server's phases (server/src/game/phaseMachine.ts), round
+// by round, taking each at a typical length rather than its limit:
+// - BUILD: each player's clock starts once they've read their prompt
+//   (guess only; the window allows up to PROMPT_WINDOW_SEC), runs the full
+//   build time — players use the time they're given — and the phase closes
+//   once the last pictures, sent as the clocks run out, have landed (the
+//   grace allows up to BUILD_GRACE_SEC). Players build at the same time,
+//   so a round has one build, whatever the table's size.
+// - Guess, per picture: everyone writes a lie, everyone guesses, the
+//   reveal. Answer phases end as soon as the last player has answered —
+//   usually well inside the limit — so they count at a typical time, capped
+//   by the limit. A missing picture (a short placeholder) is rare: not
+//   counted.
+// - Gallery: one vote for the whole round, then the awards.
+// - Chain: every pass, each chain's reveal, the vote, the awards.
+// - Then the standings, between rounds only: the final ones wait for the host.
+const TYPICAL_PROMPT_READ_SEC = 10
+const TYPICAL_LANDING_SEC = 2
+// the slowest at the table: a lie is typed on a phone, a guess is one tap
+// among a few, a vote looks over every picture first
+const TYPICAL_LIE_SEC = 45
+const TYPICAL_GUESS_SEC = 20
+const TYPICAL_VOTE_SEC = 40
+
 export function estimateDurationSec(settings: GameSettings, playerCount: number): number {
-  // answer phases usually end early once everyone has answered, so this is
-  // the worst case
-  const answer = settings.answerTimeSec
-  if (settings.mode === 'chain') return settings.rounds * chainRoundSec(settings, playerCount, answer)
-  if (settings.mode === 'gallery') {
-    // prompted and freestyle run the same phases, so the same estimate: one
-    // vote for the whole round, then the awards
-    return settings.rounds * (settings.buildTimeSec + answer + AWARDS_MAX_SEC)
+  const answer = (typical: number) => Math.min(typical, settings.answerTimeSec)
+  const build = settings.buildTimeSec + TYPICAL_LANDING_SEC
+  let round: number
+  if (settings.mode === 'chain') {
+    round = chainRoundSec(settings, playerCount) + answer(TYPICAL_VOTE_SEC) + CHAIN_AWARDS_SEC
+  } else if (settings.mode === 'gallery') {
+    // prompted and freestyle run the same phases. The awards are a set show,
+    // at most AWARDS_MAX_SEC, depending only on which prizes are given
+    round = build + answer(TYPICAL_VOTE_SEC) + AWARDS_MAX_SEC
+  } else {
+    // one picture per player, each told in turn
+    const picture = answer(TYPICAL_LIE_SEC) + answer(TYPICAL_GUESS_SEC) + REVEAL_PHASE_SEC
+    round = TYPICAL_PROMPT_READ_SEC + build + playerCount * picture
   }
-  return settings.rounds * playerCount * (settings.buildTimeSec + answer + answer + REVEAL_PHASE_SEC)
+  return settings.rounds * round + (settings.rounds - 1) * SCORES_PHASE_SEC
 }
 
-// Chain: every pass (the first 30s longer) and its grace, then each chain's
-// reveal, the vote and the awards
-function chainRoundSec(settings: GameSettings, playerCount: number, answer: number): number {
+// Chain: every pass (the first 30s longer) with its last pictures landing,
+// then each chain's reveal
+function chainRoundSec(settings: GameSettings, playerCount: number): number {
   const players = Array.from({ length: Math.max(3, playerCount) }, (_, i) => `p${i}`)
   const plan = planChains(players, settings.chainStructure)
-  const building = plan.passCount * (settings.buildTimeSec + BUILD_GRACE_SEC) + FIRST_PASS_BONUS_SEC
+  const building = plan.passCount * (settings.buildTimeSec + TYPICAL_LANDING_SEC) + FIRST_PASS_BONUS_SEC
   const revealMs = plan.chains.length * (CHAIN_INTRO_MS + plan.passCount * CHAIN_PASS_MS + CHAIN_PROMPT_MS + CHAIN_PLACARD_MS)
-  return building + Math.ceil(revealMs / 1000) + answer + CHAIN_AWARDS_SEC
+  return building + Math.ceil(revealMs / 1000)
 }
 
 // the building alone in one chain round — what the host sees beside the
