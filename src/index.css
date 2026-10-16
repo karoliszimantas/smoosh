@@ -4949,6 +4949,16 @@ select.field {
   padding: 6px 0 4px;
 }
 
+/* in the menu the wordmark is pasted on a strip of ink: on the menu's paper
+   its first scrap, cut from paper too (the same paper on Night, all but the
+   same on Day), would vanish. The tape holds the strip */
+.game-menu-head .wordmark {
+  padding: 7px 10px 9px;
+  border-radius: 2px;
+  background: var(--line);
+  transform: rotate(-1deg);
+}
+
 .game-menu-code {
   margin: 0;
   display: flex;

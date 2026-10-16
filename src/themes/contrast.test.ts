@@ -145,6 +145,9 @@ const PAIRS: Pair[] = [
   ['the primary button’s ink border on its fill', (t) => [t.line, t.primaryBg], 'ui'],
   ['the fuse’s ink rim on its track', (t) => [t.line, t.timer.track], 'ui'],
   ['the chain strip’s dashed line on the picture', (t) => [t.chromeBorder, t.canvasBg], 'ui'],
+  ...[0, 1, 2, 3, 4, 5].map(
+    (i): Pair => [`the menu wordmark’s scrap ${i} on its ink strip`, (t) => [t.wordmark[i] ?? t.line, t.line], 'ui'],
+  ),
 
   // ---- decorative: listed so nothing is skipped silently
   ['paper against the desk', (t) => [t.surface, t.pageBg], 'decor', 'Day 1.27: paper controls carry a 2–2.5px ink border (above)'],
@@ -153,6 +156,7 @@ const PAIRS: Pair[] = [
   ['the sticker edge on the picture’s paper', (t) => [t.stickerEdge?.color ?? t.canvasBg, t.canvasBg], 'decor', 'the cut-out’s rim; the lift shadow under it draws the edge'],
   ['the fuse’s burn on its track', (t) => [t.picked, t.timer.track], 'decor', 'the digits above it say the time; the fill has an ink rim'],
   ['a picked guess against the desk', (t) => [t.picked, t.pageBg], 'decor', 'the ink PICKED tab carries the state (above)'],
+  ['the first wordmark scrap on the menu’s paper, unstripped', (t) => [t.wordmark[0], t.surface], 'decor', 'why the menu lays the wordmark on an ink strip (above)'],
   ['the first wordmark scrap on the desk (Home)', (t) => [t.wordmark[0], t.pageBg], 'decor', 'a logotype; its ink letters and hard shadow carry it'],
   ['crop / erase: the dimmed surround (desk at 78%) on the picture', (t) => [over(t.pageBg, t.canvasBg, 0.78), t.canvasBg], 'decor', 'the red frame on the picture’s paper (above) marks the edge'],
   ['a seat’s avatar on its paper pill', (t) => [seat(t, 1).bg, t.surface], 'decor', 'the name and the initial identify the player'],
