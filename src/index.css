@@ -1599,6 +1599,14 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* scrolled to after Change settings: clear of the menu button */
+  scroll-margin-top: 64px;
+}
+
+/* focused only to start there after Change settings — a place to read
+   from, not a control, so no ring */
+.lobby-card:focus {
+  outline: none;
 }
 
 .lobby-card.readonly {
