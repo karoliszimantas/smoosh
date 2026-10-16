@@ -87,4 +87,20 @@ describe('the reveal', () => {
     for (const t of texts) expect(t).toMatch(/^[A-Z]\S*( \S+)*$/)
     for (const t of texts) expect(t).not.toMatch(/\.$/)
   })
+
+  it('with no fakes written, shows the real one and says so — no lies list, no best fib', () => {
+    const snap = fixtureSnapshot('reveal')
+    if (snap.phase.phase !== 'reveal') throw new Error('fixture')
+    const options = snap.phase.options.filter((o) => o.isTruth)
+    const html = renderToStaticMarkup(
+      <RevealView snapshot={{ ...snap, phase: { ...snap.phase, options, pointsThisPicture: [] } }} emit={emit} />,
+    )
+    const text = textOf(html)
+    expect(text).toContain('A cat riding a bicycle')
+    expect(text).toContain('Nobody wrote a fake')
+    expect(html).not.toContain('reveal-lies')
+    expect(html).not.toContain('best-fib')
+    expect(html).not.toContain('reveal-found')
+    expect(html).not.toContain('reveal-note')
+  })
 })
