@@ -52,3 +52,20 @@ export function applyExportLook(stage: LookStage): () => void {
     for (const restore of restores) restore()
   }
 }
+
+export type Box = { x: number; y: number; width: number; height: number }
+
+// Nothing on the picture: no layers at all, or every one parked wholly
+// outside the frame, where the export cuts it off. A layer not drawn yet
+// (null) counts as something — better to send a blank picture as a real
+// one than to have a real one skipped.
+export function nothingInFrame(layers: readonly (Box | null)[], frame: Box): boolean {
+  return layers.every(
+    (box) =>
+      box !== null &&
+      (box.x + box.width <= frame.x ||
+        box.x >= frame.x + frame.width ||
+        box.y + box.height <= frame.y ||
+        box.y >= frame.y + frame.height),
+  )
+}

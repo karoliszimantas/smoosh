@@ -1,3 +1,4 @@
+import { BLANK_PICTURE_PARAM } from '@smoosh/protocol'
 import type { GameServices } from './services'
 import { getSessionId } from './session'
 
@@ -14,6 +15,16 @@ export const PICTURE_MESSAGES = {
   tooLate: "Didn't make it in time — the pictures were already showing. Your work is saved.",
   generic: "Couldn't send your picture. It's saved on this phone.",
 } as const
+
+// where a picture is sent. One with nothing on it says so, and the server
+// skips it (it checks the pixels too)
+export function pictureUploadUrl(
+  server: string,
+  picture: { roomCode: string; round: number; playerId: string; blank: boolean },
+): string {
+  const url = `${server}/submissions/${picture.roomCode}/${picture.round}/${picture.playerId}`
+  return picture.blank ? `${url}?${BLANK_PICTURE_PARAM}=1` : url
+}
 
 export type UploadResult = { ok: true } | { ok: false; message: string; final: boolean }
 
