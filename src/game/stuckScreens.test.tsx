@@ -30,13 +30,16 @@ function guessedAlready(): RoomSnapshot {
 describe('a reload into GUESS after guessing', () => {
   it('says the guess is in, rather than showing every option dead', () => {
     const text = textOf(renderToStaticMarkup(<GuessView snapshot={guessedAlready()} emit={emit} />))
-    expect(text).toContain('Guess locked in — waiting for the others…')
+    expect(text).toContain('Locked in.')
+    expect(text).not.toContain('Lock in ')
   })
 
   it('still shows which option they picked', () => {
     const snap = guessedAlready()
     const html = renderToStaticMarkup(<GuessView snapshot={snap} emit={emit} />)
-    const picked = [...html.matchAll(/<button[^>]*class="guess-option picked"[^>]*>([^<]*)</g)].map((m) => m[1])
+    const picked = [...html.matchAll(/<button[^>]*aria-checked="true"[^>]*><span class="guess-option-text">([^<]*)</g)].map(
+      (m) => m[1],
+    )
     const phase = snap.phase
     if (phase.phase !== 'guess') throw new Error('fixture')
     expect(picked).toEqual([phase.options.find((o) => o.id === snap.you.ownGuessId)?.text])
@@ -85,7 +88,7 @@ describe('waiting looks like waiting', () => {
       <GuessView snapshot={{ ...snap, waitingOn: ['bob', 'cara'] }} emit={emit} />,
     )
     const text = textOf(html)
-    expect(text).toContain('This one’s yours — waiting for everyone else to guess.')
+    expect(text).toContain('This one’s yours. Keep a straight face.')
     // Alice has guessed; Bob and Cara haven't (Sam is the author)
     expect(text).toContain('1 of 3 have guessed')
     expect(text).toContain('Waiting for Bob and Cara')
@@ -108,6 +111,6 @@ describe('waiting looks like waiting', () => {
   })
 
   it('an own lie says why it cannot be picked', () => {
-    expect(textOf(renderToStaticMarkup(<GuessView snapshot={fixtureSnapshot('guess')} emit={emit} />))).toContain('your lie')
+    expect(textOf(renderToStaticMarkup(<GuessView snapshot={fixtureSnapshot('guess')} emit={emit} />))).toContain('Your lie')
   })
 })
