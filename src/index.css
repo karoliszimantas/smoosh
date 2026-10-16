@@ -1843,9 +1843,115 @@ h2,
   color: var(--primary-ink);
 }
 
-/* ---------- lie / guess views ---------- */
+/* ---------- round screens: shared ----------
+   Lie, Guess, Reveal and Scores (Lie/Guess/Reveal/Scores.dc.html): a
+   column on the desk under the status strip, 16px gutters. Each scrolls
+   when it runs long; its primary button stays at the foot. */
 
-.lie-view,
+/* a submitted picture taped to the desk, about 300px: as large as the
+   screen spares after what the view needs below it (--picture-room) */
+.picture-frame {
+  --picture-size: clamp(
+    140px,
+    min(300px, 100vw - 32px, 100dvh - var(--status-strip-h, 97px) - var(--picture-room, 300px)),
+    300px
+  );
+  position: relative;
+  flex: none;
+  align-self: center;
+  width: var(--picture-size);
+  height: var(--picture-size);
+}
+
+.picture-frame .picture-display {
+  border-radius: 2px;
+}
+
+/* a line of plain words on the desk: "This one's yours…" */
+.round-note {
+  margin: 0;
+  text-align: center;
+  font: 600 17px/24px var(--font-ui);
+  color: var(--text);
+}
+
+/* ---------- lie view ---------- */
+
+.lie-view {
+  --picture-room: 296px;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.lie-hint {
+  margin: 0;
+  text-align: center;
+  font: 400 15px/22px var(--font-ui);
+  color: var(--text-muted);
+}
+
+.lie-hint strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.lie-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lie-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.lie-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.field.lie-field {
+  height: 88px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  resize: none;
+  font: 600 19px/25px var(--font-ui);
+}
+
+.lie-form .form-error {
+  padding: 4px 0 0;
+  text-align: left;
+}
+
+/* the send button keeps to the foot of the screen, under the thumb */
+.lie-send {
+  flex: none;
+  margin-top: auto;
+}
+
+/* sent: your lie on a scrap, under its typewriter label */
+.lie-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.lie-sent-text {
+  margin: 0;
+  font: 600 19px/25px var(--font-ui);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- guess view ---------- */
+
 .guess-view {
   height: 100dvh;
   display: flex;
@@ -1856,17 +1962,12 @@ h2,
   padding: 16px;
 }
 
-.lie-form,
 .guess-options {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: 100%;
-}
-
-.lie-form {
-  max-width: 320px;
 }
 
 .guess-option {
@@ -1915,6 +2016,11 @@ h2,
 .room-progress-count {
   font-size: 16px;
   font-weight: 700;
+}
+
+.room-progress-dots {
+  justify-content: center;
+  margin: 4px 0 2px;
 }
 
 .room-progress-names {
