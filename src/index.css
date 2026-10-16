@@ -69,8 +69,7 @@ button {
 /* the theme's display face: the prompt, titles. Set in caps with tracking
    in themes that want the delivery deadpan */
 h1,
-h2,
-.scores-winner {
+h2 {
   font-family: var(--font-display);
   text-transform: var(--display-transform);
   letter-spacing: var(--display-tracking);
@@ -1440,8 +1439,7 @@ h2,
 /* ---------- home view ---------- */
 
 .home-view,
-.lobby-view,
-.scores-view {
+.lobby-view {
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -1453,8 +1451,7 @@ h2,
 }
 
 .home-view h1,
-.lobby-view h1,
-.scores-view h1 {
+.lobby-view h1 {
   font-size: 22px;
   margin-bottom: 8px;
 }
@@ -1494,10 +1491,6 @@ h2,
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
-}
-
-.scoreboard li.away {
-  color: var(--surface-text-muted);
 }
 
 /* someone away: said quietly, next to their name */
@@ -2396,71 +2389,128 @@ h2,
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- scores view ---------- */
+/* ---------- scores view ----------
+   Scores.dc.html: "After round n of m", then a 64px cut paper scrap per
+   player — rank, dot, name, this round's points in red, the total — and
+   when the next round starts at the foot */
 
-.scores-winner {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
+.scores-view {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-y: auto;
 }
 
-.scoreboard {
+.scores-title {
+  font-size: 30px;
+  line-height: 34px;
+}
+
+.standings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: min(100%, 360px);
 }
 
-.scoreboard li {
+.standing {
+  position: relative;
+  flex: none;
+  height: 64px;
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 14px;
-  border-radius: var(--radius);
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 0 10px;
+  border-radius: 2px;
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--surface-text);
-  font-size: 14px;
-  text-align: left;
 }
 
-.score-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
+.standing.you {
+  background: var(--picked);
 }
 
-.score-total,
-.score-breakdown {
+.standing-rank {
+  flex: none;
+  width: 38px;
+  text-align: center;
+  font: 400 22px/24px var(--font-display);
   font-variant-numeric: tabular-nums;
 }
 
-.score-round {
-  font-size: 12px;
-  font-weight: 600;
+.standing-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 17px/22px var(--font-ui);
+}
+
+.standing-name-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.standing-you {
+  flex: none;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+.standing .away-marker {
+  margin-left: 0;
+  flex: none;
+}
+
+/* away or gone: their name in muted ink, their dot faded */
+.standing.gone .standing-name-text {
+  color: var(--surface-text-muted);
+}
+
+.standing-delta {
+  flex: none;
+  font: 700 15px/20px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   color: var(--primary-ink);
 }
 
-/* where the points came from: three columns that add up to the figure
-   above them */
-.score-breakdown {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  font-size: 13px;
-}
-
-.score-breakdown small {
-  display: block;
-  font-size: 11px;
+.standing-delta.zero {
   color: var(--surface-text-muted);
 }
 
-.score-breakdown .zero {
-  color: var(--surface-text-muted);
+/* red on the yellow row is too faint: ink there */
+.standing.you .standing-delta {
+  color: var(--surface-text);
+}
+
+.standing-total {
+  flex: none;
+  min-width: 68px;
+  text-align: right;
+  font: 400 18px/22px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.scores-next {
+  margin: auto 0 0;
+  text-align: center;
+  font: 400 15px/22px var(--font-ui);
+  color: var(--text-muted);
+}
+
+.scores-next strong {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 /* ---------- theme switcher ---------- */
