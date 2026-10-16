@@ -88,9 +88,9 @@ h2,
    Floating over the frame's left and right edges, only while a layer is
    selected — the frame never makes room for them. The element is the hit
    area — generous, and kept 22px clear of the screen edge, which is iOS's
-   back-swipe zone; what shows is a hairline track and a small see-through
-   handle, light with a dark rim so they read over any picture. At rest they
-   are faint; in use, solid. No z-index — the toolbar's popover comes later
+   back-swipe zone; what shows is a hairline track, light with a dark rim so
+   it reads over any picture, and an ink-on-paper handle. At rest they are
+   faint; in use, solid. No z-index — the toolbar's popover comes later
    in the page and must stay on top of them. */
 .layer-slider {
   position: absolute;
@@ -132,17 +132,21 @@ h2,
   background: var(--selection);
 }
 
+/* the handle and the +/− ends are ink on a paper disc with the hard small
+   shadow, like the rest of the paper chrome — legible on either theme's
+   paper and over a picture */
 .layer-slider-handle {
   position: absolute;
   left: 50%;
   width: 24px;
   height: 24px;
+  box-sizing: border-box;
   transform: translate(-50%, -50%);
-  border: 1.5px solid rgb(0 0 0 / 0.35);
+  border: 1.5px solid var(--line);
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.7);
-  color: rgb(0 0 0 / 0.65);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  background: var(--surface);
+  color: var(--surface-text);
+  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,10 +161,11 @@ h2,
   transition: transform 0.18s ease-out;
 }
 
+/* held: on a scrap of yellow, rimmed in the selection red */
 .layer-slider-handle.active {
-  border-color: var(--selection);
-  background: rgb(255 255 255 / 0.9);
-  color: rgb(0 0 0 / 0.85);
+  border: 2px solid var(--selection);
+  background: var(--picked);
+  color: var(--line);
 }
 
 .layer-slider-handle.jog.active {
@@ -181,11 +186,19 @@ h2,
 .layer-slider-end {
   position: absolute;
   left: 50%;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
   transform: translateX(-50%);
-  color: #fff;
-  text-shadow: 0 0 2px rgb(0 0 0 / 0.8);
-  font-size: 13px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--surface-text);
+  box-shadow: var(--shadow-sm);
+  font: 700 13px/1 var(--font-ui);
 }
 
 .layer-slider-end.top {
