@@ -36,7 +36,8 @@ import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
 import { useTheme } from '../themes/useTheme'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
 import FrameDecor from './FrameDecor'
-import { hideForExport } from './canvasExport'
+import { applyExportLook, hideForExport } from './canvasExport'
+import { EXPORT_LOOK } from '../themes/exportLook'
 import Tape from './Tape'
 import SelectionOverlay from './SelectionOverlay'
 import CutOverlay from './CutOverlay'
@@ -68,6 +69,8 @@ const TAPE_OFFSET = { x: -12, y: -10 }
 const SLIDER_SPAN = 0.72
 // the exported picture is always this many pixels square
 const EXPORT_SIZE = 1024
+// the picture's paper as it's sent, whatever the theme on screen
+const EXPORT_PAPER = { fill: EXPORT_LOOK.canvasBg }
 // how long a passing note over the canvas stays
 const TOAST_MS = 4000
 
@@ -912,8 +915,14 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     // touching React state — avoids the setState+sleep race that could bake
     // them in
     let restoreChrome: (() => void) | null = null
+    let restoreLook: (() => void) | null = null
     try {
       restoreChrome = hideForExport(stage)
+      // drawn in the export's look, not this player's theme: the same picture
+      // whoever built it. A layer frozen mid-gesture (freezeOthers) would
+      // draw from its snapshot, in the theme's look — so none is
+      for (const node of itemsLayerRef.current?.find<Konva.Image>('Image') ?? []) node.clearCache()
+      restoreLook = applyExportLook(stage)
       // a chain pass sends only its own layers
       if (transparentExport) backgroundRef.current?.visible(false)
       cropOverlay?.visible(false)
@@ -929,6 +938,9 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         height: frame.size,
         pixelRatio: EXPORT_SIZE / frame.size,
       })
+      // captured: back to the theme's look before anything's drawn on screen
+      restoreLook()
+      restoreLook = null
       // a chain pass keeps its transparency
       const blob = await encodePicture(canvas, transparentExport, 0.8, 0.85)
       if (!blob) throw new Error('failed to encode export')
@@ -940,6 +952,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       console.error('export failed', err)
       return null
     } finally {
+      restoreLook?.()
       restoreChrome?.()
       backgroundRef.current?.visible(true)
       cropOverlay?.visible(true)
@@ -1002,7 +1015,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           onTouchEnd={handleTouchEnd}
         >
           <Layer listening={false} ref={backgroundRef}>
-            <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={theme.canvasBg} />
+            <Rect x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={theme.canvasBg} exportAttrs={EXPORT_PAPER} />
             {underlay && underlayImage && (
               <>
                 <KonvaImage image={underlayImage} x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} />

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
-import { hideForExport, NOT_IN_EXPORT } from './canvasExport'
+import { applyExportLook, EXPORT_ATTRS, hideForExport, isExporting, NOT_IN_EXPORT } from './canvasExport'
 import FrameDecor from './FrameDecor'
 import SelectionOverlay from './SelectionOverlay'
 import { parseHardShadow } from './hardShadow'
@@ -70,5 +70,43 @@ describe('reading the card shadow', () => {
   it('falls back to the approved shadow for anything else', () => {
     expect(parseHardShadow('0 6px 10px rgba(0,0,0,.3)')).toEqual({ x: 3, y: 4, color: 'rgba(0,0,0,.55)' })
     expect(parseHardShadow('3px 4px 0 red, 1px 1px 0 blue')).toEqual({ x: 3, y: 4, color: 'rgba(0,0,0,.55)' })
+  })
+})
+
+describe('the export’s look', () => {
+  // a stand-in for a Konva node or stage: just its attrs
+  function attributed(attrs: Record<string, unknown>) {
+    const a = { ...attrs }
+    return {
+      attrs: a,
+      getAttr: (name: string) => a[name],
+      setAttr: (name: string, value: unknown) => void (a[name] = value),
+      setAttrs: (next: Record<string, unknown>) => void Object.assign(a, next),
+    }
+  }
+
+  it('is drawn for the capture alone, then the theme’s look is back', () => {
+    const paper = attributed({ fill: '#E6DCC9', [EXPORT_ATTRS]: { fill: '#FBF7EE' } })
+    const photo = attributed({ shadowColor: 'rgba(1,2,3,.4)', shadowEnabled: true, [EXPORT_ATTRS]: { shadowColor: 'rgba(0,0,0,.3)' } })
+    const plain = attributed({ fill: 'red' })
+    const nodes = [paper, photo, plain]
+    const stage = { ...attributed({}), find: (match: (n: (typeof nodes)[number]) => boolean) => nodes.filter(match) }
+    const shape = { getStage: () => stage }
+
+    expect(isExporting(shape)).toBe(false)
+    const restore = applyExportLook(stage)
+    expect(isExporting(shape)).toBe(true)
+    expect(paper.attrs.fill).toBe('#FBF7EE')
+    expect(photo.attrs).toMatchObject({ shadowColor: 'rgba(0,0,0,.3)', shadowEnabled: true })
+    expect(plain.attrs.fill).toBe('red')
+
+    restore()
+    expect(isExporting(shape)).toBe(false)
+    expect(paper.attrs.fill).toBe('#E6DCC9')
+    expect(photo.attrs.shadowColor).toBe('rgba(1,2,3,.4)')
+  })
+
+  it('isn’t on for a shape not on a stage', () => {
+    expect(isExporting({ getStage: () => null })).toBe(false)
   })
 })
