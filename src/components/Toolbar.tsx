@@ -12,7 +12,7 @@ const ICONS = {
   mirror: 'M12 3v18M9 7L3 17h6zM15 7l6 10h-6z',
   crop: 'M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2',
   erase: 'M8 20h12M4.5 15.5l9-9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8z M9 11l5 5',
-  delete: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
+  delete: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   report: 'M5 21V4h11l-2 4 2 4H5',
   reset: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4',
@@ -24,14 +24,14 @@ const ICONS = {
 } as const
 type IconName = keyof typeof ICONS
 
-function Icon({ name }: { name: IconName }) {
+function Icon({ name, bold = false }: { name: IconName; bold?: boolean }) {
   return (
     <svg
       className="toolbar-icon"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={bold ? 3 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -56,7 +56,8 @@ function ToolButton({
   icon?: IconName
   label?: string
   onClick: () => void
-  variant?: 'primary' | 'danger'
+  // the main action of the row (Add, Apply, Done): riso red on its ledge
+  variant?: 'primary'
   disabled?: boolean
   ariaLabel?: string
   pressed?: boolean
@@ -79,7 +80,7 @@ function ToolButton({
       aria-pressed={pressed}
       aria-expanded={expanded}
     >
-      {icon && <Icon name={icon} />}
+      {icon && <Icon name={icon} bold={variant === 'primary'} />}
       {children}
       {label && <span className="toolbar-label">{label}</span>}
     </button>
@@ -134,8 +135,8 @@ function OpacitySlider({
   )
 }
 
-// The selected layer's controls, in one fixed-height row — Add first, then
-// every layer action, no menu to open. A narrow phone that can't fit them all
+// The selected layer's controls, in one fixed-height row on a paper strip —
+// Add first, then every layer action, no menu to open. A narrow phone that can't fit them all
 // scrolls the row sideways rather than growing a second one, which would
 // come out of the canvas. Picture actions (undo, submit) live in the top
 // row (PromptBar), not here. Crop, erase and opacity take the row over while
@@ -270,7 +271,7 @@ export default function Toolbar({
     buttons = (
       <>
         {add}
-        <ToolButton icon="delete" label="Delete" onClick={onDelete} variant="danger" />
+        <ToolButton icon="delete" label="Delete" onClick={onDelete} />
         <ToolButton icon="duplicate" label="Copy" onClick={onDuplicate} disabled={full} ariaLabel={full ? limitLabel : 'Duplicate this layer'} />
         <ToolButton icon="lock" label="Lock" onClick={onToggleLock} ariaLabel="Lock this layer — taps pass through it" />
         <ToolButton icon="mirror" label="Mirror" onClick={onMirror} pressed={mirrored} ariaLabel="Mirror left to right" />
