@@ -4923,6 +4923,22 @@ select.field {
   padding: 12px;
 }
 
+/* the small wordmark, then "Room" and the code's Dymo strip */
+.game-menu-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 4px;
+}
+
+.game-menu-code {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* the build toolbar's More: one row per tool, icon then typed label, ink
    on the paper like the tools on the strip */
 .paper-card.toolbar-more-menu {

@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import Wordmark from './Wordmark'
+import DymoLabel from './DymoLabel'
 
 // Tucked behind a tap, away from anything that submits — leaving is never
-// something to do by accident. In a round it sits at the end of the status
+// something to do by accident. Opens on the small wordmark and the room's
+// code on its Dymo strip, then Leave. In a round it sits at the end of the status
 // strip, small (`inStrip`); elsewhere, in the top-right corner.
 export default function GameMenu({
   roomCode,
@@ -31,7 +34,15 @@ export default function GameMenu({
       </button>
       {open && (
         <div className="paper-card game-menu-popover" role="menu">
-          <p className="field-label on-paper">Game {roomCode}</p>
+          <div className="game-menu-head">
+            <Wordmark size="sm" />
+            <p className="game-menu-code">
+              <span className="field-label on-paper" aria-hidden="true">
+                Room
+              </span>
+              <DymoLabel code={roomCode} size="sm" />
+            </p>
+          </div>
           <button
             className="btn btn-secondary btn-inset btn-block"
             role="menuitem"
