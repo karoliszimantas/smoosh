@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ROUND_OPTIONS,
   BUILD_TIME_OPTIONS,
@@ -13,6 +13,8 @@ import type { PhaseProps } from '../types'
 import ThemeSwitcher from '../../themes/ThemeSwitcher'
 import PlayerChip from '../PlayerChip'
 import RoomCodeCard from '../RoomCodeCard'
+import HowToPlay from '../HowToPlay'
+import { howToPlaySeen, markHowToPlaySeen } from '../howToPlaySeen'
 import { takeSettingsRequest } from '../playAgain'
 
 const MODE_LABELS: Record<GameMode, { label: string; blurb: string }> = {
@@ -89,6 +91,13 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
     card?.scrollIntoView({ block: 'start' })
     card?.focus({ preventScroll: true })
   }, [])
+
+  // a player's first Lobby: the how-to-play cards, while they wait anyway.
+  // Seen as soon as they're shown, so they come up once
+  const [howToPlay, setHowToPlay] = useState(() => !howToPlaySeen())
+  useEffect(() => {
+    if (howToPlay) markHowToPlaySeen()
+  }, [howToPlay])
 
   const updateSettings = (patch: Partial<GameSettings>) => {
     void emit('room:updateSettings', { ...settings, ...patch })
@@ -289,6 +298,8 @@ export default function LobbyView({ snapshot, emit }: PhaseProps) {
           {canStart ? 'Start game' : `Need at least ${MIN_PLAYERS_TO_START} players`}
         </button>
       )}
+
+      {howToPlay && <HowToPlay onClose={() => setHowToPlay(false)} />}
     </div>
   )
 }
