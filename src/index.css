@@ -2107,72 +2107,293 @@ h2,
   color: var(--text-muted);
 }
 
-/* ---------- reveal view ---------- */
+/* ---------- reveal view ----------
+   Reveal.dc.html: the 96px picture beside "The truth is…" and the burst;
+   the truth card, torn and taped; the lies; the score ribbon at the foot.
+   Long (seven lies) it scrolls; nothing on it needs pressing. */
 
 .reveal-view {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 12px;
-  padding: 16px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 
-.reveal-options {
-  list-style: none;
+.reveal-head {
+  flex: none;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(340px, 90vw);
+  align-items: center;
+  gap: 12px;
 }
 
-.reveal-option {
-  padding: 10px 14px;
-  border-radius: var(--radius);
+.picture-frame.reveal-thumb {
+  --picture-size: 96px;
+  align-self: auto;
+}
+
+.reveal-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* the points burst: a 104px tape-yellow star on a hard shadow, the figure
+   in outlined riso red, a paper note stuck on its corner */
+.burst {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 104px;
+  margin: 0 4px 4px 0;
+}
+
+.burst-star {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--picked);
+  filter: drop-shadow(var(--burst-shadow));
+}
+
+.burst-points {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 38px;
+  text-align: center;
+  font: 400 24px/24px var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-bg);
+  -webkit-text-stroke: 2px var(--line);
+  paint-order: stroke fill;
+  text-shadow: 2px 3px 0 var(--line);
+  transform: rotate(-7deg);
+}
+
+.burst-note,
+.reveal-note {
+  padding: 4px 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--surface-text);
-  font-size: 14px;
+  white-space: nowrap;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transform: rotate(5deg);
+}
+
+.burst-note {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+}
+
+/* nothing won: the note alone, no star */
+.reveal-note {
+  flex: none;
+  max-width: 120px;
+  margin: 0 4px 0 0;
+  white-space: normal;
+  text-align: center;
+}
+
+/* the truth: a wide torn card (.torn-c), taped, stamped REAL */
+.reveal-truth {
+  position: relative;
+  flex: none;
+}
+
+.reveal-truth-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 10px;
+  padding: 22px 20px 24px;
 }
 
-.reveal-option.truth {
-  background: var(--primary-bg);
-  color: var(--primary-text);
+.reveal-truth-text {
+  margin: 0;
+  padding-right: 84px;
+  font: 400 24px/28px var(--font-display);
+  overflow-wrap: anywhere;
 }
 
-.reveal-option-label {
-  font-size: 11px;
+.reveal-found {
+  margin: 0;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--success-ink);
+}
+
+.reveal-found.nobody {
   color: var(--surface-text-muted);
 }
 
-/* "picked by", then a dot per picker */
-.reveal-picked-by {
+/* the finders as 52px chips; air for the You ring and the shadow */
+.reveal-finders {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  margin-top: 4px;
-}
-
-/* muted ink is too faint on the red truth card */
-.reveal-option.truth .reveal-option-label,
-.reveal-option.truth .reveal-picked-by .field-label {
-  color: inherit;
-}
-
-.reveal-points {
+  gap: 14px;
+  margin: 0;
+  padding: 5px 5px 4px;
   list-style: none;
+}
+
+.reveal-finders li {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* the rubber stamp: red ink in a ruled box, struck at −6°. Full strength,
+   multiplied into the paper like ink: the artboard's .9 opacity leaves the
+   red at 4.15:1 on Night paper */
+.real-stamp {
+  position: absolute;
+  top: 24px;
+  right: 18px;
+  padding: 2px 10px;
+  border: 3px solid var(--stamp);
+  border-radius: 3px;
+  color: var(--stamp);
+  mix-blend-mode: multiply;
+  font: 700 22px/28px var(--font-label);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+  pointer-events: none;
+}
+
+.reveal-lies {
+  flex: none;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
+}
+
+.reveal-lies h2 {
+  margin: 0;
+}
+
+.reveal-lie-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reveal-lie-slot {
+  position: relative;
+}
+
+.reveal-lie {
+  min-height: 56px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reveal-lie-words {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reveal-lie-text {
+  margin: 0;
+  font: 650 17px/22px var(--font-ui);
+  overflow-wrap: anywhere;
+}
+
+.reveal-lie-meta {
+  margin: 0;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--surface-text-muted);
+}
+
+.reveal-lie-points {
+  color: var(--primary-ink);
+}
+
+.reveal-lie .dot-row {
+  flex: none;
+  justify-content: flex-end;
+  max-width: 50%;
+}
+
+/* BEST FIB: a scrap of tape with typed words, over the card's top edge */
+.best-fib {
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  right: 52px;
+  padding: 2px 8px;
+  background: var(--picked);
+  color: var(--surface-text);
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* the score ribbon: everyone at the table in a 4-column paper strip — this
+   picture's points in red over the dot and name, the running total under */
+.score-ribbon {
+  flex: none;
+  margin-top: auto;
+  padding: 10px 6px 12px;
+}
+
+.score-ribbon ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.score-ribbon li {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-ribbon-delta {
+  height: 14px;
+  font: 700 12px/14px var(--font-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-ink);
+}
+
+.score-ribbon-name {
+  max-width: 100%;
+  gap: 6px;
+  font: 700 14px/18px var(--font-ui);
+}
+
+.score-ribbon-name > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.score-ribbon-total {
+  font: 700 17px/22px var(--font-ui);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- scores view ---------- */

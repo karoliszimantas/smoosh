@@ -1,7 +1,6 @@
-import type { CSSProperties } from 'react'
 import type { Player } from '@smoosh/protocol'
-import { useTheme } from '../themes/useTheme'
 import { ShapeGlyph } from './PlayerChip'
+import { useSeatStyle } from './useSeatStyle'
 import { initialOf, markOf } from './playerMark'
 
 // A player, small: their seat's coloured avatar with its shape badge, for
@@ -27,10 +26,8 @@ export default function PlayerDot({
   // name your own dot "You" rather than your name
   youId?: string
 }) {
-  const theme = useTheme()
-  const { shape, colour } = markOf(player)
-  const seat = theme.players[colour] ?? theme.players[0]
-  const style = { '--p-bg': seat?.bg, '--p-fg': seat?.fg } as CSSProperties
+  const { shape } = markOf(player)
+  const style = useSeatStyle(player)
 
   const name = player.id === youId ? 'You' : player.name
   const label = name + (away ? ', away' : pending ? ', not done yet' : done ? ', done' : '')

@@ -1,66 +1,138 @@
 import type { PhaseProps } from '../types'
 import { useGameServices } from '../services'
 import PlayerDot from '../PlayerDot'
+import PlayerChip from '../PlayerChip'
+import Burst from '../Burst'
+import RealStamp from '../RealStamp'
+import Tape from '../../components/Tape'
+import { formatPoints, nameList, revealSummary } from '../revealSummary'
 
-// "Mara", "Mara and Teo", "Mara, Teo and Bob"
-function nameList(names: string[]): string {
-  return names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-}
-
+// The truth is… (Reveal.dc.html): the picture small, what you won in a
+// burst, the real prompt stamped REAL with who found it, each lie with who
+// fell for it, then everyone's score so far along the foot.
 export default function RevealView({ snapshot }: PhaseProps) {
   const { Picture } = useGameServices()
   const phase = snapshot.phase
-  if (phase.phase !== 'reveal') return null
+  const summary = revealSummary(snapshot)
+  if (phase.phase !== 'reveal' || !summary) return null
 
-  const nameById = new Map(snapshot.players.map((p) => [p.id, p.name]))
+  const youId = snapshot.you.playerId
   const playerById = new Map(snapshot.players.map((p) => [p.id, p]))
-  const pointsByPlayer = new Map(phase.pointsThisPicture.map((p) => [p.playerId, p.points]))
+  const nameOf = (id: string) => (id === youId ? 'you' : (playerById.get(id)?.name ?? '?'))
+  const pointsOf = new Map(phase.pointsThisPicture.map((p) => [p.playerId, p.points]))
+  const { truth, lies, you } = summary
+  const finders = truth?.pickedBy ?? []
+  const table = snapshot.players.filter((p) => p.presence !== 'left')
 
   return (
     <div className="reveal-view">
-      <Picture imagePath={phase.imagePath} />
+      <header className="reveal-head">
+        <div className="picture-frame reveal-thumb">
+          <Picture imagePath={phase.imagePath} />
+        </div>
+        <h1 className="round-heading reveal-title">The truth is…</h1>
+        {you.points > 0 ? <Burst points={you.points} note={you.note} /> : <p className="reveal-note">{you.note}</p>}
+      </header>
 
-      <ul className="reveal-options">
-        {phase.options.map((opt) => (
-          <li key={opt.id} className={opt.isTruth ? 'reveal-option truth' : 'reveal-option'}>
-            <span className="reveal-option-text">{opt.text}</span>
-            {opt.isTruth ? (
-              <span className="reveal-option-label">the real prompt</span>
-            ) : (
-              opt.authorId && <span className="reveal-option-label">by {nameById.get(opt.authorId) ?? '?'}</span>
-            )}
-            {opt.pickedBy.length > 0 && (
-              <div className="reveal-picked-by">
-                <span className="field-label on-paper">picked by</span>
-                <ul className="dot-row" aria-label={`Picked by ${nameList(opt.pickedBy.map((id) => nameById.get(id) ?? '?'))}`}>
-                  {opt.pickedBy.map((id) => {
+      {truth && (
+        <div className="reveal-truth">
+          <section className="torn torn-c reveal-truth-card" aria-label="The real prompt">
+            <p className="field-label on-paper">The real prompt</p>
+            <p className="reveal-truth-text">{truth.text}</p>
+            {finders.length > 0 ? (
+              <>
+                <p className="reveal-found">Found it · +{formatPoints(summary.foundEach)} each</p>
+                <ul className="reveal-finders" aria-label={`Found by ${nameList(finders.map(nameOf))}`}>
+                  {finders.map((id) => {
                     const player = playerById.get(id)
                     return (
                       player && (
                         <li key={id}>
-                          <PlayerDot player={player} labelled />
+                          <PlayerChip player={player} youId={youId} onPaper hostTag={false} />
                         </li>
                       )
                     )
                   })}
                 </ul>
-              </div>
+              </>
+            ) : (
+              <p className="reveal-found nobody">Nobody found it</p>
             )}
-          </li>
-        ))}
-      </ul>
+            <RealStamp />
+          </section>
+          <Tape y={-8} />
+        </div>
+      )}
 
-      <ul className="reveal-points">
-        {[...pointsByPlayer.entries()].map(([playerId, points]) => {
-          const player = playerById.get(playerId)
-          return (
-            <li key={playerId} className="dot-name">
-              {player && <PlayerDot player={player} labelled />}
-              {nameById.get(playerId) ?? '?'}: +{points}
-            </li>
-          )
-        })}
-      </ul>
+      {lies.length > 0 && (
+        <section className="reveal-lies" aria-labelledby="reveal-lies-title">
+          <h2 id="reveal-lies-title" className="field-label">
+            The lies
+          </h2>
+          <ul className="reveal-lie-list">
+            {lies.map((lie, i) => (
+              <li key={lie.option.id} className="reveal-lie-slot">
+                <div className={`torn${i % 2 === 1 ? ' torn-b' : ''} reveal-lie`}>
+                  <div className="reveal-lie-words">
+                    <p className="reveal-lie-text">{lie.option.text}</p>
+                    <p className="reveal-lie-meta">
+                      Fake · by {nameOf(lie.authorId)} ·{' '}
+                      {lie.fooled.length > 0 ? (
+                        <span className="reveal-lie-points">
+                          +{formatPoints(lie.pointsEach)} ×{lie.fooled.length}
+                        </span>
+                      ) : (
+                        'no takers'
+                      )}
+                    </p>
+                  </div>
+                  {lie.fooled.length > 0 && (
+                    <ul className="dot-row" aria-label={`Picked by ${nameList(lie.fooled.map(nameOf))}`}>
+                      {lie.fooled.map((id) => {
+                        const player = playerById.get(id)
+                        return (
+                          player && (
+                            <li key={id}>
+                              <PlayerDot player={player} youId={youId} />
+                            </li>
+                          )
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+                {lie.bestFib && <span className="best-fib">Best fib</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="paper-card score-ribbon" aria-label="Scores so far">
+        <ul>
+          {table.map((player) => {
+            const delta = pointsOf.get(player.id) ?? 0
+            return (
+              <li key={player.id}>
+                <span className="visually-hidden">
+                  {player.name}: {formatPoints(player.score)}
+                  {delta > 0 && `, up ${formatPoints(delta)}`}
+                </span>
+                <span className="score-ribbon-delta" aria-hidden="true">
+                  {delta > 0 && `+${delta}`}
+                </span>
+                <span className="dot-name score-ribbon-name" aria-hidden="true">
+                  <PlayerDot player={player} away={player.presence === 'away'} labelled />
+                  <span>{player.name}</span>
+                </span>
+                <span className="score-ribbon-total" aria-hidden="true">
+                  {formatPoints(player.score)}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
     </div>
   )
 }

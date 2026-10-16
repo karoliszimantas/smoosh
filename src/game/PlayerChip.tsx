@@ -1,7 +1,6 @@
-import type { CSSProperties } from 'react'
 import type { Player } from '@smoosh/protocol'
-import { useTheme } from '../themes/useTheme'
 import { initialOf, markOf, type Shape } from './playerMark'
+import { useSeatStyle } from './useSeatStyle'
 
 // a seat's shape, drawn in a 10×10 box and filled with the current colour.
 // `size` is the drawn size in px: 9 on a chip's badge, 7 on a dot's (the
@@ -21,37 +20,44 @@ export function ShapeGlyph({ shape, size }: { shape: Shape; size: number }) {
   )
 }
 
+// the 40px round avatar: the initial on the seat's colour, the shape on a
+// white badge. Decoration beside a name, so hidden from screen readers
+export function PlayerAvatar({ player }: { player: Player }) {
+  const style = useSeatStyle(player)
+  return (
+    <span className="player-avatar" style={style} aria-hidden="true">
+      {initialOf(player.name)}
+      <span className="player-badge">
+        <ShapeGlyph shape={markOf(player).shape} size={9} />
+      </span>
+    </span>
+  )
+}
+
 // A player, as a paper pill: their seat's coloured avatar with its shape
 // badge, their name, and a tag — You, Host, or Away. Away matters most in a
-// lobby, so it replaces the other two; a host who is you is You.
+// lobby, so it replaces the other two; a host who is you is You. Off the
+// lobby the host is nobody special: `hostTag={false}`.
 export default function PlayerChip({
   player,
   youId,
   onPaper = false,
+  hostTag = true,
 }: {
   player: Player
   youId: string
   // sitting on a paper card rather than the desk: the You ring is drawn in ink
   onPaper?: boolean
+  hostTag?: boolean
 }) {
-  const theme = useTheme()
-  const { shape, colour } = markOf(player)
-  const seat = theme.players[colour] ?? theme.players[0]
-  const style = { '--p-bg': seat?.bg, '--p-fg': seat?.fg } as CSSProperties
-
   const you = player.id === youId
   const away = player.presence === 'away'
-  const tag = away ? 'Away' : you ? 'You' : player.isHost ? 'Host' : null
+  const tag = away ? 'Away' : you ? 'You' : player.isHost && hostTag ? 'Host' : null
   const className = `player-chip${you ? ' you' : ''}${away ? ' away' : ''}${onPaper ? ' on-paper' : ''}`
 
   return (
-    <span className={className} style={style}>
-      <span className="player-avatar" aria-hidden="true">
-        {initialOf(player.name)}
-        <span className="player-badge">
-          <ShapeGlyph shape={shape} size={9} />
-        </span>
-      </span>
+    <span className={className}>
+      <PlayerAvatar player={player} />
       <span className="player-name">{player.name}</span>
       {/* a space, so a screen reader hears "Mara Host", not "MaraHost" */}
       {tag && (
