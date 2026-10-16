@@ -97,9 +97,6 @@ export default function PromptWindow({
                   <h1 id="prompt-window-title" className="prompt-window-kicker">
                     Pick the one you’ll build
                   </h1>
-                </div>
-                <div className="prompt-window-actions">
-                  {error && <p className="form-error">{error}</p>}
                   {(
                     [
                       ['original', prompt],
@@ -115,6 +112,9 @@ export default function PromptWindow({
                       {text}
                     </button>
                   ))}
+                </div>
+                <div className="prompt-window-actions">
+                  {error && <p className="form-error">{error}</p>}
                   <p className="prompt-window-note">Both are out of the game now, whichever you keep</p>
                 </div>
               </>
