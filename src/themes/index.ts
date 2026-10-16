@@ -115,6 +115,7 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--timer-string': theme.timer.string,
     '--hazard': theme.timer.hazard,
     ...Object.fromEntries(theme.promptChips.map((c, i) => [`--prompt-chip-${i}`, c])),
+    ...Object.fromEntries(theme.wordmark.map((c, i) => [`--wordmark-${i}`, c])),
     // one frame of stepped motion: ~12fps, the stop-frame look. 0ms when
     // smooth, so a `steps()` timing built on it collapses to nothing
     '--step-ms': theme.motion === 'stepped' ? '83ms' : '0ms',

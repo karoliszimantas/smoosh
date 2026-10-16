@@ -5592,3 +5592,68 @@ html[data-torn='false'] .prompt-chip {
   font: 700 16px/16px var(--font-label);
   text-transform: lowercase;
 }
+
+/* ---------- the wordmark ----------
+   game/Wordmark.tsx: six cut scraps in a row, bottoms aligned, one hard
+   shadow over the lot (a drop-shadow, so it follows the cut edges). Heights,
+   sizes, tilts and colours are per scrap, inline; the tape hangs off the
+   first scrap's top-left corner */
+.wordmark {
+  position: relative;
+  display: inline-flex;
+  vertical-align: top;
+}
+
+.wordmark-tiles {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  filter: drop-shadow(var(--shadow));
+}
+
+.wordmark-tile {
+  box-sizing: border-box;
+  min-width: 52px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--line);
+  line-height: 1;
+  clip-path: var(--cut);
+}
+
+.wordmark-tile.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* the typewriter letters sit a little high on their scrap, as drawn */
+.wordmark-tile.label {
+  font-family: var(--font-label);
+  font-weight: 700;
+  padding-bottom: 4px;
+}
+
+.wordmark-sm .wordmark-tiles {
+  gap: 2px;
+  filter: drop-shadow(var(--shadow-sm));
+}
+
+.wordmark-sm .wordmark-tile {
+  min-width: 28px;
+  padding: 0 5px;
+}
+
+.wordmark-sm .wordmark-tile.label {
+  padding-bottom: 2px;
+}
+
+.tape.tape-sm {
+  width: 56px;
+  height: 18px;
+}
+
+html[data-torn='false'] .wordmark-tile {
+  clip-path: none;
+}

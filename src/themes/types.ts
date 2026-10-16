@@ -108,6 +108,9 @@ export type Theme = {
   players: readonly { bg: string; fg: string }[]
   markBadge: string // the white badge that carries a seat's shape
   promptChips: readonly string[] // the torn prompt-word chips, in turn
+  // the six cut scraps of the ransom-note wordmark, s-m-o-o-s-h, each
+  // lettered in ink (line). Fixed artwork: the same on every desk
+  wordmark: readonly [string, string, string, string, string, string]
   // a sticker edge round cut-outs, in theme px on a 400px frame; null draws none
   stickerEdge: { color: string; width: number } | null
   motion: 'stepped' | 'smooth' // stepped = jittery stop-frame (data-motion on <html>)

@@ -169,12 +169,21 @@ describe('text contrast', () => {
     ['a seat badge’s shape', (t) => [t.line, t.markBadge]],
     ['the timer’s digits', (t) => [t.surfaceText, t.timer.calm]],
     ['the timer’s digits, last 10 seconds', (t) => [t.line, t.timer.hot]],
+    ['the room code’s label', (t) => [t.paper.dymo.text, t.paper.dymo.bg]],
   ]
 
   for (const theme of THEMES) {
     it.each(PAIRS)(`${theme.id}: %s is at least 4.5:1`, (_, pair) => {
       const [fg, bg] = pair(theme)
       expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+
+  // the wordmark's ink letters on their scraps: a logotype, so exempt, but
+  // it holds to the same floor as everything else
+  for (const theme of THEMES) {
+    it.each(theme.wordmark.map((c, i) => [i, c] as const))(`${theme.id}: wordmark scrap %i is at least 4.5:1`, (_, c) => {
+      expect(contrast(theme.line, c)).toBeGreaterThanOrEqual(4.5)
     })
   }
 
