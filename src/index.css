@@ -5959,6 +5959,28 @@ html[data-torn='false'] .wordmark-tile {
   font-size: 14px;
 }
 
+/* wide enough for "Copy invite link" on one line */
+.paper-card.game-menu-popover {
+  min-width: 272px;
+}
+
+/* the game menu's Copy invite link says how it went, under it */
+.game-menu-status {
+  margin: 0;
+  font: 600 13px/18px var(--font-ui);
+  color: var(--surface-text-muted);
+  text-align: center;
+}
+
+.game-menu-status:empty {
+  margin-top: -10px;
+}
+
+.game-menu-link {
+  height: 44px;
+  font-size: 14px;
+}
+
 /* the QR code takes the whole screen, on the desk */
 .invite-qr {
   position: fixed;
