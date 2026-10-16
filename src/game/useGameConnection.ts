@@ -4,6 +4,7 @@ import { useGameServices, type AckArg, type EmitPayload, type GameTransport } fr
 import { clearActiveRoom, getActiveRoom, getSessionId, setActiveRoom, type ActiveRoom } from './session'
 import { pruneGameCanvases } from './canvasStorage'
 import { pruneLieDrafts } from './lieDraft'
+import { recordPictureLine } from './pictureLines'
 import { noteServerTime } from './serverClock'
 import { couldNotRejoinText, leftText, rejoinFailedText, roomEventText } from './roomMessages'
 
@@ -173,6 +174,8 @@ export function useGameConnection(): GameConnection {
           pruneGameCanvases(null)
         }
       } else endedRef.current = null
+      // a reveal's one line, kept for the screens after it
+      if (snap.phase.phase === 'reveal') recordPictureLine(snap)
       setSnapshot(snap)
       setHomeNotice(null)
     })
