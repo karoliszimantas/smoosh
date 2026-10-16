@@ -18,6 +18,7 @@ import {
   startBuild,
   dropPendingActor,
   recordGuess,
+  recordLie,
   optionsForPicture,
   acceptSubmission,
 } from '../src/game/phaseMachine.ts'
@@ -105,6 +106,7 @@ function buildToLie(h: Harness): void {
 
 function actAll(h: Harness): void {
   for (const id of [...h.room.pendingActors]) {
+    if (h.room.phase.phase === 'lie') recordLie(h.room, h.room.pictureIndex, id, `fake by ${id}`)
     if (h.room.phase.phase === 'guess') {
       const option = optionsForPicture(h.room, h.room.pictureIndex).find((o) => o.authorId !== id)
       if (option) recordGuess(h.room, h.room.pictureIndex, id, option.id)
@@ -633,9 +635,10 @@ describe('empty rooms', () => {
     const { authorId } = expectPhase(h.room, 'lie')
     for (const n of [1, 2, 3, 4]) seatAway(h.room, h.deps, h.seat(n))
     // the author comes back: nobody else here to write a lie, so on it goes
+    // — with no fakes written, past the guess to the reveal
     const author = h.room.seats.get(authorId)
     if (!author) throw new Error('no author')
     seatArrived(h.room, h.deps, author, 'socket-back')
-    expectPhase(h.room, 'guess')
+    expectPhase(h.room, 'reveal')
   })
 })

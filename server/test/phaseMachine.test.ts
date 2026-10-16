@@ -215,7 +215,7 @@ describe('LIE and GUESS phases', () => {
   it('excludes the picture author from pending during GUESS', () => {
     const { room, deps } = buildToLie()
     const authorId = expectPhase(room, 'lie').authorId
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+    writeLies(room, deps)
     const guessPhase = expectPhase(room, 'guess')
     expect(guessPhase.authorId).toBe(authorId)
     expect(room.pendingActors.has(authorId)).toBe(false)
@@ -229,7 +229,7 @@ describe('REVEAL phase', () => {
     startBuild(room, deps)
     vi.advanceTimersByTime(BUILD_END_MS) // -> lie
     expectPhase(room, 'lie')
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    writeLies(room, deps) // -> guess
     expectPhase(room, 'guess')
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> reveal
     expectPhase(room, 'reveal')
@@ -237,7 +237,7 @@ describe('REVEAL phase', () => {
     dropPendingActor(room, deps, 'player-1') // not pending during reveal — must not advance
     expectPhase(room, 'reveal')
 
-    vi.advanceTimersByTime(8_000) // only the timer moves reveal forward
+    vi.advanceTimersByTime(revealPhaseSec(2) * 1000) // only the timer moves reveal forward (two fakes)
     expect(room.phase.phase).not.toBe('reveal')
   })
 })
@@ -254,7 +254,7 @@ describe('disconnects and reconnects', () => {
     const deps = makeDeps({ hasSubmission: () => true })
     startBuild(room, deps)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // everyone built -> lie
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    writeLies(room, deps) // -> guess
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> reveal
     const { pictureIndex, authorId } = expectPhase(room, 'reveal')
 
@@ -290,7 +290,7 @@ describe('disconnects and reconnects', () => {
     const deps = makeDeps({ hasSubmission: () => true })
     startBuild(room, deps)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> lie
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    writeLies(room, deps) // -> guess
     const { pictureIndex, authorId } = expectPhase(room, 'guess')
     const [stays, flaky] = [...room.pendingActors]
     if (!stays || !flaky) throw new Error('expected two guessers')
@@ -332,19 +332,19 @@ describe('round and game progression', () => {
     expect(room.round).toBe(1)
 
     vi.advanceTimersByTime(BUILD_END_MS) // build -> lie (picture 0)
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> guess
+    writeLies(room, deps) // -> guess
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p) // -> reveal
     expect(expectPhase(room, 'reveal').pictureIndex).toBe(0)
 
-    vi.advanceTimersByTime(8_000) // reveal -> next picture's lie (picture 1), same round
+    vi.advanceTimersByTime(revealPhaseSec(1) * 1000) // reveal -> next picture's lie (picture 1), same round
     const liePhase = expectPhase(room, 'lie')
     expect(liePhase.pictureIndex).toBe(1)
     expect(room.round).toBe(1)
 
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+    writeLies(room, deps)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
     expectPhase(room, 'reveal')
-    vi.advanceTimersByTime(8_000) // last picture of round 1 revealed -> scores (non-final)
+    vi.advanceTimersByTime(revealPhaseSec(1) * 1000) // last picture of round 1 revealed -> scores (non-final)
     expect(expectPhase(room, 'scores').isFinalRound).toBe(false)
 
     vi.advanceTimersByTime(6_000) // scores -> round 2 build
@@ -357,12 +357,12 @@ describe('round and game progression', () => {
     const deps = makeDeps({ hasSubmission: () => true })
     startBuild(room, deps)
     vi.advanceTimersByTime(BUILD_END_MS)
+    writeLies(room, deps)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+    vi.advanceTimersByTime(revealPhaseSec(1) * 1000)
+    writeLies(room, deps)
     for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
-    vi.advanceTimersByTime(8_000)
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
-    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
-    vi.advanceTimersByTime(8_000)
+    vi.advanceTimersByTime(revealPhaseSec(1) * 1000)
 
     const scoresPhase = expectPhase(room, 'scores')
     expect(scoresPhase.isFinalRound).toBe(true)
@@ -381,6 +381,7 @@ describe('GUESS scoring in a game', () => {
     startBuild(room, deps)
     for (let t = 0; t < 2000 && !(room.phase.phase === 'scores' && room.phase.isFinalRound); t++) {
       const phase = room.phase
+      if (phase.phase === 'lie') writeLies(room, deps)
       if (phase.phase === 'guess') {
         // everyone guesses the first option they're allowed
         for (const id of [...room.pendingActors]) {
@@ -614,5 +615,78 @@ describe('prompts are dealt in sentence case', () => {
     const pool = generatePromptPool(50, () => (seed = (seed * 16807) % 2147483647) / 2147483647)
     expect(pool.length).toBe(50)
     for (const p of pool) expect(p).toBe(p.charAt(0) + p.slice(1).toLowerCase())
+  })
+})
+
+describe('a picture nobody wrote a fake for', () => {
+  it('when the LIE timer runs out with no fakes, skips GUESS: a reveal of the real prompt alone, 7 s, no points', () => {
+    const room = makeRoom(3, 1, 60)
+    const phases: string[] = []
+    const deps = makeDeps({ hasSubmission: () => true, onSnapshot: (r) => phases.push(r.phase.phase) })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    const { pictureIndex, authorId } = expectPhase(room, 'lie')
+    phases.length = 0
+
+    vi.advanceTimersByTime(room.settings.answerTimeSec * 1000)
+    const reveal = expectPhase(room, 'reveal')
+    expect(phases).toEqual(['reveal'])
+    expect(reveal.pictureIndex).toBe(pictureIndex)
+    expect(reveal.options).toEqual([
+      { id: reveal.realOptionId, text: room.promptByPlayer.get(authorId), isTruth: true, authorId: null, pickedBy: [] },
+    ])
+    expect(reveal.pointsThisPicture).toEqual([])
+    expect(reveal.deadline - Date.now()).toBe(7_000)
+    expect(room.pendingActors.size).toBe(0)
+    expect(room.guessesByPictureIndex.has(pictureIndex)).toBe(false)
+    expect([...room.seats.values()].every((s) => s.score === 0)).toBe(true)
+
+    vi.advanceTimersByTime(7_000 - 1)
+    expectPhase(room, 'reveal')
+    vi.advanceTimersByTime(1)
+    expect(expectPhase(room, 'lie').pictureIndex).toBe(pictureIndex + 1)
+  })
+
+  it('when everyone still to write has gone, with no fakes, the same', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    expectPhase(room, 'lie')
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+    const reveal = expectPhase(room, 'reveal')
+    expect(reveal.options).toHaveLength(1)
+    expect(reveal.options[0]?.isTruth).toBe(true)
+  })
+
+  it('one fake is enough for a GUESS', () => {
+    const room = makeRoom(3, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    const { pictureIndex } = expectPhase(room, 'lie')
+    const [liar] = room.pendingActors
+    if (!liar) throw new Error('expected a liar')
+    recordLie(room, pictureIndex, liar, 'a fake')
+    vi.advanceTimersByTime(room.settings.answerTimeSec * 1000)
+    expect(expectPhase(room, 'guess').options).toHaveLength(2)
+  })
+})
+
+describe('reveal length', () => {
+  it('runs 7 s plus 1.8 s a fake: three fakes, 12.4 s', () => {
+    const room = makeRoom(4, 1, 60)
+    const deps = makeDeps({ hasSubmission: () => true })
+    startBuild(room, deps)
+    vi.advanceTimersByTime(BUILD_END_MS)
+    writeLies(room, deps)
+    for (const p of [...room.pendingActors]) dropPendingActor(room, deps, p)
+    const { pictureIndex, deadline, options } = expectPhase(room, 'reveal')
+    expect(options).toHaveLength(4)
+    expect(deadline - Date.now()).toBe(12_400)
+    vi.advanceTimersByTime(12_400 - 1)
+    expectPhase(room, 'reveal')
+    vi.advanceTimersByTime(1)
+    expect(expectPhase(room, 'lie').pictureIndex).toBe(pictureIndex + 1)
   })
 })
