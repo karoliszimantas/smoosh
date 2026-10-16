@@ -639,20 +639,27 @@ h2,
   pointer-events: none;
 }
 
-/* ---------- toolbar ---------- */
+/* ---------- toolbar ----------
+   One cream paper strip at the foot of the screen (Build.dc.html): Add as
+   the riso-red action on its ledge, then the tools as ink icons with typed
+   labels. One row, always — a second row would come out of the canvas. On
+   a phone too narrow for every tool it scrolls sideways instead. */
 
-/* one row, always — a second row would come out of the canvas. On a phone
-   too narrow for every control it scrolls sideways instead */
-.toolbar {
+.toolbar-wrap {
+  position: relative;
   flex-shrink: 0;
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.toolbar {
   /* fixed, not min: a toolbar that changes height between states resizes
      the stage, and every layer appears to jump */
-  height: calc(64px + env(safe-area-inset-bottom));
+  height: 74px;
   display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 4px;
-  padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 6px 12px;
+  border-radius: 2px;
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow-x: auto;
@@ -665,73 +672,102 @@ h2,
 }
 
 .toolbar-btn {
+  /* 56px, or as wide as its label needs */
   flex: 1 0 auto;
-  height: 52px;
-  min-width: 45px;
+  min-width: 56px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 4px 3px;
+  gap: 6px;
+  padding: 0 2px;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 2px;
   background: transparent;
   color: var(--surface-text);
-  font-size: 11px;
-  font-weight: 600;
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
   white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .toolbar-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 
 .toolbar-btn-icon {
   flex: 0 0 44px;
   min-width: 44px;
-  background: transparent;
-  color: var(--surface-text);
 }
 
-/* a small phone: every layer action still fits the one row */
-@media (max-width: 359px) {
-  .toolbar-btn {
-    min-width: 36px;
-    padding: 4px 1px;
-    font-size: 10px;
+.toolbar-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* the row's main action: riso red standing on an ink ledge, inside the
+   strip (so no drop shadow), the widest thing in the row */
+.toolbar-btn-primary {
+  flex: 1.6 0 96px;
+  flex-direction: row;
+  gap: 6px;
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  box-shadow: var(--ledge-inner);
+  color: var(--primary-text);
+  font: 400 16px/1 var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.toolbar-btn-primary .toolbar-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.toolbar-btn-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: var(--ledge-pressed);
+}
+
+/* a small phone: a little tighter, so crop and erase still fit one row */
+@media (max-width: 380px) {
+  .toolbar {
+    gap: 2px;
+  }
+
+  .toolbar-btn:not(.toolbar-btn-primary) {
+    min-width: 52px;
   }
 }
 
-/* clearly "off", not just inert: sunk into the paper, greyed out */
+/* clearly "off", not just inert: a dashed cut-out sunk into the paper */
 .toolbar-btn:disabled {
+  border: 2px dashed var(--surface-sunken-text);
   background: var(--surface-sunken);
   box-shadow: none;
   color: var(--surface-sunken-text);
+  transform: none;
   cursor: not-allowed;
 }
 
-/* a mirror/flip that's switched on */
+.toolbar-btn-primary:disabled {
+  border-width: 2.5px;
+  font: 700 15px/1 var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* switched on (Mirror, the brush size): on a scrap of yellow, ink-ruled */
 .toolbar-btn-on {
-  background: color-mix(in srgb, var(--selection) 22%, var(--surface));
-  color: var(--surface-text);
-}
-
-.toolbar-btn-primary {
-  background: var(--primary-bg);
-  color: var(--primary-text);
-}
-
-.toolbar-btn-danger {
-  background: var(--danger);
-  color: var(--danger-text);
-}
-
-.toolbar-wrap {
-  position: relative;
-  flex-shrink: 0;
+  background: var(--picked);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--line);
 }
 
 /* opacity takes the toolbar row over while it's open */
