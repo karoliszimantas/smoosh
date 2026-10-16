@@ -4792,6 +4792,85 @@ select.field {
   pointer-events: none;
 }
 
+/* ---------- torn paper ----------
+   Paper torn along its top and bottom, for the few cards the artboards
+   tear (whitelist: Guess options, Reveal truth and lies, the Final banner
+   and podium). The paper is painted on ::before and clipped there, so the
+   card's own content (a label poking over the edge, a focus ring) is never
+   cut; the hard shadow is a drop-shadow filter on the host, so it follows
+   the torn edge where a box-shadow would be clipped away with it.
+   A filter makes its element a containing block, so never put .torn on
+   anything that holds a position:fixed child, a scroller's virtualised
+   rows, or the canvas stage. Edges: a and b alternate between neighbours
+   (Guess.dc.html), c is the wider truth card and the banner (Reveal,
+   Final), top-a/b/c tear the top only (the podium steps). */
+.torn {
+  --torn-paper: var(--surface);
+  --torn-edge: var(--torn-a);
+  position: relative;
+  isolation: isolate;
+  color: var(--surface-text);
+  filter: drop-shadow(var(--shadow));
+}
+
+.torn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--torn-paper);
+  clip-path: var(--torn-edge);
+  pointer-events: none;
+}
+
+.torn-b {
+  --torn-edge: var(--torn-b);
+}
+
+.torn-c {
+  --torn-edge: polygon(
+    0% 4px, 5% 1px, 10% 6px, 15% 2px, 20% 7px, 25% 3px, 30% 0px, 35% 5px, 40% 2px, 45% 8px, 50% 3px,
+    55% 1px, 60% 6px, 65% 2px, 70% 7px, 75% 4px, 80% 0px, 85% 5px, 90% 2px, 95% 7px, 100% 3px,
+    100% calc(100% - 5px), 95% calc(100% - 1px), 90% calc(100% - 7px), 85% calc(100% - 2px),
+    80% calc(100% - 6px), 75% 100%, 70% calc(100% - 4px), 65% calc(100% - 8px), 60% calc(100% - 2px),
+    55% calc(100% - 5px), 50% calc(100% - 1px), 45% calc(100% - 6px), 40% calc(100% - 3px),
+    35% calc(100% - 7px), 30% calc(100% - 1px), 25% calc(100% - 4px), 20% calc(100% - 8px),
+    15% calc(100% - 2px), 10% calc(100% - 5px), 5% 100%, 0% calc(100% - 6px)
+  );
+}
+
+.torn-top-a {
+  --torn-edge: polygon(
+    0% 5px, 8% 1px, 16% 7px, 25% 2px, 33% 8px, 41% 3px, 50% 0px, 58% 6px, 66% 2px, 75% 7px, 83% 1px,
+    91% 5px, 100% 2px, 100% 100%, 0% 100%
+  );
+}
+
+.torn-top-b {
+  --torn-edge: polygon(
+    0% 3px, 8% 7px, 16% 1px, 25% 6px, 33% 2px, 41% 8px, 50% 3px, 58% 0px, 66% 6px, 75% 2px, 83% 7px,
+    91% 1px, 100% 5px, 100% 100%, 0% 100%
+  );
+}
+
+.torn-top-c {
+  --torn-edge: polygon(
+    0% 6px, 8% 2px, 16% 8px, 25% 3px, 33% 0px, 41% 5px, 50% 1px, 58% 7px, 66% 3px, 75% 0px, 83% 6px,
+    91% 2px, 100% 7px, 100% 100%, 0% 100%
+  );
+}
+
+/* lying flat on the desk: torn, but no shadow (your own lie on Guess) */
+.torn-flat {
+  filter: none;
+}
+
+/* the low-end switch: a plain cut card, the shadow kept */
+html[data-torn='false'] .torn::before {
+  clip-path: none;
+  border-radius: 2px;
+}
+
 /* ---------- prompt chips ----------
    The secret prompt in torn paper (game/PromptChips.tsx), as Prompt.dc.html
    draws it: words in Archivo Black caps on yellow, blue and pink chips,
