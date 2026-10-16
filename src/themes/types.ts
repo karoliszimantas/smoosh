@@ -75,6 +75,11 @@ export type Theme = {
   awayChip: string // a player who's stepped away
   fontLabel: string // typewriter labels, set in caps
   labelTracking: string
+  burstFigure: string // the +N on the Reveal burst's tape-yellow star, outlined in ink
+  // the hard offset behind that figure, as a text-shadow: an ink one where
+  // the figure is coloured; 'none' where it is ink itself, or the two run
+  // together into a blot
+  burstFigureShadow: string
 
   // hard offset shadows, or soft ones. card and small are plain
   // `x y blur colour` lists, valid as box-shadow and inside drop-shadow()

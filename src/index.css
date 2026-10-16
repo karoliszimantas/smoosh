@@ -2199,7 +2199,8 @@ h2 {
 }
 
 /* the points burst: a 104px tape-yellow star on a hard shadow, the figure
-   in outlined riso red, a paper note stuck on its corner */
+   outlined in ink (riso orange on Night, ink on Day), a paper note stuck
+   on its corner */
 .burst {
   position: relative;
   flex: none;
@@ -2225,10 +2226,10 @@ h2 {
   text-align: center;
   font: 400 24px/24px var(--font-display);
   font-variant-numeric: tabular-nums;
-  color: var(--primary-bg);
+  color: var(--burst-figure);
   -webkit-text-stroke: 2px var(--line);
   paint-order: stroke fill;
-  text-shadow: 2px 3px 0 var(--line);
+  text-shadow: var(--burst-figure-shadow);
   transform: rotate(-7deg);
 }
 

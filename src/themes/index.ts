@@ -104,6 +104,8 @@ export function cssVars(theme: Theme): Record<string, string> {
     '--ledge-inner': theme.shadow.ledgeInner,
     '--ledge-pressed': theme.shadow.ledgePressed,
     '--burst-shadow': theme.shadow.burst,
+    '--burst-figure': theme.burstFigure,
+    '--burst-figure-shadow': theme.burstFigureShadow,
     '--tape': theme.paper.tape ?? 'transparent',
     '--dot': theme.paper.dot ?? 'transparent',
     '--stamp': theme.paper.stamp,

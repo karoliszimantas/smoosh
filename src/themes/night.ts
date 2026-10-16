@@ -68,6 +68,10 @@ export const night: Theme = {
   awayChip: '#B3A895',
   fontLabel: FONT_LABEL,
   labelTracking: '1.5px',
+  // orange as drawn (Reveal.dc.html); on the yellow star the fill is only
+  // 2.3:1, and it's the 2px ink stroke round each figure that reads
+  burstFigure: '#FF5A1F',
+  burstFigureShadow: `2px 3px 0 ${INK}`,
 
   shadow: {
     style: 'hard',

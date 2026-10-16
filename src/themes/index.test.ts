@@ -91,6 +91,8 @@ describe('cssVars', () => {
     '--ledge-inner',
     '--ledge-pressed',
     '--burst-shadow',
+    '--burst-figure',
+    '--burst-figure-shadow',
     '--tape',
     '--dot',
     '--stamp',
