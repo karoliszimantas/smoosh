@@ -22,3 +22,36 @@
     animation-name: none;
   }
 }
+
+/* ---------- build: the picture is about to go ----------
+   From ten seconds out, a line hung from the foot of the status strip
+   counting down to the send: slim, so the prompt's words stay readable
+   under it. It never takes a touch — the player may be mid-drag — and sits
+   over the strip (40) and the asset sheet (42), under the notices (50). */
+
+.auto-send-line {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  z-index: 45;
+  min-height: 24px;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* Done counting down to the send: the count is typed where "hold" was, a
+   touch smaller and tighter, so the tag keeps its width and the prompt row
+   never reflows under a finger */
+.prompt-bar-submit.counting {
+  padding: 0 4px;
+}
+
+.prompt-bar-submit.counting .prompt-bar-hold {
+  font-size: 11px;
+  letter-spacing: 0;
+}

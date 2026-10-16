@@ -26,8 +26,20 @@ function CheckIcon({ size, strokeWidth }: { size: number; strokeWidth: number })
 // held, with a fill sweeping across to show it's happening, and lifting
 // early cancels. A plain tap says how. (`hold: false` — the sandbox's
 // Export, where nothing is at stake — is an ordinary button.) A paper tag
-// on an ink ledge, with "hold" typed under it.
-function SubmitButton({ label, onSubmit, hold }: { label: string; onSubmit: () => void; hold: boolean }) {
+// on an ink ledge, with "hold" typed under it. In the last seconds before
+// the picture goes by itself it says so ("Done · auto in 9"), the count
+// typed where "hold" was so the tag keeps its size; it still works the same.
+function SubmitButton({
+  label,
+  onSubmit,
+  hold,
+  autoIn,
+}: {
+  label: string
+  onSubmit: () => void
+  hold: boolean
+  autoIn: number | null
+}) {
   const [state, setState] = useState<'idle' | 'holding' | 'hint'>('idle')
   const timer = useRef<number | undefined>(undefined)
   const hintTimer = useRef<number | undefined>(undefined)
@@ -69,11 +81,13 @@ function SubmitButton({ label, onSubmit, hold }: { label: string; onSubmit: () =
     hintTimer.current = window.setTimeout(() => setState('idle'), 1800)
   }
 
+  const counting = autoIn !== null
+  const said = counting ? `${label} · auto in ${autoIn}` : label
   return (
     <button
-      className={`prompt-bar-submit hold${state === 'holding' ? ' holding' : ''}`}
+      className={`prompt-bar-submit hold${state === 'holding' ? ' holding' : ''}${counting ? ' counting' : ''}`}
       style={{ ['--hold-ms' as string]: `${SUBMIT_HOLD_MS}ms` }}
-      aria-label={`${label} — press and hold`}
+      aria-label={`${said} — press and hold`}
       aria-describedby={holdId}
       onPointerDown={(e) => {
         if (e.isPrimary) start()
@@ -91,9 +105,10 @@ function SubmitButton({ label, onSubmit, hold }: { label: string; onSubmit: () =
       <span className="prompt-bar-submit-label">
         <CheckIcon size={13} strokeWidth={3.5} />
         {state === 'hint' ? 'Hold' : label}
+        {counting && <span className="visually-hidden"> · </span>}
       </span>
       <span id={holdId} className="prompt-bar-hold">
-        hold
+        {counting ? `auto in ${autoIn}` : 'hold'}
       </span>
     </button>
   )
@@ -157,6 +172,7 @@ export default function PromptBar({
   submitLabel,
   onSubmit,
   holdToSubmit,
+  submitAutoIn = null,
 }: {
   text: string
   freestyle: boolean
@@ -167,6 +183,8 @@ export default function PromptBar({
   submitLabel: string
   onSubmit: () => void
   holdToSubmit: boolean
+  // seconds until the picture is sent by itself, in the last ten
+  submitAutoIn?: number | null
 }) {
   return (
     <div className="prompt-bar">
@@ -183,7 +201,7 @@ export default function PromptBar({
       ) : (
         <PromptWords text={text} usedWords={usedWords} onWord={onWord} />
       )}
-      <SubmitButton label={submitLabel} onSubmit={onSubmit} hold={holdToSubmit} />
+      <SubmitButton label={submitLabel} onSubmit={onSubmit} hold={holdToSubmit} autoIn={submitAutoIn} />
     </div>
   )
 }
