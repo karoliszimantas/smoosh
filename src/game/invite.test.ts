@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { copyText, inviteLink, parseJoinCode, shareInvite } from './invite'
+import { copyText, invitesOpen, inviteLink, parseJoinCode, shareInvite } from './invite'
+import { joinFailedText } from './roomMessages'
+import { fixtureSnapshot } from '../dev/fixtures'
 
 const site = { origin: 'https://smoosh.example', base: '/' }
 
@@ -72,5 +74,21 @@ describe('sharing an invite', () => {
     expect(await shareInvite('KRPT', nav as never, site)).toBe('failed')
     expect(await copyText('x', nav as never)).toBe(false)
     expect(await copyText('x', {} as never)).toBe(false)
+  })
+})
+
+describe('inviting, only while someone could get in', () => {
+  it('in the lobby and on the final scores, not while a game runs', () => {
+    expect(invitesOpen(fixtureSnapshot('lobby'))).toBe(true)
+    expect(invitesOpen(fixtureSnapshot('scores', undefined, { final: true }))).toBe(true)
+    for (const phase of ['build', 'lie', 'guess', 'reveal', 'missing', 'scores', 'vote', 'awards'] as const) {
+      expect(invitesOpen(fixtureSnapshot(phase))).toBe(false)
+    }
+  })
+
+  it('a latecomer is told what to do next', () => {
+    expect(joinFailedText('ABCD', 'ALREADY_STARTED')).toBe(
+      'Game ABCD has already started. Ask the host to invite you after this game.',
+    )
   })
 })

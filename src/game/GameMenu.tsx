@@ -6,17 +6,19 @@ import HowToPlay from './HowToPlay'
 
 // Tucked behind a tap, away from anything that submits — leaving is never
 // something to do by accident. Opens on the small wordmark and the room's
-// code on its Dymo strip, the invite link to copy for a latecomer, how to
-// play, then Leave. In a round it sits at the end of the status
+// code on its Dymo strip, the invite link to copy for a latecomer (only
+// while one could get in: `canInvite`), how to play, then Leave. In a round it sits at the end of the status
 // strip, small (`inStrip`); elsewhere, in the top-right corner.
 export default function GameMenu({
   roomCode,
   isLobby,
+  canInvite = false,
   onLeave,
   inStrip = false,
 }: {
   roomCode: string
   isLobby: boolean
+  canInvite?: boolean
   onLeave: () => void
   inStrip?: boolean
 }) {
@@ -55,20 +57,24 @@ export default function GameMenu({
               <DymoLabel code={roomCode} size="sm" />
             </p>
           </div>
-          <button className="btn btn-secondary btn-inset btn-block" role="menuitem" onClick={() => void copyInvite()}>
-            Copy invite link
-          </button>
-          <p className="game-menu-status" role="status">
-            {copied === 'copied' ? 'Link copied' : copied === 'failed' ? 'Couldn’t copy. Here’s the link:' : ''}
-          </p>
-          {copied === 'failed' && (
-            <input
-              className="field game-menu-link"
-              aria-label="Invite link"
-              readOnly
-              value={inviteLink(roomCode)}
-              onFocus={(e) => e.currentTarget.select()}
-            />
+          {canInvite && (
+            <>
+              <button className="btn btn-secondary btn-inset btn-block" role="menuitem" onClick={() => void copyInvite()}>
+                Copy invite link
+              </button>
+              <p className="game-menu-status" role="status">
+                {copied === 'copied' ? 'Link copied' : copied === 'failed' ? 'Couldn’t copy. Here’s the link:' : ''}
+              </p>
+              {copied === 'failed' && (
+                <input
+                  className="field game-menu-link"
+                  aria-label="Invite link"
+                  readOnly
+                  value={inviteLink(roomCode)}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              )}
+            </>
           )}
           <button
             className="btn btn-secondary btn-inset btn-block"
