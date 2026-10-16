@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import type { GameConnection, ConnectionStatus } from './useGameConnection'
 import { getActiveRoom } from './session'
 import { joinFailedText } from './roomMessages'
 import Wordmark from './Wordmark'
 import { forgetInvite, invitedRoom } from './invite'
 import HowToPlay from './HowToPlay'
+import { checkHome, cleanRoomCode, homeButtonLabel, rememberedName, rememberName, type HomeIntent } from './homeForm'
 
+// a pasted code with a space or a dash in it still fits before it's cleaned
+const ROOM_CODE_INPUT_MAX = 8
+
+// A name, a room code and one button that follows them: no code, a new
+// game; a code, that game (homeForm.ts). The name is remembered for next
+// time. What's missing is asked for calmly under its own field, and any
+// line of news goes as soon as they type again.
 export default function HomeView({
   emit,
   connectionStatus,
@@ -21,18 +29,27 @@ export default function HomeView({
   // the game they were last in, ready to join again
   lastRoomCode: string | null
 }) {
-  // opened from an invite: the code filled in, Join picked, the name to type
+  // opened from an invite: the code filled in, and the name to type — or,
+  // with a name remembered, just the button to press
   const [invited] = useState(invitedRoom)
-  const [mode, setMode] = useState<'create' | 'join'>(invited || lastRoomCode ? 'join' : 'create')
-  const [name, setName] = useState('')
-  const [roomCode, setRoomCode] = useState(invited ?? lastRoomCode ?? '')
+  const [name, setName] = useState(rememberedName)
+  const [roomCode, setRoomCode] = useState(() => cleanRoomCode(invited ?? lastRoomCode ?? ''))
   const nameRef = useRef<HTMLInputElement>(null)
+  const codeRef = useRef<HTMLInputElement>(null)
+  const goRef = useRef<HTMLButtonElement>(null)
   const [howToPlay, setHowToPlay] = useState(false)
   useEffect(() => {
-    if (invited) nameRef.current?.focus()
+    if (!invited) return
+    if (nameRef.current?.value.trim()) goRef.current?.focus()
+    else nameRef.current?.focus()
   }, [invited])
   const [error, setError] = useState<string | null>(null)
+  // what a field still needs, said under it
+  const [hint, setHint] = useState<{ field: 'name' | 'code'; text: string } | null>(null)
+  const [noticeGone, setNoticeGone] = useState(false)
   const [busy, setBusy] = useState(false)
+  // a tap made before the connection was up: done the moment it is
+  const [pending, setPending] = useState<HomeIntent | null>(null)
   // still seated in a live game, but heading for a different one
   const [stillIn, setStillIn] = useState<{ roomCode: string; proceed: () => void } | null>(null)
 
@@ -55,35 +72,64 @@ export default function HomeView({
     else forgetInvite()
   }
 
-  const handleCreate = async () => {
-    const trimmed = name.trim()
-    if (!trimmed) {
-      setError('Enter a name')
-      return
-    }
+  const run = async (intent: HomeIntent) => {
+    setPending(null)
     setBusy(true)
     setError(null)
-    const res = await emit('room:create', { name: trimmed })
+    const res =
+      intent.kind === 'create'
+        ? await emit('room:create', { name: intent.name })
+        : await emit('room:join', { roomCode: intent.code, name: intent.name })
     setBusy(false)
-    if (!res.ok) setError('Couldn’t start a game. Try again?')
-    // a game of their own instead: the invitation is spent
-    else forgetInvite()
+    if (!res.ok) {
+      setError(intent.kind === 'create' ? 'Couldn’t start a game. Try again?' : joinFailedText(intent.code, res.code))
+      return
+    }
+    rememberName(intent.name)
+    // in a game now: the invitation is spent
+    forgetInvite()
   }
 
-  const handleJoin = async () => {
-    const trimmed = name.trim()
-    const code = roomCode.trim().toUpperCase()
-    if (!trimmed || code.length !== 4) {
-      setError('Enter a name and the 4-letter room code')
+  // not connected yet: hold the tap, and say so on the button
+  const go = (intent: HomeIntent) => {
+    if (connectionStatus === 'connected') void run(intent)
+    else setPending(intent)
+  }
+
+  // connected: the held tap goes now (a tick later, out of the render)
+  const onConnected = useEffectEvent(() => {
+    if (pending) void run(pending)
+  })
+  useEffect(() => {
+    if (connectionStatus !== 'connected') return
+    const id = setTimeout(onConnected, 0)
+    return () => clearTimeout(id)
+  }, [connectionStatus])
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (busy || pending) return
+    const check = checkHome(name, roomCode)
+    if (!check.ok) {
+      setHint({ field: check.field, text: check.hint })
+      ;(check.field === 'name' ? nameRef : codeRef).current?.focus()
       return
     }
-    setBusy(true)
-    setError(null)
-    const res = await emit('room:join', { roomCode: code, name: trimmed })
-    setBusy(false)
-    if (!res.ok) setError(joinFailedText(code, res.code))
-    else forgetInvite()
+    const { intent } = check
+    guard(intent.kind === 'join' ? intent.code : null, () => go(intent))
   }
+
+  // a keystroke in either field: whatever was said was about before, and a
+  // tap still waiting for the connection is for the old words
+  const typed = () => {
+    setError(null)
+    setHint(null)
+    setNoticeGone(true)
+    setPending(null)
+  }
+
+  const nameHint = hint?.field === 'name' ? hint.text : null
+  const codeHint = hint?.field === 'code' ? hint.text : null
 
   return (
     <div className="home-view">
@@ -93,10 +139,9 @@ export default function HomeView({
         </h1>
         <p className="field-label home-tagline">Cut. Paste. Fool your friends.</p>
       </header>
-      {connectionStatus !== 'connected' && <p className="home-status">Connecting…</p>}
-      {notice && <p className="home-notice">{notice}</p>}
+      {notice && !noticeGone && <p className="home-notice">{notice}</p>}
 
-      <div className="home-form">
+      <form className="home-form" onSubmit={submit} noValidate>
         <div className="home-field">
           <label className="field-label" htmlFor="home-name">
             Your name
@@ -107,46 +152,49 @@ export default function HomeView({
             className="field"
             placeholder="Your name"
             maxLength={12}
+            autoComplete="nickname"
+            enterKeyHint="go"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            aria-describedby={nameHint ? 'home-name-hint' : undefined}
+            onChange={(e) => {
+              setName(e.target.value)
+              typed()
+            }}
           />
+          {nameHint && (
+            <p id="home-name-hint" className="home-hint" role="status">
+              {nameHint}
+            </p>
+          )}
         </div>
 
-        <div className="segmented home-tabs" role="tablist" aria-label="Create or join a game">
-          <button
-            role="tab"
-            aria-selected={mode === 'create'}
-            className={`segmented-option${mode === 'create' ? ' active' : ''}`}
-            onClick={() => setMode('create')}
-          >
-            Create
-          </button>
-          <button
-            role="tab"
-            aria-selected={mode === 'join'}
-            className={`segmented-option${mode === 'join' ? ' active' : ''}`}
-            onClick={() => setMode('join')}
-          >
-            Join
-          </button>
-        </div>
-
-        {/* always there, so the page doesn't jump between the tabs; only
-            joining reads it */}
+        {/* empty: a new game. Letters in it: that game */}
         <div className="home-field">
-          <label className="field-label home-code-label" htmlFor="home-code">
-            <span>Room code</span>
-            {mode === 'create' && <span>Join only</span>}
+          <label className="field-label" htmlFor="home-code">
+            Room code
           </label>
           <input
+            ref={codeRef}
             id="home-code"
             className="field"
-            placeholder="Room code"
-            maxLength={4}
-            disabled={mode === 'create'}
+            placeholder="To join a game"
+            maxLength={ROOM_CODE_INPUT_MAX}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            enterKeyHint="go"
             value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+            aria-describedby={codeHint ? 'home-code-hint' : undefined}
+            onChange={(e) => {
+              setRoomCode(cleanRoomCode(e.target.value))
+              typed()
+            }}
           />
+          {codeHint && (
+            <p id="home-code-hint" className="home-hint" role="status">
+              {codeHint}
+            </p>
+          )}
         </div>
 
         {error && <p className="home-error">{error}</p>}
@@ -155,10 +203,11 @@ export default function HomeView({
           <div className="home-still-in" role="alertdialog" aria-label="Still in a game">
             <p>You’re still in game {stillIn.roomCode}. Rejoin, or start fresh?</p>
             <div className="home-still-in-actions">
-              <button className="btn btn-primary" onClick={() => void rejoin()}>
+              <button type="button" className="btn btn-primary" onClick={() => void rejoin()}>
                 Rejoin
               </button>
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => {
                   const { proceed } = stillIn
@@ -171,19 +220,11 @@ export default function HomeView({
             </div>
           </div>
         ) : (
-          <button
-            className="btn btn-primary btn-block home-go"
-            disabled={busy || connectionStatus !== 'connected'}
-            onClick={() =>
-              mode === 'create'
-                ? guard(null, () => void handleCreate())
-                : guard(roomCode.trim().toUpperCase(), () => void handleJoin())
-            }
-          >
-            {mode === 'create' ? 'Create game' : 'Join game'}
+          <button ref={goRef} type="submit" className="btn btn-primary btn-block home-go" disabled={busy}>
+            {homeButtonLabel(roomCode, pending !== null)}
           </button>
         )}
-      </div>
+      </form>
 
       {/* the rules, and a utility: not the main path — and never gated on
           the connection, they have to work with the game server down */}
