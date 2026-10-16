@@ -107,6 +107,7 @@ export const night: Theme = {
   ],
   markBadge: '#FFFFFF',
   promptChips: ['#FFD84A', '#3D8BFF', '#F59AD0'],
+  wordmark: [PAPER, '#FF5A1F', '#FFD84A', '#B3A895', '#3D8BFF', '#F59AD0'],
   stickerEdge: { color: '#FFFFFF', width: 3 },
   motion: 'stepped',
 
