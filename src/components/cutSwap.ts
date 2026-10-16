@@ -14,6 +14,18 @@ export type CutUpdate =
   | { kind: 'progress'; progress: CutProgress }
   | { kind: 'done'; image: ImageVariant; trim: CutTrim }
   | { kind: 'failed' }
+  // this phone is too slow to cut: not tried, the whole picture kept
+  | { kind: 'tooSlow' }
+
+// what the player is told when a cut doesn't happen: a passing note for one
+// that went wrong, and words on the layer itself on a phone too slow to cut
+export const CUT_FAILED_TEXT = 'Couldn’t cut that one. Kept the full image.'
+export const CUT_TOO_SLOW_TEXT = 'Too slow to cut here — kept the full image'
+
+// the layers still waiting on a cut, each with the words to show on it
+export function notesOnCut(items: readonly Pick<LayerItem, 'id' | 'cutting'>[], token: string, label: string) {
+  return items.flatMap((i) => (i.cutting === token ? [{ id: i.id, label }] : []))
+}
 
 export type LandedCut = { token: string; image: ImageVariant; trim: CutTrim }
 

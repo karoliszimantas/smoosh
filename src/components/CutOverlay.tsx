@@ -22,9 +22,11 @@ const CHIP_DROP = { x: 2, y: 3, color: 'rgba(0,0,0,.55)' }
 // is running — so it follows a drag or a pinch without React, and costs
 // nothing once none is. The status is read as it's drawn (`status`), never
 // rendered. It takes no taps, and the export leaves it out. With reduced
-// motion the light stands still.
+// motion the light stands still. The same chip, without the light, also
+// carries a few words about a cut that didn't happen (`notes`).
 export default function CutOverlay({
   cutting,
+  notes = [],
   stageScale,
   status,
   paper,
@@ -33,6 +35,8 @@ export default function CutOverlay({
 }: {
   // the layers waiting on a cut, and the cut each waits on
   cutting: readonly { id: string; token: string }[]
+  // words on a layer for a moment, chip only
+  notes?: readonly { id: string; label: string }[]
   stageScale: number
   status: (token: string) => string
   paper: string
@@ -40,7 +44,7 @@ export default function CutOverlay({
   font: string
 }) {
   const layerRef = useRef<Konva.Layer>(null)
-  const active = cutting.length > 0
+  const active = cutting.length > 0 || notes.length > 0
   const still = useMemo(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false, [])
 
   useEffect(() => {
@@ -61,6 +65,7 @@ export default function CutOverlay({
         perfectDrawEnabled={false}
         sceneFunc={(ctx, shape) => {
           for (const { id, token } of cutting) drawCutting(ctx, shape, id, status(token), stageScale, still, { paper, ink, font })
+          for (const { id, label } of notes) drawNote(ctx, shape, id, label, stageScale, { paper, ink, font })
         }}
       />
     </Layer>
@@ -111,9 +116,33 @@ function drawCutting(
   }
   c.restore()
 
-  // the chip, level and screen-sized, on the layer's centre
+  drawChip(c, transform.point({ x: w / 2, y: h / 2 }), label, stageScale, look)
+}
+
+// just the chip, on a layer that's still there and showing
+function drawNote(
+  ctx: Konva.Context,
+  shape: Konva.Shape,
+  id: string,
+  label: string,
+  stageScale: number,
+  look: { paper: string; ink: string; font: string },
+) {
+  const node = shape.getStage()?.findOne<Konva.Image>(`#${id}`)
+  if (!node || !node.isVisible()) return
+  const centre = node.getTransform().point({ x: node.width() / 2, y: node.height() / 2 })
+  drawChip(ctx._context, centre, label, stageScale, look)
+}
+
+// the chip, level and screen-sized, centred on `centre`
+function drawChip(
+  c: CanvasRenderingContext2D,
+  centre: { x: number; y: number },
+  label: string,
+  stageScale: number,
+  look: { paper: string; ink: string; font: string },
+) {
   const px = 1 / Math.max(stageScale, 1e-6)
-  const centre = transform.point({ x: w / 2, y: h / 2 })
   c.save()
   c.font = `700 ${CHIP_FONT_PX * px}px ${look.font}`
   const width = c.measureText(label).width + 2 * CHIP_PAD_X * px
