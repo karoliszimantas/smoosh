@@ -8,8 +8,9 @@ import { cleanAlpha } from '../cutting/maskCleanup'
 // shadow and the per-frame cost is what it was without the edge.
 //
 // The edge is the layer's alpha mask grown by the radius:
-//   1. a working copy of the crop, at most WORK_MAX_PX on its long side,
-//      padded so there's room for the rim
+//   1. a working copy of the crop at about one pixel per canvas unit — the
+//      export's resolution, and the screen's on a phone — padded so there's
+//      room for the rim, and at most WORK_MAX_PX on its long side
 //   2. cleanAlpha, so a stray speck from an old cut doesn't grow a blob and
 //      a faint halo doesn't grow a ring
 //   3. alpha ≥ 128 is inside
@@ -22,7 +23,8 @@ import { cleanAlpha } from '../cutting/maskCleanup'
 // The maths (steps 2–5) is DOM-free and exported for the tests; only the
 // sprite builder touches canvases.
 
-// the working copy's long side: one DT over ~260k pixels
+// the working copy's long side at most: one DT over ~260k pixels. Most
+// layers are well under it — a layer 300 canvas units across works on ~300px
 const WORK_MAX_PX = 512
 // …but never so coarse that the rim is under this many working pixels
 const WORK_MIN_RADIUS = 2
@@ -156,12 +158,21 @@ function newCanvas(w: number, h: number): HTMLCanvasElement {
   return c
 }
 
-export function buildStickerSprite(source: Source, src: SourceRect, radius: number, color: string): StickerSprite | null {
+// `rimWorkPx`: how many working pixels the rim is across — the rim's width
+// in canvas units, for a pixel per unit. The working copy is scaled to
+// match; the sprite itself stays in the source's pixels.
+export function buildStickerSprite(
+  source: Source,
+  src: SourceRect,
+  radius: number,
+  color: string,
+  rimWorkPx: number,
+): StickerSprite | null {
   const started = performance.now()
   const pad = Math.ceil(radius + 2)
   const sw = Math.ceil(src.width) + 2 * pad
   const sh = Math.ceil(src.height) + 2 * pad
-  const k = Math.min(1, Math.max(WORK_MAX_PX / Math.max(sw, sh), WORK_MIN_RADIUS / radius))
+  const k = Math.min(1, WORK_MAX_PX / Math.max(sw, sh), Math.max(rimWorkPx, WORK_MIN_RADIUS) / radius)
   const gw = Math.max(1, Math.ceil(sw * k))
   const gh = Math.max(1, Math.ceil(sh * k))
 
@@ -221,10 +232,11 @@ export function stickerSprite(
   src: SourceRect,
   radius: number,
   color: string,
+  rimWorkPx: number,
   // the builder, for the tests
   build: typeof buildStickerSprite = buildStickerSprite,
 ): StickerSprite | null {
-  const key = `${src.x},${src.y},${src.width},${src.height}|${radius}|${color}`
+  const key = `${src.x},${src.y},${src.width},${src.height}|${radius}|${rimWorkPx}|${color}`
   let bySource = sprites.get(source)
   if (!bySource) {
     bySource = new Map()
@@ -237,7 +249,7 @@ export function stickerSprite(
     bySource.set(key, known)
     return known
   }
-  const sprite = build(source, src, radius, color)
+  const sprite = build(source, src, radius, color, rimWorkPx)
   bySource.set(key, sprite)
   // another layer may still be drawing an evicted sprite: let it go to the
   // collector rather than empty it
