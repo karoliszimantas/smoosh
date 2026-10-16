@@ -6,6 +6,7 @@ import Tape from '../../components/Tape'
 import { useCountdown } from '../useCountdown'
 import { rankLabel, rankName, rankWithTies } from '../ranking'
 import { formatPoints } from '../revealSummary'
+import { showsExhibition } from '../finalStandings'
 
 export default function ScoresView({ snapshot, emit }: PhaseProps) {
   const phase = snapshot.phase
@@ -25,19 +26,20 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
   }
   const ranked = [...phase.scoreboard].sort((a, b) => b.total - a.total)
 
+  // the end of the game reaches here only as Gallery's exhibition; every
+  // other ending is FinalView's podium
   const playAgain =
-    phase.isFinalRound &&
-    (snapshot.you.isHost ? (
+    snapshot.you.isHost ? (
       <button className="btn btn-primary" onClick={() => void emit('room:playAgain', {})}>
         Play again
       </button>
     ) : (
       <p className="phase-status">Waiting for the host to start a new game…</p>
-    ))
+    )
 
   // Gallery's last word is an exhibition, not a leaderboard: every round's
   // Best in Show on the wall, labelled, then a quiet prize list
-  if (phase.isFinalRound && snapshot.settings.mode === 'gallery' && phase.exhibition.length > 0) {
+  if (showsExhibition(snapshot)) {
     const top = ranked[0]?.total
     return (
       <div className="exhibition-view">
@@ -91,9 +93,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="scores-view">
-      <h1 className="round-heading scores-title">
-        {phase.isFinalRound ? 'Final scores' : `After round ${phase.round} of ${phase.totalRounds}`}
-      </h1>
+      <h1 className="round-heading scores-title">{`After round ${phase.round} of ${phase.totalRounds}`}</h1>
 
       <ol className="standings" aria-label="Standings">
         {standings.map((r, i) => {
@@ -102,7 +102,7 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
           const presence = player?.presence
           const you = entry.playerId === youId
           // this round's points; gallery and chain don't say where points came from
-          const delta = !phase.isFinalRound && entry.round ? breakdownTotal(entry.round) : null
+          const delta = entry.round ? breakdownTotal(entry.round) : null
           return (
             <li key={entry.playerId} className={`standing${you ? ' you' : ''}${presence === 'away' || presence === 'left' ? ' gone' : ''}`}>
               <span className="standing-rank">
@@ -131,13 +131,9 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
         })}
       </ol>
 
-      {phase.isFinalRound ? (
-        playAgain
-      ) : (
-        <p className="scores-next">
-          Next: Round {phase.round + 1} in <strong>{secondsLeft}</strong>…
-        </p>
-      )}
+      <p className="scores-next">
+        Next: Round {phase.round + 1} in <strong>{secondsLeft}</strong>…
+      </p>
     </div>
   )
 }
