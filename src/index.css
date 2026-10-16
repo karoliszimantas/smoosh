@@ -2000,6 +2000,22 @@ h2 {
   text-align: left;
 }
 
+/* how the last picture went, in one quiet line over the next one */
+.picture-line-last {
+  flex: none;
+  margin: 0;
+  text-align: center;
+  font: 400 14px/20px var(--font-ui);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.picture-line-label {
+  font: 700 12px/14px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
 /* the deadline's rule, said quietly under a draft */
 .lie-autosend {
   margin: 0;
@@ -2588,6 +2604,35 @@ h2 {
   text-align: right;
   font: 400 18px/22px var(--font-display);
   font-variant-numeric: tabular-nums;
+}
+
+/* the round's pictures, a line each, under the standings */
+.round-lines {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.round-lines h2 {
+  margin: 0;
+}
+
+.round-lines ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 15px/21px var(--font-ui);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.round-line-whose {
+  font-weight: 700;
+  color: var(--text);
 }
 
 .scores-next {

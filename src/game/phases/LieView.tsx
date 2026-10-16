@@ -8,6 +8,7 @@ import Tape from '../../components/Tape'
 import { lieCountNote, oneLine, showLieCount } from '../lieText'
 import { scheduleAutoLock } from '../autoLock'
 import { lieAutoSendArmed, lieDraftKey, loadLieDraft, pruneLieDrafts, saveLieDraft } from '../lieDraft'
+import { previousPictureLine } from '../pictureLines'
 
 // Write a lie (Lie.dc.html): the picture taped to the desk, a hint at what
 // real prompts look like, and a paper box for a fake one. Then your lie on
@@ -21,6 +22,10 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
   const draftKey = lying ? lieDraftKey(snapshot.roomCode, phase.round, phase.pictureIndex) : null
 
   const [text, setText] = useState(() => (draftKey ? loadLieDraft(draftKey) : ''))
+  // how the last picture went, still worth a smile
+  const [lastLine] = useState(() =>
+    lying ? previousPictureLine(snapshot.roomCode, phase.round, phase.pictureIndex) : null,
+  )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // in flight: a tap on Send and the time-out landing together send once
@@ -73,6 +78,11 @@ export default function LieView({ snapshot, emit }: PhaseProps) {
 
   return (
     <div className="lie-view">
+      {lastLine && (
+        <p className="picture-line-last">
+          <span className="picture-line-label">Last picture</span> {lastLine.line}
+        </p>
+      )}
       <div className="picture-frame">
         <Picture imagePath={phase.imagePath} />
         <Tape />

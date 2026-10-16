@@ -7,6 +7,7 @@ import { useCountdown } from '../useCountdown'
 import { rankLabel, rankName, rankWithTies } from '../ranking'
 import { formatPoints, signedPoints } from '../points'
 import { showsExhibition } from '../finalStandings'
+import { roundPictureLines } from '../pictureLines'
 
 export default function ScoresView({ snapshot, emit }: PhaseProps) {
   const phase = snapshot.phase
@@ -90,6 +91,8 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
   const youId = snapshot.you.playerId
   const standings = rankWithTies(phase.scoreboard, (e) => e.total)
   const secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000))
+  // how each picture went this round, as far as this phone saw (Guess only)
+  const lines = snapshot.settings.mode === 'guess' ? roundPictureLines(snapshot.roomCode, phase.round) : []
 
   return (
     <div className="scores-view">
@@ -131,6 +134,22 @@ export default function ScoresView({ snapshot, emit }: PhaseProps) {
           )
         })}
       </ol>
+
+      {lines.length > 0 && (
+        <section className="round-lines" aria-labelledby="round-lines-title">
+          <h2 id="round-lines-title" className="field-label">
+            This round
+          </h2>
+          <ul>
+            {lines.map((l) => (
+              <li key={l.pictureIndex}>
+                <span className="round-line-whose">{l.authorId === youId ? 'Your picture' : `${l.authorName}’s picture`}</span>{' '}
+                <span className="round-line-text">{l.line}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <p className="scores-next">
         Next: Round {phase.round + 1} in <strong>{secondsLeft}</strong>…
