@@ -3,6 +3,7 @@ import type { ClientToServerEvents, RoomSnapshot } from '@smoosh/protocol'
 import { useGameServices, type AckArg, type EmitPayload, type GameTransport } from './services'
 import { clearActiveRoom, getActiveRoom, getSessionId, setActiveRoom, type ActiveRoom } from './session'
 import { pruneGameCanvases } from './canvasStorage'
+import { pruneLieDrafts } from './lieDraft'
 import { noteServerTime } from './serverClock'
 import { couldNotRejoinText, leftText, rejoinFailedText, roomEventText } from './roomMessages'
 
@@ -90,6 +91,7 @@ export function useGameConnection(): GameConnection {
   const goHome = useCallback((notice: string | null, roomCode: string | null) => {
     clearActiveRoom()
     pruneGameCanvases(null)
+    pruneLieDrafts(null)
     youRef.current = null
     setSnapshot(null)
     setHomeNotice(notice)
