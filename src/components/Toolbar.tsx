@@ -287,7 +287,7 @@ export default function Toolbar({
 
   return (
     <div className="toolbar-wrap">
-      <div className="toolbar">{buttons}</div>
+      <div className={`toolbar toolbar-${opacityOpen ? 'opacity' : mode}`}>{buttons}</div>
     </div>
   )
 }
