@@ -158,6 +158,7 @@ export function fixtureSnapshot(
         pictureIndex: picture.pictureIndex,
         pictureCount: picture.pictureCount,
         authorId,
+        blank: false,
         deadline: now + 4_000,
       }
       break

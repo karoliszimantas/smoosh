@@ -1,7 +1,7 @@
 import {
   AWARDS_HOLD_MS,
   BUILD_GRACE_SEC,
-  REVEAL_PHASE_SEC,
+  revealPhaseSec,
   MISSING_PHASE_SEC,
   SCORES_PHASE_SEC,
   EMPTY_BREAKDOWN,
@@ -299,6 +299,7 @@ function startMissing(room: Room, deps: PhaseMachineDeps, authorId: string): voi
     pictureIndex: room.pictureIndex,
     pictureCount: room.pictureQueue.length,
     authorId,
+    blank: false,
     deadline: deadlineIn(MISSING_PHASE_SEC),
   }
   schedulePhaseEnd(room, MISSING_PHASE_SEC * 1000, () => nextPicture(room, deps))
@@ -383,6 +384,7 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
     room.gamePoints.set(delta.playerId, addToBreakdown(room.gamePoints.get(delta.playerId) ?? EMPTY_BREAKDOWN, delta))
   }
 
+  const revealSec = revealPhaseSec(lies.length)
   const pickedByOption = new Map<string, string[]>()
   for (const guess of guesses) {
     const list = pickedByOption.get(guess.optionId) ?? []
@@ -407,10 +409,10 @@ function startReveal(room: Room, deps: PhaseMachineDeps): void {
     })),
     realOptionId: truthOption.id,
     pointsThisPicture: [...totals.entries()].map(([playerId, points]) => ({ playerId, points })),
-    deadline: deadlineIn(REVEAL_PHASE_SEC),
+    deadline: deadlineIn(revealSec),
   }
   room.pendingActors = new Set()
-  schedulePhaseEnd(room, REVEAL_PHASE_SEC * 1000, () => nextPicture(room, deps))
+  schedulePhaseEnd(room, revealSec * 1000, () => nextPicture(room, deps))
   deps.onSnapshot(room)
 }
 

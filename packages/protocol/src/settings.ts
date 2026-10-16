@@ -12,7 +12,12 @@ export const ANSWER_TIME_OPTIONS = [120, 180, 300] as const
 // a picture auto-submitted at the deadline still makes it in (the phone has
 // to export and upload it after its own timer runs out)
 export const BUILD_GRACE_SEC = 5
-export const REVEAL_PHASE_SEC = 8
+// a reveal stays up long enough to read: a base, and more for each fake on it
+export const REVEAL_BASE_SEC = 7
+export const REVEAL_PER_LIE_SEC = 1.8
+export function revealPhaseSec(lieCount: number): number {
+  return REVEAL_BASE_SEC + REVEAL_PER_LIE_SEC * Math.max(0, lieCount)
+}
 // how long a missing picture's placeholder is shown
 export const MISSING_PHASE_SEC = 4
 export const SCORES_PHASE_SEC = 6
@@ -127,7 +132,7 @@ export function estimateDurationSec(settings: GameSettings, playerCount: number)
     round = build + answer(TYPICAL_VOTE_SEC) + AWARDS_MAX_SEC
   } else {
     // one picture per player, each told in turn
-    const picture = answer(TYPICAL_LIE_SEC) + answer(TYPICAL_GUESS_SEC) + REVEAL_PHASE_SEC
+    const picture = answer(TYPICAL_LIE_SEC) + answer(TYPICAL_GUESS_SEC) + revealPhaseSec(playerCount - 1)
     round = TYPICAL_PROMPT_READ_SEC + build + playerCount * picture
   }
   return settings.rounds * round + (settings.rounds - 1) * SCORES_PHASE_SEC

@@ -16,6 +16,22 @@ export function normalizePromptText(text: string): string {
   return text.trim().replace(/\s+/g, ' ')
 }
 
+// One form for every option a player picks between, so none stands out by
+// its shape: trimmed, inner whitespace collapsed, no full stop at the end,
+// the first letter a capital and the rest as written. Shown for the real
+// prompt and the fakes alike — the real one is already in sentence case
+// (promptSentenceCase), so only the content can tell them apart.
+export function optionText(text: string): string {
+  const t = normalizePromptText(text).replace(/[.\s]+$/, '')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+// a prompt as players are dealt it: sentence case, whatever case it was
+// stored in ("Pug in Sunglasses" → "Pug in sunglasses")
+export function promptSentenceCase(text: string): string {
+  return optionText(normalizePromptText(text).toLowerCase())
+}
+
 // what duplicates are compared on: normalised, any case
 export function promptKey(text: string): string {
   return normalizePromptText(text).toLowerCase()

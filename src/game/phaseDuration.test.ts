@@ -3,7 +3,7 @@ import {
   DEFAULT_SETTINGS,
   FIRST_PASS_BONUS_SEC,
   MISSING_PHASE_SEC,
-  REVEAL_PHASE_SEC,
+  revealPhaseSec,
   SCORES_PHASE_SEC,
   type GameSettings,
   type PhaseState,
@@ -30,11 +30,18 @@ describe('phaseDurationSec', () => {
     expect(phaseDurationSec({ phase: 'chainVote', round: 1, totalRounds: 3, chains: [], deadline: 0 }, settings)).toBe(180)
   })
 
-  it('is the fixed pause for reveal, a missing picture and the scores', () => {
-    const reveal: PhaseState = { ...picture, phase: 'reveal', options: [], realOptionId: 'r', pointsThisPicture: [] }
-    expect(phaseDurationSec(reveal, settings)).toBe(REVEAL_PHASE_SEC)
+  it('times a reveal by its fakes', () => {
+    const option = (id: string, isTruth: boolean) => ({ id, text: id, isTruth, authorId: isTruth ? null : id, pickedBy: [] })
+    const options = [option('r', true), option('a', false), option('b', false), option('c', false)]
+    const reveal: PhaseState = { ...picture, phase: 'reveal', options, realOptionId: 'r', pointsThisPicture: [] }
+    expect(phaseDurationSec(reveal, settings)).toBe(revealPhaseSec(3))
+    expect(revealPhaseSec(3)).toBeCloseTo(12.4)
+    expect(phaseDurationSec({ ...reveal, options: options.slice(0, 1) }, settings)).toBe(7)
+  })
+
+  it('is the fixed pause for a missing picture and the scores', () => {
     const missing = { round: 1, totalRounds: 3, pictureIndex: 0, pictureCount: 3, authorId: 'a', deadline: 0 }
-    expect(phaseDurationSec({ ...missing, phase: 'missing' }, settings)).toBe(MISSING_PHASE_SEC)
+    expect(phaseDurationSec({ ...missing, phase: 'missing', blank: false }, settings)).toBe(MISSING_PHASE_SEC)
     const scores = { phase: 'scores' as const, round: 1, totalRounds: 3, isFinalRound: false, scoreboard: [], exhibition: [] }
     expect(phaseDurationSec({ ...scores, deadline: 6000 }, settings)).toBe(SCORES_PHASE_SEC)
   })
