@@ -681,6 +681,7 @@ h2,
   /* 56px, or as wide as its label needs */
   flex: 1 0 auto;
   min-width: 56px;
+  max-width: 72px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -721,6 +722,7 @@ h2,
 .toolbar-btn-primary {
   flex: 1.6 0 auto;
   min-width: 80px;
+  max-width: none;
   padding: 0 8px;
   flex-direction: row;
   gap: 6px;
