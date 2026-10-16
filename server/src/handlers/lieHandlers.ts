@@ -24,12 +24,9 @@ export function registerLieHandlers(_io: TypedServer, socket: TypedSocket, deps:
 
       const truth = room.promptByPlayer.get(room.phase.authorId) ?? ''
       const rejection = validateLie(text, truth, existingLieTexts(room, pictureIndex))
-      if (rejection === 'matches_truth') {
-        throw new GameError('LIE_MATCHES_TRUTH', 'that matches the real prompt — try again')
-      }
-      if (rejection === 'duplicate_lie') {
-        throw new GameError('LIE_DUPLICATE', 'someone already submitted that — try again')
-      }
+      // the same reply whether it matched the truth or another lie, so a
+      // refusal never tells the player they guessed the real prompt
+      if (rejection !== null) throw new GameError('LIE_REJECTED', 'Try a different fake')
 
       recordLie(room, pictureIndex, seat.playerId, text)
       touchRoom(room)

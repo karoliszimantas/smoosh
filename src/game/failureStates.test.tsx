@@ -265,7 +265,7 @@ describe('uploading a picture', () => {
 
 describe('a tap that did not count', () => {
   it('is told in fixed words, never the server text', () => {
-    expect(actionErrorText('LIE_DUPLICATE')).toBe('Someone already wrote that — try something else.')
+    expect(actionErrorText('LIE_REJECTED')).toBe('Try a different fake.')
     expect(actionErrorText('INVALID_PAYLOAD')).toBe('That didn’t work. Try again.')
   })
 })

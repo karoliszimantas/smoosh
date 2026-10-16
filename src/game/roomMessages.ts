@@ -86,10 +86,8 @@ export function leaveDialogText(opts: { roomCode: string; isLobby: boolean; isHo
 // count — fixed words, never the server's own text
 export function actionErrorText(code: ErrorCode): string {
   switch (code) {
-    case 'LIE_MATCHES_TRUTH':
-      return 'That’s the real prompt — write something else.'
-    case 'LIE_DUPLICATE':
-      return 'Someone already wrote that — try something else.'
+    case 'LIE_REJECTED':
+      return 'Try a different fake.'
     case 'CANNOT_PICK_OWN':
       return 'That one’s yours — pick another.'
     case 'ALREADY_ACTED':
