@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState, memo } from 'react'
 import { Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
-import { CANVAS_SIZE, FULL_CROP, MIN_SCALE, baseSize, type LayerItem } from './layerItem'
+import { FULL_CROP, MIN_SCALE, baseSize, type CropRect, type LayerItem } from './layerItem'
 import { erasedFor } from './erase'
 import { loadImage } from './imageCache'
-import { stickerRadius, stickerSprite } from './stickerEdge'
+import { stickerSprite, type StickerOptions } from './stickerEdge'
+import { CANVAS_UNITS_PER_THEME_PX, liveShadow, stickerOptions } from './layerLook'
+import { isExporting } from './canvasExport'
 import { useTheme } from '../themes/useTheme'
+import { EXPORT_LOOK, pictureLook, type PictureLook } from '../themes/exportLook'
 
 // a cut-out is mostly transparent, but Konva hit-tests its whole rectangle —
 // so a rotated layer's invisible corners would grab touches meant for the
 // layer beside it. The hit mask paints only the opaque pixels, in the
 // shape's hit colour, so taps on the transparent parts fall through.
 const HIT_MASK_MAX_PX = 256
-// theme sizes for canvas drawing are screen pixels on a 400px-wide frame;
-// this many canvas units make one of them
-const CANVAS_UNITS_PER_THEME_PX = CANVAS_SIZE / 400
 const HIT_ALPHA_THRESHOLD = 32
 
 // Rectangular, or cut out: does the image have any real transparency? A
@@ -49,6 +49,14 @@ function isOpaque(image: HTMLImageElement | HTMLCanvasElement): boolean {
   canvas.height = 0
   opaqueCache.set(image, opaque)
   return opaque
+}
+
+// a layer's sticker, from the cache: its erased image, inside its crop
+function spriteFor(erased: HTMLImageElement | HTMLCanvasElement | null, crop: CropRect, options: StickerOptions | null) {
+  if (!erased || !options) return null
+  const w = erased.width
+  const h = erased.height
+  return stickerSprite(erased, { x: crop.x * w, y: crop.y * h, width: crop.width * w, height: crop.height * h }, options)
 }
 
 function buildHitMask(image: HTMLImageElement | HTMLCanvasElement, colorKey: string): HTMLCanvasElement | null {
@@ -176,11 +184,6 @@ const DraggableImage = memo(function DraggableImage({
   const offsetX = width / 2
   const offsetY = height / 2
 
-  // Konva scales shadow sizes by the node's absolute scale; divide out the
-  // layer's own scale so the shadow is the theme's size whatever the layer's,
-  // and undo a mirror's sign so the shadow still falls downward
-  const shadowScale = CANVAS_UNITS_PER_THEME_PX / Math.max(drawn.scale, MIN_SCALE)
-
   const hitFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
     const source = erased
     if (!source) return
@@ -216,75 +219,78 @@ const DraggableImage = memo(function DraggableImage({
     native.imageSmoothingEnabled = smoothing
   }
 
-  // the theme's shadow — unless this is a cut-out and the theme's shadow is a
-  // glow that would halo its edge
-  const shadowed = useMemo(() => (erased ? theme.cutoutShadow || isOpaque(erased) : false), [erased, theme.cutoutShadow])
-
   // A cut-out (anything with real transparency — never a whole photo) is a
   // die-cut sticker: a rim of the theme's paper round what's left of it
-  // after erasing, inside its crop. The rim is the same width on screen at
-  // any scale, like the shadow, so it's rebuilt when the scale is committed
-  // (a gesture in progress just scales it with the layer).
-  const edge = theme.stickerEdge
-  const radius =
-    edge && erased && !isOpaque(erased)
-      ? stickerRadius(CANVAS_UNITS_PER_THEME_PX, edge.width, u, Math.max(drawn.scale, MIN_SCALE), Math.max(src.width, src.height))
-      : 0
-  const edgeColor = edge?.color
-  const edgeWidth = edge?.width ?? 0
-  // The lift shadow goes under the rim. Konva would blur it afresh for
-  // every layer on every frame — the costliest part of a frame — so the
-  // sprite bakes it in once instead, from the same silhouette and in the
-  // theme's terms: colour, and blur in canvas units
-  const shadowColor = shadowed ? theme.layerShadowColor : null
-  const shadowBlur = theme.layerShadowBlur * CANVAS_UNITS_PER_THEME_PX
-  const sprite = useMemo(() => {
-    if (!erased || !edgeColor || radius <= 0) return null
-    const w = erased.width
-    const h = erased.height
-    const rect = { x: crop.x * w, y: crop.y * h, width: crop.width * w, height: crop.height * h }
-    return stickerSprite(erased, rect, {
-      radius,
-      color: edgeColor,
-      // what the rounded radius stands for: the rim's width in units over it
-      unitsPerSourcePx: (edgeWidth * CANVAS_UNITS_PER_THEME_PX) / radius,
-      shadow: shadowColor ? { color: shadowColor, blur: shadowBlur } : null,
-    })
-  }, [erased, crop, radius, edgeColor, edgeWidth, shadowColor, shadowBlur])
+  // after erasing, inside its crop, with its lift shadow baked in under it —
+  // Konva would blur that afresh for every layer on every frame, the
+  // costliest part of a frame. The rim is the same width on screen at any
+  // scale, like the shadow, so it's rebuilt when the scale is committed (a
+  // gesture in progress just scales it with the layer).
+  const opaque = erased ? isOpaque(erased) : true
+  const scale = Math.max(drawn.scale, MIN_SCALE)
+  const cropLongSide = Math.max(src.width, src.height)
+  const screenSticker = useMemo(
+    () => stickerOptions(theme, { unitsPerSourcePx: u, scale, cropLongSide, opaque }),
+    [theme, u, scale, cropLongSide, opaque],
+  )
+  // the same layer as it's sent: in the export's look, whatever the theme
+  const exportSticker = useMemo(
+    () => stickerOptions(EXPORT_LOOK, { unitsPerSourcePx: u, scale, cropLongSide, opaque }),
+    [u, scale, cropLongSide, opaque],
+  )
+  // on screen: built when the layer changes. The export's is built (or found
+  // in the cache: it's the same sprite when the looks agree) as it's drawn
+  const sprite = useMemo(() => spriteFor(erased, crop, screenSticker), [erased, crop, screenSticker])
 
   // the baked shadow's drop, in canvas units: straight down the frame
-  const dropX = theme.layerShadowOffset.x * CANVAS_UNITS_PER_THEME_PX
-  const dropY = theme.layerShadowOffset.y * CANVAS_UNITS_PER_THEME_PX
+  const dropOf = (look: PictureLook) => ({
+    x: look.layerShadowOffset.x * CANVAS_UNITS_PER_THEME_PX,
+    y: look.layerShadowOffset.y * CANVAS_UNITS_PER_THEME_PX,
+  })
+  const drop = dropOf(theme)
   // in node units, how far the sprite, its shadow and the shadow's drop reach
   // past the node's box on any side — freezeOthers reads it to size a
   // snapshot that holds them all
-  const spritePad = sprite
-    ? sprite.reach * u + (sprite.shadow ? Math.hypot(dropX, dropY) / Math.max(drawn.scale, MIN_SCALE) : 0)
-    : 0
+  const spritePad = sprite ? sprite.reach * u + (sprite.shadow ? Math.hypot(drop.x, drop.y) / scale : 0) : 0
 
   // The sprite (the rim, with the image on top) drawn spilling past the
   // node's box: width, height, offsets, hitFunc and the transform maths all
   // stay the image's own, so the selection, hit tests and gestures don't
   // know the rim is there. The shadow first, its drop taken back through the
   // node's own turn, scale and mirror — read live, so it still falls
-  // straight down mid-gesture.
-  const sceneFunc = sprite
-    ? (ctx: Konva.Context, shape: Konva.Shape) => {
-        const p = sprite.pad
-        const shadow = sprite.shadow
-        if (shadow) {
-          const t = (shape.rotation() * Math.PI) / 180
-          const cos = Math.cos(t)
-          const sin = Math.sin(t)
-          const ox = (dropX * cos + dropY * sin) / shape.scaleX()
-          const oy = (dropY * cos - dropX * sin) / shape.scaleY()
-          ctx.drawImage(shadow.canvas, (shadow.x - p) * u + ox, (shadow.y - p) * u + oy, shadow.width * u, shadow.height * u)
+  // straight down mid-gesture. During the export, the export's sprite.
+  const sceneFunc =
+    sprite || exportSticker
+      ? (ctx: Konva.Context, shape: Konva.Shape) => {
+          const exporting = isExporting(shape)
+          const drawing = exporting ? spriteFor(erased, crop, exportSticker) : sprite
+          if (!drawing) {
+            // no sticker in this look: the image as Konva would draw it
+            if (erased) ctx.drawImage(erased, src.x, src.y, src.width, src.height, 0, 0, width, height)
+            return
+          }
+          const p = drawing.pad
+          const shadow = drawing.shadow
+          if (shadow) {
+            const { x: dropX, y: dropY } = dropOf(pictureLook(theme, exporting))
+            const t = (shape.rotation() * Math.PI) / 180
+            const cos = Math.cos(t)
+            const sin = Math.sin(t)
+            const ox = (dropX * cos + dropY * sin) / shape.scaleX()
+            const oy = (dropY * cos - dropX * sin) / shape.scaleY()
+            ctx.drawImage(shadow.canvas, (shadow.x - p) * u + ox, (shadow.y - p) * u + oy, shadow.width * u, shadow.height * u)
+          }
+          ctx.drawImage(drawing.canvas, -p * u, -p * u, drawing.canvas.width * u, drawing.canvas.height * u)
         }
-        ctx.drawImage(sprite.canvas, -p * u, -p * u, sprite.canvas.width * u, sprite.canvas.height * u)
-      }
-    : undefined
-  // with the shadow baked in, Konva's own stays off
-  const liveShadow = shadowed && !sprite?.shadow
+      : undefined
+  // Konva's own shadow, where no sticker baked one in: on screen, and the
+  // attrs the export swaps in for its capture (applyExportLook)
+  const mirrored = drawn.mirrored
+  const shadowAttrs = liveShadow(theme, { opaque, scale, mirrored, stickerShadow: !!sprite?.shadow })
+  const exportShadowAttrs = useMemo(
+    () => liveShadow(EXPORT_LOOK, { opaque, scale, mirrored, stickerShadow: !!exportSticker?.shadow }),
+    [opaque, scale, mirrored, exportSticker],
+  )
 
   if (!img || !erased) return null
 
@@ -306,11 +312,8 @@ const DraggableImage = memo(function DraggableImage({
       // non-destructive and can always be widened again. Always a full
       // object — Konva's setter can't take undefined when a crop is reset
       crop={src}
-      shadowColor={liveShadow ? theme.layerShadowColor : undefined}
-      shadowEnabled={liveShadow}
-      shadowBlur={theme.layerShadowBlur * shadowScale}
-      shadowOffsetX={theme.layerShadowOffset.x * shadowScale * (drawn.mirrored ? -1 : 1)}
-      shadowOffsetY={theme.layerShadowOffset.y * shadowScale}
+      {...shadowAttrs}
+      exportAttrs={exportShadowAttrs}
       visible={!hidden}
       opacity={item.opacity * (dimmed ? 0.4 : 1)}
       // the one place a lock acts: a node that doesn't listen isn't in Konva's

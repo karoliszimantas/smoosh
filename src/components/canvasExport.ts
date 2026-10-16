@@ -15,3 +15,40 @@ export function hideForExport(stage: { find(selector: string): Hideable[] }): ()
     for (const node of shown) node.visible(true)
   }
 }
+
+// The picture is sent in the export's look (EXPORT_LOOK), not the
+// builder's theme. For the length of the capture the stage carries this
+// flag — a cut-out's sceneFunc reads it and draws its export sticker — and
+// every node with export attrs (EXPORT_ATTRS: the paper's fill, a layer's
+// live shadow) takes them on. All synchronous, inside the capture: no
+// setState to wait for.
+const EXPORTING = 'smooshExporting'
+export const EXPORT_ATTRS = 'exportAttrs'
+
+type Attributed = {
+  getAttr(name: string): unknown
+  setAttr(name: string, value: unknown): unknown
+  setAttrs(attrs: Record<string, unknown>): unknown
+}
+type LookStage = Attributed & { find(selector: (node: Attributed) => boolean): Attributed[] }
+
+export function isExporting(shape: { getStage(): { getAttr(name: string): unknown } | null }): boolean {
+  return shape.getStage()?.getAttr(EXPORTING) === true
+}
+
+// Puts the stage in the export's look, and returns how to put it back.
+export function applyExportLook(stage: LookStage): () => void {
+  const restores = stage
+    .find((node) => node.getAttr(EXPORT_ATTRS) !== undefined)
+    .map((node) => {
+      const look = node.getAttr(EXPORT_ATTRS) as Record<string, unknown>
+      const before = Object.fromEntries(Object.keys(look).map((key) => [key, node.getAttr(key)]))
+      node.setAttrs(look)
+      return () => node.setAttrs(before)
+    })
+  stage.setAttr(EXPORTING, true)
+  return () => {
+    stage.setAttr(EXPORTING, false)
+    for (const restore of restores) restore()
+  }
+}
