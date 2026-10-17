@@ -8,8 +8,11 @@
     "build": "tsc -b && vite build",
     "build:devtools": "tsc -b && vite build --mode devtools",
     "test": "vitest run",
+    "test:all": "vitest run && pnpm -C server test",
+    "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:client": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
@@ -33,6 +36,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.67.0",
     "vite": "^8.2.2",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "wrangler": "^4.151.1"
   }
 }
