@@ -1,0 +1,16 @@
+# Caddy site for the smoosh server — automatic HTTPS via Let's Encrypt.
+# Caddy on this box already serves trendguessr, so this block is APPENDED to
+# the existing /etc/caddy/Caddyfile, next to that site. Don't replace the file.
+# Replace the hostname with the subdomain pointed at the server's IP.
+#
+#   { echo; sed 's/smoosh.example.com/smoosh.<domain>/' deploy/Caddyfile; } \
+#     | sudo tee -a /etc/caddy/Caddyfile
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# socket.io needs nothing special: Caddy v2's reverse_proxy passes the
+# WebSocket upgrade through and holds long-polling requests open on its own.
+
+smoosh.example.com {
+    reverse_proxy 127.0.0.1:3001
+}
