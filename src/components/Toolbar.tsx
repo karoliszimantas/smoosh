@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import { MIN_OPACITY } from './layerItem'
 import type { BrushSize } from './erase'
+import { layerMoreTools } from './moreTools'
 
 // 24×24 stroke icons — inline so they render the same on every phone,
 // unlike symbol glyphs, whose look depends on the system font
@@ -10,6 +11,8 @@ const ICONS = {
   front: 'M12 19V5M5 12l7-7 7 7',
   back: 'M12 5v14M5 12l7 7 7-7',
   mirror: 'M12 3v18M9 7L3 17h6zM15 7l6 10h-6z',
+  // a cut-out inside its rim
+  edge: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z',
   crop: 'M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2',
   erase: 'M8 20h12M4.5 15.5l9-9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8z M9 11l5 5',
   delete: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
@@ -204,10 +207,10 @@ function OpacitySlider({
 
 // The selected layer's controls, in one fixed-height row on a paper strip —
 // Add first, then Delete and Lock, then More: a card above the strip with
-// the rarer tools (Copy, Mirror, Crop, Erase, Fade), so the row fits a 375px
-// phone without scrolling. Never a second row, which would come out of the
-// canvas. Picture actions (undo, submit) live in the top
-// row (PromptBar), not here. Crop, erase and opacity take the row over while
+// the rarer tools (Copy, Mirror, Edge, Crop, Erase, Fade), so the row fits a
+// 375px phone without scrolling. Never a second row, which would come out of
+// the canvas. Picture actions (undo, submit) live in the top row (PromptBar),
+// not here. Crop, erase and opacity take the row over while
 // they're in use, each with its own way back.
 export default function Toolbar({
   mode,
@@ -218,6 +221,8 @@ export default function Toolbar({
   mirrored,
   opacity,
   onMirror,
+  edged,
+  onEdge,
   onCrop,
   onErase,
   onDelete,
@@ -248,6 +253,9 @@ export default function Toolbar({
   mirrored: boolean
   opacity: number
   onMirror: () => void
+  // the selected layer's sticker edge is on; the switch only for a cut-out
+  edged: boolean
+  onEdge?: () => void
   onCrop: () => void
   onErase: () => void
   onDelete: () => void
@@ -396,13 +404,18 @@ export default function Toolbar({
         <MoreMenu
           menuRef={moreMenuRef}
           onClose={closeMore}
-          tools={[
-            { icon: 'duplicate', label: 'Copy', onPick: onDuplicate, disabled: full, ariaLabel: full ? limitLabel : 'Duplicate this layer' },
-            { icon: 'mirror', label: 'Mirror', onPick: onMirror, checked: mirrored, ariaLabel: 'Mirror left to right' },
-            { icon: 'crop', label: 'Crop', onPick: onCrop },
-            { icon: 'erase', label: 'Erase', onPick: onErase },
-            { icon: 'opacity', label: 'Fade', onPick: () => setOpacityFor(selectedId), ariaLabel: 'Opacity' },
-          ]}
+          tools={layerMoreTools({
+            full,
+            limitLabel,
+            mirrored,
+            edged,
+            onDuplicate,
+            onMirror,
+            onEdge,
+            onCrop,
+            onErase,
+            onFade: () => setOpacityFor(selectedId),
+          })}
         />
       )
     }

@@ -34,6 +34,11 @@ describe('a cut-out’s sticker on a Day phone', () => {
   it('is none on a whole photo', () => {
     expect(stickerOptions(EXPORT_LOOK, { ...cutout, opaque: true })).toBeNull()
   })
+
+  it('is none, on screen and in the picture that’s sent, with its edge off', () => {
+    expect(stickerOptions(day, { ...cutout, noEdge: true })).toBeNull()
+    expect(stickerOptions(EXPORT_LOOK, { ...cutout, noEdge: true })).toBeNull()
+  })
 })
 
 describe('Konva’s own shadow', () => {
@@ -45,6 +50,10 @@ describe('Konva’s own shadow', () => {
       shadowOffsetX: -0,
       shadowOffsetY: (EXPORT_LOOK.layerShadowOffset.y * 2.5) / 2,
     })
+  })
+
+  it('falls on a cut-out with its edge off, which has no sticker to bake one', () => {
+    expect(liveShadow(EXPORT_LOOK, { opaque: false, scale: 1, mirrored: false, stickerShadow: false }).shadowEnabled).toBe(true)
   })
 
   it('stays off where the sticker baked one in', () => {

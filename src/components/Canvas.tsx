@@ -771,6 +771,30 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, mirrored: !i.mirrored } : i)))
   }, [selectedId, setItems])
 
+  // the sticker edge, on or off for one cut-out; back on, the flag goes
+  const toggleEdgeSelected = useCallback(() => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== selectedId) return i
+        const { noEdge, ...rest } = i
+        return noEdge ? rest : { ...rest, noEdge: true }
+      }),
+    )
+  }, [selectedId, setItems])
+
+  // the layers that turned out to be cut-outs once their images were in (as
+  // DraggableImage reports): only they have an edge to switch
+  const [cutouts, setCutouts] = useState<ReadonlySet<string>>(() => new Set())
+  const noteCutout = useCallback((id: string, cutout: boolean) => {
+    setCutouts((prev) => {
+      if (prev.has(id) === cutout) return prev
+      const next = new Set(prev)
+      if (cutout) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
   // Opacity: the slider previews on the Konva node directly and commits to
   // state once, on release — the same split as drag and pinch
   const previewOpacity = useCallback(
@@ -1076,6 +1100,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
                 dimmed={depth !== null && item.id !== depth.id}
                 isGestureOwner={isGestureOwner}
                 onChange={updateItem}
+                onCutout={noteCutout}
               />
             ))}
             {selectedItem && (
@@ -1177,6 +1202,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         mirrored={selectedItem?.mirrored ?? false}
         opacity={selectedItem?.opacity ?? 1}
         onMirror={mirrorSelected}
+        edged={!selectedItem?.noEdge}
+        onEdge={selectedItem && cutouts.has(selectedItem.id) ? toggleEdgeSelected : undefined}
         onCrop={startCrop}
         onErase={startErase}
         onDelete={deleteSelected}

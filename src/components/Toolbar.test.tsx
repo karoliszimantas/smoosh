@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Toolbar, { MoreMenu, type ToolbarMode } from './Toolbar'
+import { layerMoreTools } from './moreTools'
 
 const noop = () => {}
 
@@ -15,6 +16,7 @@ function toolbar(mode: ToolbarMode, used = 2, onReport?: () => void) {
       mirrored={false}
       opacity={1}
       onMirror={noop}
+      edged
       onCrop={noop}
       onErase={noop}
       onDelete={noop}
@@ -81,5 +83,32 @@ describe('the More card', () => {
     const html = renderToStaticMarkup(<MoreMenu tools={tools(true, false)} onClose={noop} />)
     expect(html).toContain('aria-label="Layer limit reached: 8" disabled=""')
     expect(html).toContain('role="menuitemcheckbox" aria-checked="false"')
+  })
+})
+
+describe('a layer’s More tools', () => {
+  const layerTools = (onEdge: (() => void) | undefined, edged: boolean) =>
+    layerMoreTools({
+      full: false,
+      limitLabel: 'Layer limit reached: 8',
+      mirrored: false,
+      edged,
+      onDuplicate: noop,
+      onMirror: noop,
+      onEdge,
+      onCrop: noop,
+      onErase: noop,
+      onFade: noop,
+    })
+
+  it('offer a cut-out its sticker edge as a switch, after Mirror', () => {
+    const tools = layerTools(noop, true)
+    expect(tools.map((t) => t.label)).toEqual(['Copy', 'Mirror', 'Edge', 'Crop', 'Erase', 'Fade'])
+    expect(tools[2]).toMatchObject({ checked: true, ariaLabel: 'Sticker edge' })
+    expect(layerTools(noop, false)[2]?.checked).toBe(false)
+  })
+
+  it('leave Edge out for a whole photo, which has none', () => {
+    expect(layerTools(undefined, true).map((t) => t.label)).toEqual(['Copy', 'Mirror', 'Crop', 'Erase', 'Fade'])
   })
 })

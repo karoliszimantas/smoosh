@@ -97,6 +97,7 @@ const DraggableImage = memo(function DraggableImage({
   dimmed,
   isGestureOwner,
   onChange,
+  onCutout,
 }: {
   item: LayerItem
   // crop mode draws its own copy of the layer; this one steps aside
@@ -104,6 +105,9 @@ const DraggableImage = memo(function DraggableImage({
   dimmed: boolean
   isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
+  // whether the layer, once its image is in, is a cut-out — the only kind
+  // with a sticker edge to take off
+  onCutout: (id: string, cutout: boolean) => void
 }) {
   // the image on show, the src it's from, and its size on the canvas
   const [shown, setShown] = useState<{ src: string; img: HTMLImageElement; dims: { w: number; h: number } } | null>(null)
@@ -229,15 +233,18 @@ const DraggableImage = memo(function DraggableImage({
   const opaque = erased ? isOpaque(erased) : true
   const scale = Math.max(drawn.scale, MIN_SCALE)
   const cropLongSide = Math.max(src.width, src.height)
+  const noEdge = drawn.noEdge === true
   const screenSticker = useMemo(
-    () => stickerOptions(theme, { unitsPerSourcePx: u, scale, cropLongSide, opaque }),
-    [theme, u, scale, cropLongSide, opaque],
+    () => stickerOptions(theme, { unitsPerSourcePx: u, scale, cropLongSide, opaque, noEdge }),
+    [theme, u, scale, cropLongSide, opaque, noEdge],
   )
   // the same layer as it's sent: in the export's look, whatever the theme
   const exportSticker = useMemo(
-    () => stickerOptions(EXPORT_LOOK, { unitsPerSourcePx: u, scale, cropLongSide, opaque }),
-    [u, scale, cropLongSide, opaque],
+    () => stickerOptions(EXPORT_LOOK, { unitsPerSourcePx: u, scale, cropLongSide, opaque, noEdge }),
+    [u, scale, cropLongSide, opaque, noEdge],
   )
+  const cutout = erased !== null && !opaque
+  useEffect(() => onCutout(item.id, cutout), [onCutout, item.id, cutout])
   // on screen: built when the layer changes. The export's is built (or found
   // in the cache: it's the same sprite when the looks agree) as it's drawn
   const sprite = useMemo(() => spriteFor(erased, crop, screenSticker), [erased, crop, screenSticker])

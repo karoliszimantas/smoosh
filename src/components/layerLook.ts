@@ -7,15 +7,18 @@ import type { PictureLook } from '../themes/exportLook'
 export const CANVAS_UNITS_PER_THEME_PX = CANVAS_SIZE / 400
 
 // a layer as its look needs it: canvas units per source pixel, its scale,
-// its crop's long side in source pixels, and whether it's a whole photo
-export type LayerShape = { unitsPerSourcePx: number; scale: number; cropLongSide: number; opaque: boolean }
+// its crop's long side in source pixels, whether it's a whole photo, and
+// whether the player took its edge off (LayerItem.noEdge)
+export type LayerShape = { unitsPerSourcePx: number; scale: number; cropLongSide: number; opaque: boolean; noEdge?: boolean }
 
 // A cut-out's sticker in a look — the rim's radius and colour and the lift
-// shadow baked under it — or null: a whole photo, or a look with no edge.
-// The rim is the same width on screen at any scale, like the shadow.
+// shadow baked under it — or null: a whole photo, a cut-out with its edge
+// off, or a look with no edge. Without one, Konva's own shadow falls on it
+// (liveShadow). The rim is the same width on screen at any scale, like the
+// shadow.
 export function stickerOptions(look: PictureLook, layer: LayerShape): StickerOptions | null {
   const edge = look.stickerEdge
-  if (!edge || layer.opaque) return null
+  if (!edge || layer.opaque || layer.noEdge) return null
   const radius = stickerRadius(CANVAS_UNITS_PER_THEME_PX, edge.width, layer.unitsPerSourcePx, layer.scale, layer.cropLongSide)
   if (radius <= 0) return null
   return {
