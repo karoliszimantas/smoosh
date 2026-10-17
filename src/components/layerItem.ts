@@ -38,9 +38,9 @@ export type LayerItem = {
   // to whatever is underneath, and it can't be transformed or deleted.
   // Selected only from the layer strip, to unlock it. Absent = unlocked.
   locked?: boolean
-  // a cut-out drawn bare, without its sticker edge — on screen and in the
-  // picture that's sent. Absent = edged, as every cut-out was before
-  noEdge?: boolean
+  // a cut-out drawn as a die-cut sticker, a rim round it — on screen and in
+  // the picture that's sent. Absent = bare: the edge is the player's to add
+  edge?: boolean
   // the prompt word whose search tab it was placed from (its term, as the
   // asset sheet keys its tabs), so that word's chip shows as used. Local
   // only: never part of what's sent. Absent = placed some other way

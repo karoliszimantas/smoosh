@@ -71,7 +71,7 @@ function isLayerItem(value: unknown): value is StoredLayerItem {
     (v.erase === undefined || (Array.isArray(v.erase) && v.erase.every(isEraseStroke))) &&
     (v.pixabayId === undefined || typeof v.pixabayId === 'number') &&
     (v.locked === undefined || typeof v.locked === 'boolean') &&
-    (v.noEdge === undefined || typeof v.noEdge === 'boolean') &&
+    (v.edge === undefined || typeof v.edge === 'boolean') &&
     (v.fromWord === undefined || typeof v.fromWord === 'string')
   )
 }

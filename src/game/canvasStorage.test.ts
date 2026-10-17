@@ -34,13 +34,13 @@ describe('a saved canvas', () => {
     vi.stubGlobal('sessionStorage', memoryStorage())
   })
 
-  it('keeps a cut-out’s edge off', () => {
-    saveCanvasItems('k', [{ ...layer, noEdge: true }, layer])
-    expect(loadCanvasItems('k')?.map((i) => i.noEdge)).toEqual([true, undefined])
+  it('keeps a cut-out’s edge on, and the rest bare', () => {
+    saveCanvasItems('k', [{ ...layer, edge: true }, layer])
+    expect(loadCanvasItems('k')?.map((i) => i.edge)).toEqual([true, undefined])
   })
 
   it('drops a layer whose edge flag is not a boolean', () => {
-    sessionStorage.setItem('k', JSON.stringify([{ ...layer, noEdge: 'yes' }, layer]))
+    sessionStorage.setItem('k', JSON.stringify([{ ...layer, edge: 'yes' }, layer]))
     expect(loadCanvasItems('k')).toEqual([layer])
   })
 })

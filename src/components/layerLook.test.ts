@@ -4,7 +4,7 @@ import { stickerSprite, type buildStickerSprite, type StickerSprite } from './st
 import { EXPORT_LOOK, pictureLook } from '../themes/exportLook'
 import { day } from '../themes/day'
 
-const cutout: LayerShape = { unitsPerSourcePx: 0.5, scale: 1, cropLongSide: 600, opaque: false }
+const cutout: LayerShape = { unitsPerSourcePx: 0.5, scale: 1, cropLongSide: 600, opaque: false, edge: true }
 
 describe('a cut-out’s sticker on a Day phone', () => {
   it('is cream on screen', () => {
@@ -35,9 +35,11 @@ describe('a cut-out’s sticker on a Day phone', () => {
     expect(stickerOptions(EXPORT_LOOK, { ...cutout, opaque: true })).toBeNull()
   })
 
-  it('is none, on screen and in the picture that’s sent, with its edge off', () => {
-    expect(stickerOptions(day, { ...cutout, noEdge: true })).toBeNull()
-    expect(stickerOptions(EXPORT_LOOK, { ...cutout, noEdge: true })).toBeNull()
+  it('is none, on screen and in the picture that’s sent, until it’s given its edge', () => {
+    const bare = { ...cutout, edge: undefined }
+    expect(stickerOptions(day, bare)).toBeNull()
+    expect(stickerOptions(EXPORT_LOOK, bare)).toBeNull()
+    expect(stickerOptions(EXPORT_LOOK, { ...cutout, edge: false })).toBeNull()
   })
 })
 
@@ -52,7 +54,7 @@ describe('Konva’s own shadow', () => {
     })
   })
 
-  it('falls on a cut-out with its edge off, which has no sticker to bake one', () => {
+  it('falls on a cut-out without its edge, which has no sticker to bake one', () => {
     expect(liveShadow(EXPORT_LOOK, { opaque: false, scale: 1, mirrored: false, stickerShadow: false }).shadowEnabled).toBe(true)
   })
 

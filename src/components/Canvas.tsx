@@ -771,13 +771,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, mirrored: !i.mirrored } : i)))
   }, [selectedId, setItems])
 
-  // the sticker edge, on or off for one cut-out; back on, the flag goes
+  // the sticker edge, on or off for one cut-out; off again, the flag goes
   const toggleEdgeSelected = useCallback(() => {
     setItems((prev) =>
       prev.map((i) => {
         if (i.id !== selectedId) return i
-        const { noEdge, ...rest } = i
-        return noEdge ? rest : { ...rest, noEdge: true }
+        const { edge, ...rest } = i
+        return edge ? rest : { ...rest, edge: true }
       }),
     )
   }, [selectedId, setItems])
@@ -1202,7 +1202,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         mirrored={selectedItem?.mirrored ?? false}
         opacity={selectedItem?.opacity ?? 1}
         onMirror={mirrorSelected}
-        edged={!selectedItem?.noEdge}
+        edged={selectedItem?.edge === true}
         onEdge={selectedItem && cutouts.has(selectedItem.id) ? toggleEdgeSelected : undefined}
         onCrop={startCrop}
         onErase={startErase}

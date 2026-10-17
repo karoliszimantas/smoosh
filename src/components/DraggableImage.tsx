@@ -106,7 +106,7 @@ const DraggableImage = memo(function DraggableImage({
   isGestureOwner: (id: string) => boolean
   onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
   // whether the layer, once its image is in, is a cut-out — the only kind
-  // with a sticker edge to take off
+  // that can wear a sticker edge
   onCutout: (id: string, cutout: boolean) => void
 }) {
   // the image on show, the src it's from, and its size on the canvas
@@ -223,8 +223,8 @@ const DraggableImage = memo(function DraggableImage({
     native.imageSmoothingEnabled = smoothing
   }
 
-  // A cut-out (anything with real transparency — never a whole photo) is a
-  // die-cut sticker: a rim of the theme's paper round what's left of it
+  // A cut-out (anything with real transparency — never a whole photo) given
+  // its edge (LayerItem.edge; bare by default) is a die-cut sticker: a rim of the theme's paper round what's left of it
   // after erasing, inside its crop, with its lift shadow baked in under it —
   // Konva would blur that afresh for every layer on every frame, the
   // costliest part of a frame. The rim is the same width on screen at any
@@ -233,15 +233,15 @@ const DraggableImage = memo(function DraggableImage({
   const opaque = erased ? isOpaque(erased) : true
   const scale = Math.max(drawn.scale, MIN_SCALE)
   const cropLongSide = Math.max(src.width, src.height)
-  const noEdge = drawn.noEdge === true
+  const edge = drawn.edge === true
   const screenSticker = useMemo(
-    () => stickerOptions(theme, { unitsPerSourcePx: u, scale, cropLongSide, opaque, noEdge }),
-    [theme, u, scale, cropLongSide, opaque, noEdge],
+    () => stickerOptions(theme, { unitsPerSourcePx: u, scale, cropLongSide, opaque, edge }),
+    [theme, u, scale, cropLongSide, opaque, edge],
   )
   // the same layer as it's sent: in the export's look, whatever the theme
   const exportSticker = useMemo(
-    () => stickerOptions(EXPORT_LOOK, { unitsPerSourcePx: u, scale, cropLongSide, opaque, noEdge }),
-    [u, scale, cropLongSide, opaque, noEdge],
+    () => stickerOptions(EXPORT_LOOK, { unitsPerSourcePx: u, scale, cropLongSide, opaque, edge }),
+    [u, scale, cropLongSide, opaque, edge],
   )
   const cutout = erased !== null && !opaque
   useEffect(() => onCutout(item.id, cutout), [onCutout, item.id, cutout])
