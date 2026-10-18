@@ -61,17 +61,9 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
 
   if (phase.phase !== 'guess') return null
 
-<<<<<<< Updated upstream
   const ownLie = snapshot.you.ownOptionId
   const picked = locked ? lockedId : choice
   const pickable = phase.options.filter((o) => o.id !== ownLie).map((o) => o.id)
-=======
-  const isAuthor = phase.authorId === snapshot.you.playerId
-  const picked = tapped ?? snapshot.you.ownGuessId
-  const alreadyGuessed = snapshot.you.hasActedThisPhase || picked !== null
-  // nothing left to do here but watch: their own picture, or guessed already
-  const watching = isAuthor || alreadyGuessed
->>>>>>> Stashed changes
 
   const pick = (optionId: string) => {
     if (locked || optionId === ownLie) return
@@ -97,7 +89,6 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
     optionRefs.current.get(next)?.focus()
   }
 
-<<<<<<< Updated upstream
   // the one option the Tab key lands on: the pick, or the first pickable
   const tabStop = picked ?? pickable[0] ?? null
 
@@ -178,53 +169,6 @@ export default function GuessView({ snapshot, emit }: PhaseProps) {
               </button>
             </>
           )}
-=======
-      {watching ? (
-        // Watching what the room is guessing at: the same options, same
-        // order, same type — as a list, not as buttons that look broken. The
-        // author's list is exactly a guesser's: nothing marks the real one.
-        // Only progress is shown, never who picked what, or how many each.
-        <>
-          <ul className="guess-options watching" aria-label="The options">
-            {phase.options.map((opt) => {
-              const isOwnLie = opt.id === snapshot.you.ownOptionId
-              const isPicked = picked === opt.id
-              return (
-                <li
-                  key={opt.id}
-                  className={`guess-option${isPicked ? ' picked' : ''}${isOwnLie ? ' own-lie' : ''}`}
-                  aria-current={isPicked ? 'true' : undefined}
-                >
-                  {opt.text}
-                  {isPicked && <span className="option-note">your guess</span>}
-                  {isOwnLie && <span className="option-note">your lie</span>}
-                </li>
-              )
-            })}
-          </ul>
-          <p className="phase-status">
-            {isAuthor ? 'This one’s yours — waiting for everyone else to guess.' : 'Guess locked in — waiting for the others…'}
-          </p>
-          <RoomProgress snapshot={snapshot} verb="guessed" exclude={[phase.authorId]} />
-        </>
-      ) : (
-        <div className="guess-options">
-          {phase.options.map((opt) => {
-            const isOwnLie = opt.id === snapshot.you.ownOptionId
-            return (
-              <button
-                key={opt.id}
-                className={`guess-option${isOwnLie ? ' own-lie' : ''}`}
-                disabled={isOwnLie}
-                onClick={() => void handlePick(opt.id)}
-              >
-                {opt.text}
-                {isOwnLie && <span className="option-note">your lie</span>}
-              </button>
-            )
-          })}
-          {error && <p className="form-error">{error}</p>}
->>>>>>> Stashed changes
         </div>
       )}
     </div>
