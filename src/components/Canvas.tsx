@@ -34,6 +34,8 @@ import LayerSliders from './LayerSliders'
 import { pivotAround, turnBetween, type Point } from './transformMath'
 import { commitDoc, rewriteDoc, undoDoc, type Doc } from './history'
 import { useTheme } from '../themes/useTheme'
+import { haptic } from './haptic'
+import { isPhotoSrc } from '../photos/photoStore'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
 import FrameDecor from './FrameDecor'
 import { applyExportLook, hideForExport, nothingInFrame } from './canvasExport'
@@ -732,6 +734,88 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setSelectedId(copy.id)
   }, [items, selectedId, setItems])
 
+  // ---- drag to the bin to delete
+  //
+  // While a layer is dragged (one finger — a pinch stops the drag), a bin
+  // band covers the strip and toolbar. The finger over it lights it up and
+  // fades and shrinks the layer, so a drop there is never blind; letting go
+  // there deletes, as one undo step, like the toolbar's Delete. Locked
+  // layers can't be dragged, so they never get here.
+  // `top`: where the band starts — the top of the layer strip (or of the
+  // tools, with no strip showing), measured as the drag begins
+  const [binDrag, setBinDrag] = useState<{ id: string; over: boolean; top: number } | null>(null)
+  const binRef = useRef<HTMLDivElement>(null)
+  const overBin = useRef(false)
+  // the layer's own look, put back if it's dragged out of the bin again
+  const binLook = useRef<{ opacity: number; scaleX: number; scaleY: number } | null>(null)
+  const binDragId = binDrag?.id ?? null
+  // a player's own photo has no URL to show (photo: is a key into this
+  // device's storage) — the bin keeps its icon for those
+  const binThumbSrc = binDrag ? items.find((i) => i.id === binDrag.id)?.thumb : undefined
+  const binThumb = binThumbSrc && !isPhotoSrc(binThumbSrc) ? binThumbSrc : undefined
+
+  const restoreBinLook = useCallback((id: string) => {
+    const node = stageRef.current?.findOne<Konva.Image>(`#${id}`)
+    const look = binLook.current
+    binLook.current = null
+    if (!node || !look) return
+    node.opacity(look.opacity)
+    node.scale({ x: look.scaleX, y: look.scaleY })
+  }, [])
+
+  useEffect(() => {
+    if (!binDragId) return
+    const onMove = (e: PointerEvent) => {
+      if (!e.isPrimary) return
+      const r = binRef.current?.getBoundingClientRect()
+      const over = r !== undefined && e.clientY >= r.top && e.clientX >= r.left && e.clientX <= r.right
+      if (over === overBin.current) return
+      overBin.current = over
+      const node = stageRef.current?.findOne<Konva.Image>(`#${binDragId}`)
+      if (over && node) {
+        binLook.current = { opacity: node.opacity(), scaleX: node.scaleX(), scaleY: node.scaleY() }
+        node.opacity(binLook.current.opacity * 0.45)
+        node.scale({ x: binLook.current.scaleX * 0.55, y: binLook.current.scaleY * 0.55 })
+        haptic()
+      } else {
+        restoreBinLook(binDragId)
+      }
+      setBinDrag((d) => (d ? { ...d, over } : d))
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [binDragId, restoreBinLook])
+
+  const handleDragBegin = useCallback((id: string) => {
+    overBin.current = false
+    binLook.current = null
+    // over the strip and the tools: the band begins where the first of them
+    // does, so the finger reaches it right under the canvas, while the
+    // layer is still in sight to fade and shrink
+    const root = containerRef.current?.closest('.app')
+    const first = root?.querySelector('.layer-strip, .toolbar-wrap')
+    const top = first ? first.getBoundingClientRect().top : window.innerHeight - 136
+    setBinDrag({ id, over: false, top })
+  }, [])
+
+  const handleDragRelease = useCallback(
+    (id: string, at: { x: number; y: number }) => {
+      const dropped = overBin.current
+      overBin.current = false
+      setBinDrag(null)
+      if (!dropped) {
+        restoreBinLook(id)
+        updateItem(id, at)
+        return
+      }
+      binLook.current = null
+      setItems((prev) => prev.filter((i) => i.id !== id || i.locked === true))
+      setSelectedId((sel) => (sel === id ? null : sel))
+      if ('vibrate' in navigator) navigator.vibrate(20)
+    },
+    [restoreBinLook, setItems, updateItem],
+  )
+
   const deleteSelected = useCallback(() => {
     // a locked layer can't be deleted by accident any more than moved
     if (items.find((i) => i.id === selectedId)?.locked) return
@@ -1075,7 +1159,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
                 // the layer being reordered stands out from the rest
                 dimmed={depth !== null && item.id !== depth.id}
                 isGestureOwner={isGestureOwner}
-                onChange={updateItem}
+                onDragBegin={handleDragBegin}
+                onDragRelease={handleDragRelease}
               />
             ))}
             {selectedItem && (
@@ -1157,6 +1242,22 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           </div>
         )}
       </div>
+
+      {binDrag && (
+        <div ref={binRef} className={`bin-zone${binDrag.over ? ' over' : ''}`} style={{ top: binDrag.top }} aria-hidden="true">
+          <span className="bin-zone-icon">
+            {binDrag.over && binThumb ? (
+              // which layer is about to go: there's no mistaking it
+              <img src={binThumb} alt="" />
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+              </svg>
+            )}
+          </span>
+          <span className="bin-zone-label">{binDrag.over ? 'Let go to delete' : 'Drag here to delete'}</span>
+        </div>
+      )}
 
       <LayerStrip
         items={shownItems}

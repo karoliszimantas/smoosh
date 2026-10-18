@@ -55,3 +55,88 @@
   font-size: 11px;
   letter-spacing: 0;
 }
+
+/* ---------- build: drag a layer here to delete it ----------
+   Only while a layer is being dragged: a band over the layer strip and the
+   tools (and a peeking sheet) — over the asset sheet (42), under the
+   notices (50). The finger over it turns it the danger colour and says so;
+   the layer itself fades and shrinks (Canvas), so a drop is never blind.
+   Gestures are tracked on the window, never here. */
+.bin-zone {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 44;
+  /* top: set inline, where the layer strip (or the tools) begins */
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-top: 2px dashed var(--danger);
+  background: color-mix(in srgb, var(--chrome-bg) 92%, var(--danger));
+  color: var(--chrome-text);
+  pointer-events: none;
+  touch-action: none;
+  transition: background-color 120ms ease-out;
+}
+
+.bin-zone-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+  background: var(--chrome-bg);
+  color: var(--danger);
+  transition: transform 120ms ease-out;
+}
+
+.bin-zone-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* the dragged layer itself, in the bin, while the finger is over it */
+.bin-zone-icon img {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.bin-zone-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* the finger is over it: let go and it's gone */
+.bin-zone.over {
+  border-top-style: solid;
+  background: var(--danger);
+  color: var(--danger-text);
+}
+
+.bin-zone.over .bin-zone-icon {
+  transform: scale(1.25);
+  border-color: var(--danger-text);
+  background: var(--danger-text);
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bin-zone,
+  .bin-zone-icon {
+    transition: none;
+  }
+}
+
+/* the circle grows when the finger is over: keep the words clear of it */
+.bin-zone.over .bin-zone-label {
+  margin-top: 8px;
+}

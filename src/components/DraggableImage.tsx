@@ -96,14 +96,18 @@ const DraggableImage = memo(function DraggableImage({
   hidden,
   dimmed,
   isGestureOwner,
-  onChange,
+  onDragBegin,
+  onDragRelease,
 }: {
   item: LayerItem
   // crop mode draws its own copy of the layer; this one steps aside
   hidden: boolean
   dimmed: boolean
   isGestureOwner: (id: string) => boolean
-  onChange: (id: string, patch: Partial<Omit<LayerItem, 'id' | 'src'>>) => void
+  // a drag of this layer has started / let go — the canvas decides what the
+  // drop means (moved, or dropped on the bin)
+  onDragBegin: (id: string) => void
+  onDragRelease: (id: string, at: { x: number; y: number }) => void
 }) {
   // the image on show, the src it's from, and its size on the canvas
   const [shown, setShown] = useState<{ src: string; img: HTMLImageElement; dims: { w: number; h: number } } | null>(null)
@@ -154,7 +158,10 @@ const DraggableImage = memo(function DraggableImage({
   // Konva will happily drag several nodes at once (one per finger) — only
   // the image the gesture started on may move, everything else stays put
   const handleDragStart = () => {
-    if (isGestureOwner(item.id)) return
+    if (isGestureOwner(item.id)) {
+      onDragBegin(item.id)
+      return
+    }
     blockedDrag.current = true
     ref.current?.stopDrag()
   }
@@ -167,7 +174,7 @@ const DraggableImage = memo(function DraggableImage({
       node.position({ x: item.x, y: item.y })
       return
     }
-    onChange(item.id, { x: node.x(), y: node.y() })
+    onDragRelease(item.id, { x: node.x(), y: node.y() })
   }
 
   const crop = drawn.crop ?? FULL_CROP
