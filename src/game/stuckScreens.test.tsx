@@ -37,9 +37,13 @@ describe('a reload into GUESS after guessing', () => {
   it('still shows which option they picked', () => {
     const snap = guessedAlready()
     const html = renderToStaticMarkup(<GuessView snapshot={snap} emit={emit} />)
+<<<<<<< Updated upstream
     const picked = [...html.matchAll(/<button[^>]*aria-checked="true"[^>]*><span class="guess-option-text">([^<]*)</g)].map(
       (m) => m[1],
     )
+=======
+    const picked = [...html.matchAll(/<li class="guess-option picked"[^>]*>([^<]*)</g)].map((m) => m[1])
+>>>>>>> Stashed changes
     const phase = snap.phase
     if (phase.phase !== 'guess') throw new Error('fixture')
     expect(picked).toEqual([optionText(phase.options.find((o) => o.id === snap.you.ownGuessId)?.text ?? '')])
@@ -112,5 +116,29 @@ describe('waiting looks like waiting', () => {
 
   it('an own lie says why it cannot be picked', () => {
     expect(textOf(renderToStaticMarkup(<GuessView snapshot={fixtureSnapshot('guess')} emit={emit} />))).toContain('Your lie')
+  })
+})
+
+describe('watching the guess: everything the room sees, nothing that gives it away', () => {
+  const optionsOf = (html: string) =>
+    [...html.matchAll(/<(?:li|button)[^>]*class="(guess-option[^"]*)"[^>]*>([^<]*)</g)].map((m) => ({ cls: m[1], text: m[2] }))
+
+  it('the author sees the full list, in the same order, with nothing marking the real one', () => {
+    const asGuesser = fixtureSnapshot('guess', undefined, { authorId: 'alice' })
+    const asAuthor = fixtureSnapshot('guess', undefined, { authorId: YOU_ID })
+    const guesser = optionsOf(renderToStaticMarkup(<GuessView snapshot={{ ...asGuesser, you: { ...asGuesser.you, ownOptionId: null } }} emit={emit} />))
+    // the author never wrote a lie for their own picture
+    const author = optionsOf(renderToStaticMarkup(<GuessView snapshot={{ ...asAuthor, you: { ...asAuthor.you, ownOptionId: null } }} emit={emit} />))
+    expect(author.map((o) => o.text)).toEqual(guesser.map((o) => o.text))
+    // every option rendered alike: no class sets the real one apart
+    expect(new Set(author.map((o) => o.cls))).toEqual(new Set(['guess-option']))
+  })
+
+  it('progress only — no tally, no counts beside the options', () => {
+    const snap = fixtureSnapshot('guess', undefined, { authorId: YOU_ID })
+    const html = renderToStaticMarkup(<GuessView snapshot={{ ...snap, waitingOn: ['bob'], you: { ...snap.you, ownOptionId: null } }} emit={emit} />)
+    for (const o of optionsOf(html)) expect(o.text).not.toMatch(/\d/)
+    expect(textOf(html)).toContain('2 of 3 have guessed')
+    expect(textOf(html)).not.toMatch(/vote|picked by/i)
   })
 })

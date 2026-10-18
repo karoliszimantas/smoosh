@@ -2164,6 +2164,23 @@ h2 {
   outline-offset: 3px;
 }
 
+/* watching: the options as a plain list, looking exactly like the buttons
+   (centred, same size, same type) — not dimmed, not pressable */
+.guess-options.watching {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guess-options.watching .guess-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  text-align: center;
+}
+
 .guess-option.picked {
   --torn-paper: var(--picked);
 }
