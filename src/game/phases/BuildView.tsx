@@ -186,6 +186,9 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
         // still laid out and measured under the prompt window, just not shown
         concealed={showWindow}
         doneAutoIn={autoIn}
+        // judged at the guessing screen's size in Guess, as a grid tile in
+        // Gallery's and Chain's votes
+        previewAt={snapshot.settings.mode === 'guess' ? 'guess' : 'grid'}
         {...(pass ? { underlay: pass.underlay, maxLayers: PASS_LAYER_CAP, transparentExport: true } : {})}
       />
       {showWindow && snapshot.you.build && (

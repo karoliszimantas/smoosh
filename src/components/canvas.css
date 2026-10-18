@@ -140,3 +140,59 @@
 .bin-zone.over .bin-zone-label {
   margin-top: 8px;
 }
+
+/* ---------- build: hold on empty canvas — the picture alone ----------
+   The picture as the room will see it, at the size they'll judge it, on
+   the desk the reveals sit on. It covers all the player's own chrome —
+   prompt, tools, strip, sliders, the selection's outline — and stays under
+   the status strip (40), so the clock is never hidden. Fades in and out
+   (opacity only, so it holds 60fps); it never takes a touch, so the finger
+   that's holding stays the stage's. */
+.clean-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--page-bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+  pointer-events: none;
+  animation: clean-preview-in var(--preview-fade, 150ms) ease-out both;
+  will-change: opacity;
+}
+
+.clean-preview.leaving {
+  animation: clean-preview-out var(--preview-fade, 150ms) ease-in both;
+}
+
+.clean-preview img {
+  display: block;
+  box-shadow: var(--shadow);
+}
+
+@keyframes clean-preview-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes clean-preview-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clean-preview,
+  .clean-preview.leaving {
+    animation-duration: 1ms;
+  }
+}

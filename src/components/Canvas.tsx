@@ -78,6 +78,35 @@ const TOAST_MS = 4000
 // how long words stay on a layer (a phone too slow to cut)
 const LAYER_NOTE_MS = 4000
 
+// the clean preview's fade in and out
+const PREVIEW_FADE_MS = 150
+// a mousedown this soon after a touch is that touch's compatibility echo
+const COMPAT_MOUSE_MS = 1000
+
+// The size, on screen, the room will judge the picture at — read from the
+// same rules the screens use, so it can't drift from them
+function previewSize(at: 'guess' | 'grid' | undefined, canvasSize: number): number {
+  if (at === 'grid') {
+    // Gallery's and Chain's vote grid: two tiles a row — 158px at 390 wide,
+    // 123px at 320 (.vote-grid, .vote-view)
+    return Math.max(80, Math.round((window.innerWidth - 74) / 2))
+  }
+  if (at === 'guess') {
+    // the guessing screen's picture: .guess-view .picture-frame's size
+    const view = document.createElement('div')
+    view.className = 'guess-view'
+    view.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;left:0;top:0'
+    const frame = document.createElement('div')
+    frame.className = 'picture-frame'
+    view.appendChild(frame)
+    document.body.appendChild(view)
+    const size = frame.getBoundingClientRect().width
+    view.remove()
+    if (size > 0) return Math.round(size)
+  }
+  return Math.round(canvasSize)
+}
+
 // long-press a layer to change its depth: hold still this long…
 const LONG_PRESS_MS = 400
 // …moving further than this first makes it an ordinary drag instead
@@ -165,6 +194,10 @@ type CanvasProps = {
   maxLayers?: number
   // chain: export only this player's layers, on a transparent ground
   transparentExport?: boolean
+  // hold on empty canvas to see the picture alone, at the size the room
+  // will judge it: 'guess' — the guessing screen's picture; 'grid' — a tile
+  // in Gallery's or Chain's voting grid. Absent (the sandbox): canvas size
+  previewAt?: 'guess' | 'grid'
   // laid out and measured, but not shown or reachable: the prompt window is
   // over it, before the build clock starts
   concealed?: boolean
@@ -197,6 +230,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     maxLayers,
     transparentExport = false,
     concealed = false,
+    previewAt,
   },
   ref,
 ) {
@@ -460,6 +494,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // slider would make a one-finger drag a "pinch", and leave the gesture
   // never ending (so the next touch never picked a new target).
   const handlePointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    // After a touch, the browser also fires a "compatibility" mousedown for
+    // it. That's the same finger again, already handled — and it would start
+    // a hold with no release ever coming (the touch's pointerup has been and
+    // gone), leaving the preview stuck on. Only a real mouse gets past.
+    if ('touches' in e.evt) lastTouchAt.current = performance.now()
+    else if (performance.now() - lastTouchAt.current < COMPAT_MOUSE_MS) return
     // only the first contact of a gesture picks its target
     if ('touches' in e.evt && e.evt.targetTouches.length > 1) return
     // crop handles and the eraser live on the stage too; they mustn't change
@@ -474,12 +514,90 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       return
     }
     gestureOwner.current = id
+    const point = 'touches' in e.evt ? e.evt.targetTouches[0] : e.evt
+    // Off the layers (Konva's hit test reads each layer's alpha, so a cut-
+    // out's transparent corner counts as off it): held still, this is the
+    // clean preview; a tap lets the selection go — when the finger lifts,
+    // so that a hold can keep it
+    if (id === null) {
+      if (point) startHold(point.clientX, point.clientY)
+      else setSelectedId(null)
+      return
+    }
     // selecting must not reorder — the items array is the single source of
     // truth for z-order; Konva's own child order is never touched
     setSelectedId(id)
-    const point = 'touches' in e.evt ? e.evt.targetTouches[0] : e.evt
-    if (id && point) startPress(id, point.clientX, point.clientY)
+    if (point) startPress(id, point.clientX, point.clientY)
   }
+
+  // ---- hold on empty canvas: the picture alone, as the room will see it
+  //
+  // Only while the finger stays down — release, and the build screen is
+  // back as it was, the same layer selected. Nothing to tap in or out of,
+  // so nobody can get stuck in it. The status strip (the room's clock) stays
+  // above it; everything that's the player's own chrome is covered.
+  const [preview, setPreview] = useState<{ src: string; size: number; leaving: boolean } | null>(null)
+  const hold = useRef<(() => void) | null>(null)
+  // when the last touch landed — to tell a real mouse from a touch's echo
+  const lastTouchAt = useRef(-Infinity)
+
+  const startHold = (startX: number, startY: number) => {
+    hold.current?.()
+    let shown = false
+    let moved = false
+    let fadeOut: number | undefined
+
+    const timer = window.setTimeout(() => {
+      if (moved) return
+      const size = previewSize(previewAt, frame.size)
+      const captured = capturePicture((size * window.devicePixelRatio) / frame.size)
+      if (!captured) return
+      shown = true
+      setPreview({ src: captured.canvas.toDataURL('image/png'), size, leaving: false })
+      haptic()
+    }, LONG_PRESS_MS)
+
+    const onMove = (e: PointerEvent) => {
+      if (!e.isPrimary || shown) return
+      // travel before it shows: not a hold — a swipe, or the start of a pinch
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) > LONG_PRESS_SLOP_PX) moved = true
+    }
+    // a second finger before it shows: a pinch, not a hold
+    const onDown = (e: PointerEvent) => {
+      if (!e.isPrimary && !shown) moved = true
+    }
+    const finish = () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', finish)
+      document.removeEventListener('visibilitychange', finish)
+      hold.current = null
+      if (shown) {
+        // the chrome fades back, then the preview is gone; the selection
+        // was never touched
+        setPreview((p) => (p ? { ...p, leaving: true } : p))
+        fadeOut = window.setTimeout(() => setPreview(null), PREVIEW_FADE_MS)
+      } else {
+        setSelectedId(null)
+      }
+    }
+    const onUp = (e: PointerEvent) => {
+      if (e.isPrimary) finish()
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', finish)
+    document.addEventListener('visibilitychange', finish)
+    hold.current = () => {
+      window.clearTimeout(fadeOut)
+      finish()
+    }
+  }
+
+  useEffect(() => () => hold.current?.(), [])
 
   const cancelPress = () => {
     press.current?.cleanup()
@@ -1014,72 +1132,78 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     [addItem, closeSheet],
   )
 
+  // The picture exactly as it goes out — the frame only, in the export's
+  // look (not this player's theme), without the selection, the frame's
+  // shadow or a crop or erase mode's overlays — at `pixelRatio` canvas px per
+  // screen px of the frame. Shared by the export and the hold-to-preview.
+  const capturePicture = useCallback(
+    (pixelRatio: number): { canvas: HTMLCanvasElement; blank: boolean } | null => {
+      const stage = stageRef.current
+      if (!stage) return null
+
+      // a round can end mid-crop: export the layer as last applied, without
+      // the crop mode's dimming and handles
+      const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
+      const eraseOverlay = stage.findOne<Konva.Layer>('.erase-overlay')
+      const editedId = cropping?.id ?? erasing?.id
+      const croppingNode = editedId ? stage.findOne<Konva.Image>(`#${editedId}`) : null
+
+      // hide everything that isn't the picture (the selection's outline and
+      // handles, the frame's shadow and dimming) for the capture without
+      // touching React state — avoids the setState+sleep race that could bake
+      // them in
+      let restoreChrome: (() => void) | null = null
+      let restoreLook: (() => void) | null = null
+      try {
+        restoreChrome = hideForExport(stage)
+        // drawn in the export's look, not this player's theme: the same picture
+        // whoever built it. A layer frozen mid-gesture (freezeOthers) would
+        // draw from its snapshot, in the theme's look — so none is
+        for (const node of itemsLayerRef.current?.find<Konva.Image>('Image') ?? []) node.clearCache()
+        restoreLook = applyExportLook(stage)
+        // a chain pass sends only its own layers
+        if (transparentExport) backgroundRef.current?.visible(false)
+        cropOverlay?.visible(false)
+        eraseOverlay?.visible(false)
+        croppingNode?.visible(true)
+        stage.batchDraw()
+
+        // only the frame is the picture; anything parked outside it is cut off
+        const blank = nothingInFrame(
+          itemsRef.current.map((item) => stage.findOne(`#${item.id}`)?.getClientRect() ?? null),
+          { x: frame.x, y: frame.y, width: frame.size, height: frame.size },
+        )
+        const canvas = stage.toCanvas({ x: frame.x, y: frame.y, width: frame.size, height: frame.size, pixelRatio })
+        return { canvas, blank }
+      } finally {
+        restoreLook?.()
+        restoreChrome?.()
+        backgroundRef.current?.visible(true)
+        cropOverlay?.visible(true)
+        eraseOverlay?.visible(true)
+        croppingNode?.visible(false)
+        stage.batchDraw()
+      }
+    },
+    [frame, cropping, erasing, transparentExport],
+  )
+
   const exportImage = useCallback(async (): Promise<Blob | null> => {
-    const stage = stageRef.current
-    if (!stage) return null
-
-    // a round can end mid-crop: export the layer as last applied, without
-    // the crop mode's dimming and handles
-    const cropOverlay = stage.findOne<Konva.Layer>('.crop-overlay')
-    const eraseOverlay = stage.findOne<Konva.Layer>('.erase-overlay')
-    const editedId = cropping?.id ?? erasing?.id
-    const croppingNode = editedId ? stage.findOne<Konva.Image>(`#${editedId}`) : null
-
-    // hide everything that isn't the picture (the selection's outline and
-    // handles, the frame's shadow and dimming) for the capture without
-    // touching React state — avoids the setState+sleep race that could bake
-    // them in
-    let restoreChrome: (() => void) | null = null
-    let restoreLook: (() => void) | null = null
     try {
-      restoreChrome = hideForExport(stage)
-      // drawn in the export's look, not this player's theme: the same picture
-      // whoever built it. A layer frozen mid-gesture (freezeOthers) would
-      // draw from its snapshot, in the theme's look — so none is
-      for (const node of itemsLayerRef.current?.find<Konva.Image>('Image') ?? []) node.clearCache()
-      restoreLook = applyExportLook(stage)
-      // a chain pass sends only its own layers
-      if (transparentExport) backgroundRef.current?.visible(false)
-      cropOverlay?.visible(false)
-      eraseOverlay?.visible(false)
-      croppingNode?.visible(true)
-      stage.batchDraw()
-
-      // only the frame is the picture; anything parked outside it is cut off
-      const blank = nothingInFrame(
-        itemsRef.current.map((item) => stage.findOne(`#${item.id}`)?.getClientRect() ?? null),
-        { x: frame.x, y: frame.y, width: frame.size, height: frame.size },
-      )
-      const canvas = stage.toCanvas({
-        x: frame.x,
-        y: frame.y,
-        width: frame.size,
-        height: frame.size,
-        pixelRatio: EXPORT_SIZE / frame.size,
-      })
-      // captured: back to the theme's look before anything's drawn on screen
-      restoreLook()
-      restoreLook = null
+      const captured = capturePicture(EXPORT_SIZE / frame.size)
+      if (!captured) return null
       // a chain pass keeps its transparency
-      const blob = await encodePicture(canvas, transparentExport, 0.8, 0.85)
+      const blob = await encodePicture(captured.canvas, transparentExport, 0.8, 0.85)
       if (!blob) throw new Error('failed to encode export')
 
-      if (onSubmit) onSubmit(blob, { blank })
+      if (onSubmit) onSubmit(blob, { blank: captured.blank })
       else downloadBlob(blob)
       return blob
     } catch (err) {
       console.error('export failed', err)
       return null
-    } finally {
-      restoreLook?.()
-      restoreChrome?.()
-      backgroundRef.current?.visible(true)
-      cropOverlay?.visible(true)
-      eraseOverlay?.visible(true)
-      croppingNode?.visible(false)
-      stage.batchDraw()
     }
-  }, [onSubmit, frame, cropping, erasing, transparentExport])
+  }, [onSubmit, frame, capturePicture, transparentExport])
 
   useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
@@ -1256,6 +1380,16 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             )}
           </span>
           <span className="bin-zone-label">{binDrag.over ? 'Let go to delete' : 'Drag here to delete'}</span>
+        </div>
+      )}
+
+      {preview && (
+        <div
+          className={`clean-preview${preview.leaving ? ' leaving' : ''}`}
+          style={{ ['--preview-fade' as string]: `${PREVIEW_FADE_MS}ms` }}
+          aria-hidden="true"
+        >
+          <img src={preview.src} width={preview.size} height={preview.size} alt="" />
         </div>
       )}
 
