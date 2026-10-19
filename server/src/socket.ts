@@ -14,6 +14,8 @@ import { registerVoteHandlers } from './handlers/voteHandlers.ts'
 import { registerBuildHandlers } from './handlers/buildHandlers.ts'
 import { registerChainHandlers } from './handlers/chainHandlers.ts'
 import { registerConnectionHandlers } from './handlers/connectionHandlers.ts'
+import { registerOpsHandlers } from './handlers/opsHandlers.ts'
+import { notePhaseSent } from './ops/phaseAcks.ts'
 import type { TypedServer, SocketData } from './handlers/context.ts'
 
 export function createSocketServer(httpServer: HttpServer): { io: TypedServer; deps: PresenceDeps } {
@@ -36,6 +38,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
 
   function broadcastRoom(room: Room): void {
     logPhaseChange(room)
+    notePhaseSent(room, (m) => roomLog(room.code, m))
     for (const seat of room.seats.values()) {
       // an away seat may still have a socket (a backgrounded page): it gets
       // the state too, so it's current the moment it's looked at again
@@ -68,7 +71,8 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
     socket.use((packet, next) => {
       const ack: unknown = packet[packet.length - 1]
       const event = String(packet[0])
-      if (typeof ack === 'function' && event !== 'room:join' && event !== 'room:create') {
+      // ops: a phone's own measurements, logged their own way (opsHandlers)
+      if (typeof ack === 'function' && event !== 'room:join' && event !== 'room:create' && !event.startsWith('ops:')) {
         packet[packet.length - 1] = (res: unknown) => {
           const code = socket.data.roomCode
           const room = code ? getRoom(code) : undefined
@@ -92,6 +96,7 @@ export function createSocketServer(httpServer: HttpServer): { io: TypedServer; d
     registerBuildHandlers(io, socket, deps)
     registerChainHandlers(io, socket, deps)
     registerConnectionHandlers(io, socket, deps)
+    registerOpsHandlers(io, socket)
   })
 
   return { io, deps }

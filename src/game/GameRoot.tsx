@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { noteAppReady } from '../ops/opsClient'
 import { useGameConnection } from './useGameConnection'
 import type { GameConnection } from './useGameConnection'
 import type { RoomSnapshot } from '@smoosh/protocol'
@@ -58,6 +59,8 @@ function useBackGuard(active: boolean, onBack: () => void): void {
 }
 
 export default function GameRoot({ onSandbox }: { onSandbox: () => void }) {
+  // the first screen is up: the page's "time to interactive", as the game sees it
+  useEffect(() => noteAppReady(), [])
   const game = useGameConnection()
   const { snapshot, emit } = game
   // something the player must see whatever phase it is now — e.g. their

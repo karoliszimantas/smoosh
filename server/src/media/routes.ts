@@ -28,6 +28,8 @@ const MAX_LOOKUP_IDS = 100
 // shared with http.ts's withCors — see the comment there
 function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*')
+  // lets a phone's Resource Timing see sizes, for its download totals
+  res.setHeader('Timing-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Id')
 }

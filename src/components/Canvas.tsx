@@ -38,6 +38,7 @@ import { haptic } from './haptic'
 import { isPhotoSrc } from '../photos/photoStore'
 import { buildUnderlay, passImageUrl } from './chainUnderlay'
 import FrameDecor from './FrameDecor'
+import { noteExport, watchHeap } from '../ops/opsClient'
 import { applyExportLook, hideForExport, nothingInFrame } from './canvasExport'
 import { EXPORT_LOOK } from '../themes/exportLook'
 import Tape from './Tape'
@@ -1193,19 +1194,33 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   )
 
   const exportImage = useCallback(async (): Promise<Blob | null> => {
+    // timed stage by stage, for the operational log (the upload adds its own)
+    const heap = watchHeap()
     try {
+      const startedAt = performance.now()
       const captured = capturePicture(EXPORT_SIZE / frame.size)
       if (!captured) return null
+      const flattenedAt = performance.now()
       // a chain pass keeps its transparency
       const blob = await encodePicture(captured.canvas, transparentExport, 0.8, 0.85)
       if (!blob) throw new Error('failed to encode export')
 
-      if (onSubmit) onSubmit(blob, { blank: captured.blank })
-      else downloadBlob(blob)
+      if (onSubmit) {
+        noteExport({
+          flattenMs: flattenedAt - startedAt,
+          encodeMs: performance.now() - flattenedAt,
+          type: blob.type || '?',
+          bytes: blob.size,
+          heapPeakMb: heap().peak,
+        })
+        onSubmit(blob, { blank: captured.blank })
+      } else downloadBlob(blob)
       return blob
     } catch (err) {
       console.error('export failed', err)
       return null
+    } finally {
+      heap()
     }
   }, [onSubmit, frame, capturePicture, transparentExport])
 

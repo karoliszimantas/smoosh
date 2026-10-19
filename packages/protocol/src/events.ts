@@ -5,6 +5,7 @@ import { PlayerIdSchema } from './ids.ts'
 import { RoomSnapshotSchema } from './snapshot.ts'
 import { ErrorCodeSchema } from './errors.ts'
 import type { RoomEvent } from './roomEvents.ts'
+import type { OpsReport } from './ops.ts'
 
 const NameSchema = z.string().trim().min(1).max(12)
 
@@ -75,6 +76,10 @@ export interface ClientToServerEvents {
   'chainReveal:skip': (payload: z.infer<typeof SkipChainRevealSchema>, ack: (r: AckResult) => void) => void
   'awards:skip': (payload: z.infer<typeof SkipAwardsSchema>, ack: (r: AckResult) => void) => void
   'reveal:next': (payload: z.infer<typeof NextPictureSchema>, ack: (r: AckResult) => void) => void
+  // operational: a round trip to time, and what the phone measured (ops.ts).
+  // Never part of the game — answered and logged, nothing else
+  'ops:ping': (payload: Record<string, never>, ack: (r: AckResult<{ serverNow: number }>) => void) => void
+  'ops:report': (payload: OpsReport, ack: (r: AckResult) => void) => void
 }
 
 export interface ServerToClientEvents {

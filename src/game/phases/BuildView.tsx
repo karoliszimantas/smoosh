@@ -8,6 +8,7 @@ import { useCountdown } from '../useCountdown'
 import { canvasStorageKey, loadCanvasItems, clearCanvasItems } from '../canvasStorage'
 import { SERVER_URL } from '../serverUrl'
 import { useGameServices } from '../services'
+import { traceUpload } from '../../ops/opsClient'
 import { pictureUploadUrl, uploadPicture } from '../upload'
 import { shrinkPicture } from '../reencode'
 import UploadStatus, { type UploadState, type WaitingFor } from '../UploadStatus'
@@ -98,8 +99,31 @@ export default function BuildView({ snapshot, emit, onNotice, promptWindowOpen =
       playerId: snapshot.you.playerId,
       blank: phase.phase === 'build' && info.blank,
     })
+    // each request and each smaller copy timed on the way, for the
+    // operational log — the upload itself is none the wiser
+    const trace = traceUpload()
+    const timedSend: typeof send = async (to, init) => {
+      const startedAt = performance.now()
+      const bytes = init.body instanceof Blob ? init.body.size : 0
+      try {
+        const res = await send(to, init)
+        trace.attempts.push({ ms: performance.now() - startedAt, status: res.status, bytes })
+        return res
+      } catch (err) {
+        trace.attempts.push({ ms: performance.now() - startedAt, status: 0, bytes })
+        throw err
+      }
+    }
+    const shrink = shrinkPicture(phase.phase === 'pass')
+    const timedShrink: typeof shrink = async (source, step) => {
+      const startedAt = performance.now()
+      const smaller = await shrink(source, step)
+      trace.reencodes.push({ ms: performance.now() - startedAt, bytes: smaller?.size ?? 0 })
+      return smaller
+    }
     // a chain pass is sent with its transparency, and shrunk keeping it
-    const result = await uploadPicture(send, url, blob, shrinkPicture(phase.phase === 'pass'))
+    const result = await uploadPicture(timedSend, url, blob, timedShrink)
+    trace.finish(result.ok)
     if (result.ok) {
       clearCanvasItems(storageKey, 'local')
       setUpload({ status: 'submitted' })

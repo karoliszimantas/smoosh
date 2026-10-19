@@ -6,6 +6,7 @@ import { pruneGameCanvases } from './canvasStorage'
 import { pruneLieDrafts } from './lieDraft'
 import { recordPictureLine } from './pictureLines'
 import { noteServerTime } from './serverClock'
+import { bindOps, deviceReport, noteSnapshot } from '../ops/opsClient'
 import { couldNotRejoinText, leftText, rejoinFailedText, roomEventText } from './roomMessages'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting'
@@ -133,7 +134,19 @@ export function useGameConnection(): GameConnection {
       })
     }
 
+    // the phone's operational numbers go to the server's log (ops/): a round
+    // trip timed now and then, and reports as they come — the device once a
+    // connection is in its room, so the line lands with the room's own
+    let deviceSent = false
+    const unbindOps = bindOps(
+      (report) => socket.emit('ops:report', report, noop),
+      (done) => {
+        if (socket.isConnected()) socket.emit('ops:ping', {}, done)
+      },
+    )
+
     socket.on('connect', () => {
+      deviceSent = false
       if (bannerTimer) clearTimeout(bannerTimer)
       bannerTimer = null
       setShowReconnecting(false)
@@ -156,6 +169,11 @@ export function useGameConnection(): GameConnection {
       // first, before anything renders against its deadlines
       noteServerTime(snap.serverNow)
       if (replacedRef.current) return
+      noteSnapshot(snap)
+      if (!deviceSent) {
+        deviceSent = true
+        void deviceReport().then((report) => socket.emit('ops:report', report, noop))
+      }
       const me = snap.players.find((p) => p.id === snap.you.playerId)
       if (getActiveRoom()?.roomCode !== snap.roomCode) pruneGameCanvases(snap.roomCode)
       if (me) setActiveRoom({ roomCode: snap.roomCode, playerId: snap.you.playerId, name: me.name })
@@ -231,6 +249,7 @@ export function useGameConnection(): GameConnection {
       window.removeEventListener('pagehide', goAway)
       window.removeEventListener('pageshow', onPageShow)
       window.removeEventListener('online', onOnline)
+      unbindOps()
       socket.close()
     }
   }, [connect, goHome, pushToast])

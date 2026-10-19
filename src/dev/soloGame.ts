@@ -451,6 +451,11 @@ export class SoloGame {
     const ok: AckResult<unknown> = { ok: true, data: undefined }
     const phase = this.phase
     switch (event) {
+      // operational numbers: nowhere to log them in the walkthrough
+      case 'ops:ping':
+        return { ok: true, data: { serverNow: Date.now() } }
+      case 'ops:report':
+        return ok
       case 'room:create':
         return { ok: true, data: { roomCode: ROOM_CODE } }
       case 'room:join':

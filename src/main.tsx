@@ -9,6 +9,7 @@ import { captureCodeFromUrl } from './prompts/access'
 import { captureJoinFromUrl } from './game/invite'
 import { prunePhotos } from './photos/photoStore'
 import { defaultServices, GameServicesProvider, type GameServices } from './game/services'
+import { startOps } from './ops/opsClient'
 
 // a /prompts?code=… link: keep the code, and get it out of the address bar
 // before anything renders
@@ -18,6 +19,9 @@ captureCodeFromUrl()
 captureJoinFromUrl()
 // photos left behind by a tab that crashed or was closed mid-game
 void prunePhotos()
+// how the game runs on this phone, for the server's log — from the start,
+// so the page's own load is counted
+startOps()
 
 // before the first render, so the page never flashes the wrong theme
 applyThemeToDocument(initialTheme())

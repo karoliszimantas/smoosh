@@ -18,6 +18,7 @@ const STALL_TIMEOUT_MS = 30_000
 const MAX_TIMEOUTS = 2
 
 export type { CutTrim } from './protocol'
+import { noteModelLoaded, noteModelProgress, noteModelRequested, sendOps, watchHeap } from '../ops/opsClient'
 
 export type CutProgress =
   | { stage: 'download'; loaded: number; total: number }
@@ -109,9 +110,16 @@ let queue: Promise<unknown> = Promise.resolve()
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(new URL('./cut.worker.ts', import.meta.url), { type: 'module' })
-    // whoever asked, the model is in once a job gets past loading it
+    // whoever asked, the model is in once a job gets past loading it — and
+    // how its first load went goes to the operational log
     worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
-      if (event.data.type === 'ready' || event.data.type === 'cutting') markLoaded()
+      const msg = event.data
+      if (msg.type === 'progress') noteModelProgress(msg.key, msg.total)
+      if (msg.type === 'ready' || msg.type === 'cutting') {
+        if (!loaded) noteModelLoaded(true)
+        markLoaded()
+      }
+      if (msg.type === 'error' && msg.fatal && !loaded) noteModelLoaded(false)
     })
   }
   return worker
@@ -181,6 +189,7 @@ export function preloadCutter(connection: ConnectionInfo | undefined = currentCo
     w.addEventListener('message', onMessage)
     w.addEventListener('error', onError)
     const request: WorkerRequest = { type: 'preload', job }
+    noteModelRequested()
     w.postMessage(request)
   } catch (err) {
     console.warn('[cut] preload failed:', err)
@@ -280,6 +289,7 @@ function runJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutO
     w.addEventListener('error', onError)
     arm(STALL_TIMEOUT_MS, stalled)
     const request: WorkerRequest = { type: 'cut', job, url }
+    if (!loaded) noteModelRequested()
     w.postMessage(request)
   })
 }
@@ -292,6 +302,27 @@ function refusal(): CutFailed | null {
   return null
 }
 
+// a cut, timed whole (a first cut includes the model's download, which the
+// model's own report separates out), with the heap it peaked at
+function timedJob(url: string, onProgress: (p: CutProgress) => void): Promise<CutOutput> {
+  const heap = watchHeap()
+  const startedAt = performance.now()
+  const report = (ok: boolean) => {
+    const { before, peak } = heap()
+    sendOps({ kind: 'cut', ms: performance.now() - startedAt, ok, heapBeforeMb: before, heapPeakMb: peak })
+  }
+  return runJob(url, onProgress).then(
+    (out) => {
+      report(true)
+      return out
+    },
+    (err: unknown) => {
+      report(false)
+      throw err
+    },
+  )
+}
+
 export function cutImage(url: string, onProgress: (p: CutProgress) => void): Promise<CutOutput> {
   const refused = refusal()
   if (refused) return Promise.reject(refused)
@@ -299,7 +330,7 @@ export function cutImage(url: string, onProgress: (p: CutProgress) => void): Pro
   // found out the device can't cut, or is too slow to
   const result = queue.then(() => {
     const late = refusal()
-    return late ? Promise.reject(late) : runJob(url, onProgress)
+    return late ? Promise.reject(late) : timedJob(url, onProgress)
   })
   queue = result.catch(() => {})
   return result

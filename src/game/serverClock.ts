@@ -16,6 +16,9 @@ export type ClockOffset = {
   sample: (serverNow: number, localNow: number) => void
   // server time minus local time, in ms; 0 until the first sample
   offset: () => number
+  // how far apart the samples behind it are, in ms — mostly the spread of
+  // the trips' latency; null until the first sample
+  spread: () => number | null
 }
 
 export function createClockOffset(size = SAMPLES): ClockOffset {
@@ -27,6 +30,7 @@ export function createClockOffset(size = SAMPLES): ClockOffset {
       if (samples.length > size) samples.shift()
     },
     offset: () => (samples.length === 0 ? 0 : Math.max(...samples)),
+    spread: () => (samples.length === 0 ? null : Math.max(...samples) - Math.min(...samples)),
   }
 }
 
@@ -41,4 +45,11 @@ export function noteServerTime(serverNow: number): void {
 // deadlines with this, never with Date.now()
 export function serverNow(): number {
   return Date.now() + shared.offset()
+}
+
+// what the sync is correcting right now, for the operational log — null
+// before the first snapshot
+export function clockState(): { offset: number; spread: number } | null {
+  const spread = shared.spread()
+  return spread === null ? null : { offset: shared.offset(), spread }
 }
