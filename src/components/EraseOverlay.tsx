@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Layer, Rect, Circle, Image as KonvaImage } from 'react-konva'
+import { useEffect, useMemo, useRef } from 'react'
+import { Layer, Rect, Circle, Group, Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { baseSize, FULL_CROP, MAX_ERASE_STROKES, type EraseStroke, type LayerItem } from './layerItem'
 import { eraseSegment, renderErased, roundCoord } from './erase'
+import { eraseOffset } from './eraseReach'
 import { useTheme } from '../themes/useTheme'
 
 const OUTSIDE = 20000
@@ -10,7 +11,8 @@ const OUTSIDE = 20000
 // segments between points are interpolated, so this only bounds data size
 const MIN_POINT_GAP_PX = 3
 
-type Live = { pointerId: number; last: { x: number; y: number }; screen: { x: number; y: number }; points: number[] }
+type Point = { x: number; y: number }
+type Live = { pointerId: number; last: Point; screen: Point; points: number[] }
 
 // Erase mode: the rest of the canvas dims, the layer shows as it really is
 // (crop, mirror, rotation, opacity), and a finger dragged over it erases.
@@ -18,6 +20,11 @@ type Live = { pointerId: number; last: { x: number; y: number }; screen: { x: nu
 // up as data on finger-up — one finger-down to finger-up is one undoable
 // stroke. Strokes are kept in the full image's own space, so they move with
 // the picture through every later transform.
+//
+// On touch the brush works above the finger, not under it (eraseReach.ts),
+// from the first contact; the brush ring shows where, and how big. A stroke
+// follows its finger even off the canvas — over the layer strip, say — so
+// the bottom edge can be reached with the brush still above the finger.
 export default function EraseOverlay({
   item,
   image,
@@ -36,9 +43,9 @@ export default function EraseOverlay({
   const theme = useTheme()
   const imageRef = useRef<Konva.Image>(null)
   const live = useRef<Live | null>(null)
-  // the brush preview, in canvas units — starts on the layer so the size is
-  // visible before the first touch
-  const [cursor, setCursor] = useState({ x: item.x, y: item.y })
+  // the brush ring: starts on the layer so the size is visible before the
+  // first touch, then moved straight on the node — no render per move
+  const cursorRef = useRef<Konva.Group>(null)
 
   const W = image.width
   const H = image.height
@@ -56,21 +63,35 @@ export default function EraseOverlay({
   // brush radius in image pixels: screen px → canvas units → image px
   const radiusPx = brushPx / 2 / (stageScale * item.scale) / u
 
-  // where the pointer is, in the full image's pixels (crop/mirror/rotation undone)
-  const pointerInImage = () => {
-    const node = imageRef.current
-    const pos = node?.getStage()?.getPointerPosition()
-    if (!node || !pos) return null
-    const local = node.getAbsoluteTransform().copy().invert().point(pos)
-    return { x: crop.x * W + local.x / u, y: crop.y * H + local.y / u, screen: pos }
+  // where the brush is for this pointer event, in stage pixels: above a
+  // finger, right at a mouse or a stylus. Read from the event itself, not
+  // the stage, so it holds with the finger off the canvas — but the brush
+  // itself stays on it: a finger dragged on down past the bottom runs it
+  // along the edge, the ring still in sight, never under the strip or tools
+  const brushAt = (evt: PointerEvent): Point | null => {
+    const stage = imageRef.current?.getStage()
+    if (!stage) return null
+    const box = stage.container().getBoundingClientRect()
+    const x = evt.clientX - box.left
+    const y = evt.clientY - box.top
+    const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v))
+    return { x: clamp(x, stage.width()), y: clamp(y - eraseOffset(evt.pointerType, y, brushPx), stage.height()) }
   }
 
-  const moveCursor = () => {
+  // a stage point in the full image's pixels (crop/mirror/rotation undone)
+  const inImage = (screen: Point) => {
     const node = imageRef.current
-    const pos = node?.getStage()?.getPointerPosition()
-    const layer = node?.getLayer()
-    if (!pos || !layer) return
-    setCursor(layer.getAbsoluteTransform().copy().invert().point(pos))
+    if (!node) return null
+    const local = node.getAbsoluteTransform().copy().invert().point(screen)
+    return { x: crop.x * W + local.x / u, y: crop.y * H + local.y / u, screen }
+  }
+
+  const moveCursor = (screen: Point) => {
+    const ring = cursorRef.current
+    const layer = ring?.getLayer()
+    if (!ring || !layer) return
+    ring.position(layer.getAbsoluteTransform().copy().invert().point(screen))
+    layer.batchDraw()
   }
 
   const stampTo = (to: { x: number; y: number }, from: { x: number; y: number }) => {
@@ -81,10 +102,13 @@ export default function EraseOverlay({
   }
 
   const down = (e: Konva.KonvaEventObject<PointerEvent>) => {
-    moveCursor()
     // one finger erases; a second one is ignored, not a second stroke
-    if (live.current || full) return
-    const p = pointerInImage()
+    if (live.current) return
+    const at = brushAt(e.evt)
+    if (!at) return
+    moveCursor(at)
+    if (full) return
+    const p = inImage(at)
     if (!p) return
     live.current = {
       pointerId: e.evt.pointerId,
@@ -95,11 +119,22 @@ export default function EraseOverlay({
     stampTo(p, p)
   }
 
-  const move = (e: Konva.KonvaEventObject<PointerEvent>) => {
-    moveCursor()
+  // a mouse or a stylus hovering: the ring follows, ready
+  const hover = (e: Konva.KonvaEventObject<PointerEvent>) => {
+    if (live.current) return
+    const at = brushAt(e.evt)
+    if (at) moveCursor(at)
+  }
+
+  // a stroke under way — heard from the window, so it carries on past the
+  // canvas's edge
+  const move = (evt: PointerEvent) => {
     const l = live.current
-    if (!l || e.evt.pointerId !== l.pointerId) return
-    const p = pointerInImage()
+    if (!l || evt.pointerId !== l.pointerId) return
+    const at = brushAt(evt)
+    if (!at) return
+    moveCursor(at)
+    const p = inImage(at)
     if (!p) return
     if (Math.hypot(p.screen.x - l.screen.x, p.screen.y - l.screen.y) < MIN_POINT_GAP_PX) return
     // interpolated between samples — a fast swipe is a line, not dots
@@ -119,19 +154,24 @@ export default function EraseOverlay({
 
   // a finger lifted off the canvas (over the toolbar, say) never reaches the
   // stage — the stroke still ends there, rather than hanging open
-  const finishRef = useRef(finish)
+  const handlers = useRef({ move, finish })
   useEffect(() => {
-    finishRef.current = finish
+    handlers.current = { move, finish }
   })
   useEffect(() => {
-    const onWindowUp = (e: PointerEvent) => finishRef.current(e.pointerId)
+    const onWindowMove = (e: PointerEvent) => handlers.current.move(e)
+    const onWindowUp = (e: PointerEvent) => handlers.current.finish(e.pointerId)
+    window.addEventListener('pointermove', onWindowMove)
     window.addEventListener('pointerup', onWindowUp)
     window.addEventListener('pointercancel', onWindowUp)
     return () => {
+      window.removeEventListener('pointermove', onWindowMove)
       window.removeEventListener('pointerup', onWindowUp)
       window.removeEventListener('pointercancel', onWindowUp)
     }
   }, [])
+
+  const ringRadius = brushPx / 2 / stageScale
 
   return (
     <Layer name="erase-overlay">
@@ -144,7 +184,7 @@ export default function EraseOverlay({
         fill={theme.pageBg}
         opacity={0.78}
         onPointerDown={down}
-        onPointerMove={move}
+        onPointerMove={hover}
         onPointerUp={up}
         onPointerCancel={up}
       />
@@ -164,17 +204,15 @@ export default function EraseOverlay({
         opacity={item.opacity}
         listening={false}
       />
-      <Circle
-        x={cursor.x}
-        y={cursor.y}
-        radius={brushPx / 2 / stageScale}
-        fill={theme.selectionColor}
-        opacity={full ? 0.1 : 0.28}
-        stroke={theme.selectionColor}
-        strokeWidth={2}
-        strokeScaleEnabled={false}
-        listening={false}
-      />
+      {/* the brush: a ring the size of what it removes, with nothing over
+          the middle — that's the edge being worked on — but a dot to aim
+          with. A ring in the page's colour inside the coloured one keeps it
+          seen on any picture, light or dark */}
+      <Group ref={cursorRef} x={item.x} y={item.y} opacity={full ? 0.35 : 1} listening={false}>
+        <Circle radius={ringRadius} stroke={theme.selectionColor} strokeWidth={2} strokeScaleEnabled={false} />
+        <Circle radius={Math.max(0, ringRadius - 2 / stageScale)} stroke={theme.pageBg} strokeWidth={1} strokeScaleEnabled={false} />
+        <Circle radius={1.5 / stageScale} fill={theme.selectionColor} />
+      </Group>
     </Layer>
   )
 }
