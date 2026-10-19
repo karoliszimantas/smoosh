@@ -964,6 +964,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   )
   const moveSelectedForward = useCallback(() => moveSelected(1), [moveSelected])
   const moveSelectedBackward = useCallback(() => moveSelected(-1), [moveSelected])
+  // a thumbnail dragged along the layer strip and dropped: straight to its
+  // new place, as one undo step. Locked or not — a lock pins a layer on the
+  // canvas, not in the stack
+  const reorderLayer = useCallback((id: string, to: number) => setItems((prev) => moveToIndex(prev, id, to)), [setItems])
 
   const toggleLockSelected = useCallback(() => {
     setItems((prev) => prev.map((i) => (i.id === selectedId ? { ...i, locked: !i.locked } : i)))
@@ -1401,6 +1405,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         canBack={canMoveBack && !selectedItem?.locked && !editing}
         onFront={moveSelectedForward}
         onBack={moveSelectedBackward}
+        canReorder={!editing && !depth}
+        onReorder={reorderLayer}
       />
 
       <Toolbar

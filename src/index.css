@@ -564,6 +564,23 @@ h2 {
   flex-shrink: 0;
 }
 
+/* each end's step button, with which end of the stack that is typed under
+   it: the strip runs front (left) to back (right) */
+.layer-strip-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.layer-strip-side-label {
+  font: 700 9px/10px var(--font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* nothing to move: a dashed outline on the desk */
 .layer-strip-end:disabled {
   border-style: dashed;
@@ -607,7 +624,36 @@ h2 {
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* held to pick it up: no text selection or callout on the way */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* translate: the others parting round a dragged one */
+  transition:
+    transform 120ms ease-out,
+    translate 140ms ease-out;
+}
+
+/* picked up (LayerStrip moves it with the finger, a frame at a time): off
+   the desk, askew, on a deeper shadow */
+.layer-chip[data-lifted] {
+  z-index: 2;
+  transform: scale(1.1) rotate(-3deg);
+  box-shadow: var(--shadow);
   transition: transform 120ms ease-out;
+  cursor: grabbing;
+}
+
+/* dropped: every thumbnail straight to its place, no slide back */
+.layer-strip-scroll[data-reorder='settling'] .layer-chip {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer-chip,
+  .layer-chip[data-lifted] {
+    transition: none;
+  }
 }
 
 /* the selected one sits on a scrap of tape, a little larger and askew */
