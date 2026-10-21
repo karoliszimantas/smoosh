@@ -66,3 +66,86 @@
   text-align: center;
   pointer-events: none;
 }
+
+/* ---------- asset sheet: hold a picture to see it large ----------
+   useHoldPreview / AssetPreview. Over the sheet alone (it's fixed to the
+   sheet, which slides on a transform), dimmed, taking no pointer — the
+   finger under it is still on the grid, browsing. */
+
+/* a long press is ours: no iOS callout, no text selection, no image drag */
+.asset-sheet .result-thumb {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.asset-sheet-grid[data-previewing] {
+  user-select: none;
+}
+
+/* which card the preview is showing, under the dim */
+.result-card[data-previewing] {
+  outline: 3px solid var(--primary-ink);
+  outline-offset: 2px;
+}
+
+.asset-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  background: var(--scrim);
+  pointer-events: none;
+}
+
+/* square, so the thumbnail and the full image fill the same box — the full
+   one lands on top with nothing moving. The sheet is 65dvh tall, so the
+   height caps it as often as the width does */
+.asset-preview-picture {
+  position: relative;
+  width: min(78vw, 340px, 40dvh);
+  aspect-ratio: 1;
+  border: 2.5px solid var(--line);
+  border-radius: 3px;
+  box-shadow: var(--shadow);
+}
+
+.asset-preview-picture img {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+}
+
+.asset-preview-full {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.asset-preview-full.loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asset-preview-full {
+    transition: none;
+  }
+}
+
+.asset-preview-label {
+  max-width: min(78vw, 340px);
+  padding: 6px 12px;
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
+  font: 700 17px/1.25 var(--font-ui);
+  text-align: center;
+  overflow-wrap: anywhere;
+}

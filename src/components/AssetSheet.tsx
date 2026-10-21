@@ -21,6 +21,8 @@ import type { Placement } from './layerItem'
 import type { CutUpdate } from './cutSwap'
 import { generateId } from '../id'
 import ReportDialog from './ReportDialog'
+import AssetPreview from './AssetPreview'
+import { useHoldPreview } from './useHoldPreview'
 import { preparePhoto, releaseCanvas } from '../photos/photoCut'
 import { savePhoto } from '../photos/photoStore'
 import './assetSheet.css'
@@ -355,6 +357,11 @@ export default function AssetSheet({
 
   const termState = activeTerm ? terms[activeTerm] : undefined
 
+  // hold a card's picture to see it large, slide to see the next: open only,
+  // never the peek (a tap there opens the sheet)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const preview = useHoldPreview(gridRef, mode === 'open')
+
   const libraryMatches = useMemo(() => (libraryQuery ? searchAssets(index, libraryQuery) : []), [index, libraryQuery])
 
   const results = useMemo(() => {
@@ -635,7 +642,7 @@ export default function AssetSheet({
 
         {/* in the peek, below the fold: kept as it was (the tab's results,
             scrolled where they were) for when the sheet opens again */}
-        <div className="asset-sheet-grid" inert={peek}>
+        <div ref={gridRef} className="asset-sheet-grid" inert={peek}>
           {/* a word the library hasn't got: always said plainly, whatever
               Pixabay is doing — before anything it found */}
           {libraryQuery && curated !== null && libraryMatches.length === 0 && (
@@ -692,6 +699,10 @@ export default function AssetSheet({
           )}
           {termState?.loading && results.length > 0 && <p className="asset-sheet-message">Loading…</p>}
         </div>
+
+        {/* inside the sheet: it's fixed to the sheet (which slides on a
+            transform), so it dims and centres over the sheet alone */}
+        <AssetPreview store={preview} results={results} />
       </div>
 
       {reportTarget !== null && (
@@ -746,9 +757,10 @@ export function ResultCard({
   const note = downloadNote && showCut && !isCut
 
   return (
-    <div className={`result-card${isCut ? ' is-cut' : ''}`}>
+    <div className={`result-card${isCut ? ' is-cut' : ''}`} data-key={result.key}>
+      {/* hold to see it large (useHoldPreview); placing is Cut and Full's */}
       <div className="result-thumb">
-        <img src={result.thumb} alt={result.label} loading="lazy" />
+        <img src={result.thumb} alt={result.label} loading="lazy" draggable={false} />
         {note && (
           <p id={noteId} className="result-note">
             Cut works after a short download

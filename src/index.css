@@ -4864,8 +4864,11 @@ h1.prompt-window-kicker {
   opacity: 0.55;
 }
 
+/* the checkerboard a cut-out's edges show against — also behind the asset
+   sheet's hold-to-preview (assetSheet.css) */
 .labels-thumb,
-.labels-editor-picture {
+.labels-editor-picture,
+.asset-preview-picture {
   display: flex;
   align-items: center;
   justify-content: center;
