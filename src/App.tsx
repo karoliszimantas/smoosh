@@ -2,11 +2,10 @@ import { lazy, Suspense, useState } from 'react'
 import GameRoot from './game/GameRoot'
 import SandboxView from './sandbox/SandboxView'
 import ErrorBoundary from './components/ErrorBoundary'
-import PromptsView from './prompts/PromptsView'
-import { isLabelsPath, isPromptsPath } from './prompts/access'
+import { isAdminPath } from './admin/paths'
 
-// the asset labelling tool: its own page, loaded only there
-const LabelsView = lazy(() => import('./labels/LabelsView'))
+// prompts, labels and logs, behind sign-in: their own pages, loaded only there
+const AdminShell = lazy(() => import('./admin/AdminShell'))
 
 // Remembered per tab so a reload in the sandbox stays in the sandbox.
 const MODE_KEY = 'smoosh_mode'
@@ -30,19 +29,12 @@ function saveMode(mode: Mode): void {
 }
 
 export default function App() {
-  // the team's prompt list: its own page, no game, no socket
-  if (isPromptsPath()) {
-    return (
-      <ErrorBoundary>
-        <PromptsView />
-      </ErrorBoundary>
-    )
-  }
-  if (isLabelsPath()) {
+  // the admin area: no game, no socket
+  if (isAdminPath()) {
     return (
       <ErrorBoundary>
         <Suspense fallback={null}>
-          <LabelsView />
+          <AdminShell />
         </Suspense>
       </ErrorBoundary>
     )

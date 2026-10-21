@@ -11,8 +11,8 @@ import {
   type SubmissionRejection,
 } from './game/phaseMachine.ts'
 import { handleMediaRequest } from './media/routes.ts'
-import { handlePromptsRequest, PROMPT_CORS_HEADERS } from './prompts/routes.ts'
-import { handleLabelsRequest } from './labels/routes.ts'
+import { handleAdminRequest } from './admin/routes.ts'
+import { handleLabelsSyncRequest } from './labels/routes.ts'
 import { personalDeadline } from './game/promptSwap.ts'
 import { roomLog, who } from './roomLog.ts'
 import type { Room, Seat } from './rooms/Room.ts'
@@ -37,9 +37,8 @@ function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*')
   // lets a phone's Resource Timing see sizes, for its download totals
   res.setHeader('Timing-Allow-Origin', '*')
-  // PATCH/DELETE and the prompt headers are for /api/prompts
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', `Content-Type, X-Session-Id, ${PROMPT_CORS_HEADERS}`)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Id')
 }
 
 function send(res: ServerResponse, status: number, body?: string): void {
@@ -99,6 +98,11 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
     }
     if (url.pathname.startsWith('/socket.io')) return // socket.io's own listener handles this path
 
+    // before the open CORS below: /admin is reached from its own origin only,
+    // and the laptop's labels sync isn't a browser at all
+    if (handleAdminRequest(req, res, url)) return
+    if (handleLabelsSyncRequest(req, res, url)) return
+
     if (req.method === 'OPTIONS') {
       withCors(res)
       res.writeHead(204)
@@ -106,8 +110,6 @@ export function createRequestHandler(deps: PhaseMachineDeps) {
       return
     }
 
-    if (handlePromptsRequest(req, res, url)) return
-    if (handleLabelsRequest(req, res, url)) return
     if (handleMediaRequest(req, res, url)) return
 
     const target = parseUploadPath(url.pathname)

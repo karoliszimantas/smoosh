@@ -1,6 +1,4 @@
-import { getCode, getName } from './access'
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001'
+import { adminCall } from '../admin/api'
 
 export type PromptMode = 'guess' | 'gallery' | 'both'
 export const PROMPT_MODES: readonly PromptMode[] = ['both', 'guess', 'gallery']
@@ -25,51 +23,9 @@ export function voterKey(name: string): string {
   return name.trim().toLowerCase()
 }
 
-// `message` is always plain language, safe to show as-is
-export class PromptApiError extends Error {
-  readonly code: string
-  constructor(code: string, message: string) {
-    super(message)
-    this.name = 'PromptApiError'
-    this.code = code
-  }
-}
-
-async function call(method: string, path: string, body?: unknown): Promise<Response> {
-  let res: Response
-  try {
-    res = await fetch(`${SERVER_URL}/api/prompts${path}`, {
-      method,
-      headers: {
-        'x-prompt-code': getCode(),
-        // names can have accents; headers can't — the server decodes this
-        'x-prompt-author': encodeURIComponent(getName()),
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    })
-  } catch {
-    throw new PromptApiError('offline', "Can't connect. Check your connection and try again.")
-  }
-  if (!res.ok) {
-    let message = 'Something went wrong. Try again.'
-    let code = 'error'
-    try {
-      const data = (await res.json()) as { error?: unknown; message?: unknown }
-      if (typeof data.message === 'string') message = data.message
-      if (typeof data.error === 'string') code = data.error
-    } catch {
-      // not JSON — keep the generic message
-    }
-    throw new PromptApiError(code, message)
-  }
-  return res
-}
-
+// /api/admin/prompts — every change answers with the whole pool
 async function pool(method: string, path: string, body?: unknown): Promise<Prompt[]> {
-  const res = await call(method, path, body)
-  const data = (await res.json()) as { prompts: Prompt[] }
-  return data.prompts
+  return (await adminCall<{ prompts: Prompt[] }>(method, `/prompts${path}`, body)).prompts
 }
 
 export const promptApi = {
@@ -81,12 +37,10 @@ export const promptApi = {
   vote: (id: string, vote: 1 | -1) => pool('POST', `/${encodeURIComponent(id)}/vote`, { vote }),
   bulk: (ids: string[], action: 'archive' | 'restore' | 'delete') => pool('POST', '/bulk', { ids, action }),
   // one request for the lot — the server adds all of them or none
-  import: async (rows: { text: string; mode: PromptMode; author: string }[]) => {
-    const res = await call('POST', '/import', { rows })
-    return (await res.json()) as { prompts: Prompt[]; added: string[] }
-  },
+  import: (rows: { text: string; mode: PromptMode; author: string }[]) =>
+    adminCall<{ prompts: Prompt[]; added: string[] }>('POST', '/prompts/import', { rows }),
   // fire and forget — a lost count never matters more than the UI
   built: (id: string) => {
-    void call('POST', `/${encodeURIComponent(id)}/built`).catch(() => {})
+    void adminCall<void>('POST', `/prompts/${encodeURIComponent(id)}/built`).catch(() => {})
   },
 }

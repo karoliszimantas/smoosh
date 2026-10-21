@@ -6,6 +6,11 @@ import { initModeration } from './media/moderation.ts'
 import { initCutStore } from './media/cutStore.ts'
 import { getPromptStore } from './prompts/shared.ts'
 import { noteProcessError, startHealth } from './ops/health.ts'
+import { captureConsole } from './ops/logTail.ts'
+import { describeAdminConfig } from './admin/config.ts'
+
+// first, so the admin logs section has the whole run
+captureConsole()
 
 const PORT = Number(process.env.PORT ?? 3001)
 
@@ -35,6 +40,7 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
 }
 
 startIdleReaper()
+console.log(describeAdminConfig())
 
 // the blocklist must be in place before the first search is served; the cut
 // index is a nice-to-have — if R2 is unreachable at boot, the game still

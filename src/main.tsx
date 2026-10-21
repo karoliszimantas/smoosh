@@ -5,15 +5,15 @@ import './index.css'
 import App from './App.tsx'
 import ThemeProvider from './themes/ThemeProvider'
 import { applyThemeToDocument, initialTheme } from './themes'
-import { captureCodeFromUrl } from './prompts/access'
+import { redirectOldAdminPaths } from './admin/paths'
 import { captureJoinFromUrl } from './game/invite'
 import { prunePhotos } from './photos/photoStore'
 import { defaultServices, GameServicesProvider, type GameServices } from './game/services'
 import { startOps } from './ops/opsClient'
 
-// a /prompts?code=… link: keep the code, and get it out of the address bar
-// before anything renders
-captureCodeFromUrl()
+// /prompts and /labels, from before the admin area: on to /admin/… before
+// anything renders
+redirectOldAdminPaths()
 // an invite, /?join=KRPT: kept for the home screen, and out of the address
 // bar the same way
 captureJoinFromUrl()

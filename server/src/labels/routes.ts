@@ -1,22 +1,24 @@
-// /api/labels — the asset labels, for the /labels tool and the laptop's
-// pull/push (tools/labelsSync.ts).
+// The asset labels, two ways in:
 //
-// ACCESS: the same as /api/prompts — one shared code (LABELS_WRITE_KEY, or
-// PROMPT_WRITE_KEY when that isn't set) plus a self-chosen name. A shared
-// password for three people who trust each other, not an auth system: before
-// this goes anywhere public it needs real accounts and auth. The code is
-// never logged.
+//   /api/admin/labels — the /admin labels section, for whoever is signed in
+//   (admin/routes.ts checks the session first). Edits are credited to the
+//   signed-in account.
+//     GET   /api/admin/labels             every row, and the file's version
+//     PATCH /api/admin/labels/rows/:id    one asset's label, tags, remove flag, note
 //
-//   GET   /api/labels             every row, and the file's version
-//   PATCH /api/labels/rows/:id    one asset's label, tags, remove flag, note
-//   GET   /api/labels/file        the file as text (the laptop's pull)
-//   PUT   /api/labels/file        the whole file, from the laptop (push)
+//   /api/labels/file — the laptop's pull and push (tools/labelsSync.ts),
+//   machine to machine: an `Authorization: Bearer` key, LABELS_SYNC_KEY,
+//   that no browser ever holds. No session is accepted here, and the key is
+//   accepted nowhere else. Never logged.
+//     GET   /api/labels/file              the file as text (pull)
+//     PUT   /api/labels/file              the whole file (push)
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { PromptError } from '../prompts/store.ts'
 import { createPrivateBackend } from '../prompts/backends.ts'
-import { authorOf, codeMatches, header, parse, readJson, sendError, sendJson, tokenTaker } from '../prompts/routes.ts'
+import { answer, header, parse, readJson, secretMatches, sendError, sendJson, tokenTaker } from '../admin/http.ts'
+import type { Actor } from '../admin/actor.ts'
+import { labelsSyncKey } from '../admin/config.ts'
 import { LabelStore } from './store.ts'
 
 // labelling is a rhythm — a save every few seconds — so more than prompts
@@ -26,6 +28,10 @@ const WRITES_PER_MINUTE = 60
 const WRITES_PER_PERSON_PER_DAY = 1500
 // the whole file comes in on a push: room for a few thousand rows
 const MAX_FILE_BYTES = 1_000_000
+// pushes and pulls are a handful a day
+const SYNCS_PER_MINUTE = 10
+// what the laptop's pushes count against, in the daily cap
+const LAPTOP = 'labels-sync'
 
 let store: LabelStore | null = null
 function getStore(): LabelStore {
@@ -36,7 +42,9 @@ export function setLabelStoreForTests(s: LabelStore): void {
   store = s
 }
 
+// per account (or the laptop): everyone's signed in, so an address adds little
 const takeWriteToken = tokenTaker(WRITES_PER_MINUTE, WRITES_PER_MINUTE / 60_000)
+const takeSyncToken = tokenTaker(SYNCS_PER_MINUTE, SYNCS_PER_MINUTE / 60_000)
 
 const writesToday = new Map<string, { day: string; count: number }>()
 function underDailyCap(author: string): boolean {
@@ -63,73 +71,70 @@ const EditSchema = z.object({
 })
 const FileSchema = z.object({ text: z.string().min(1), base: z.string().min(1).max(40) })
 
-async function handle(req: IncomingMessage, res: ServerResponse, parts: string[]): Promise<void> {
-  const expected = process.env.LABELS_WRITE_KEY || process.env.PROMPT_WRITE_KEY
-  if (!expected) {
-    sendError(res, 503, 'not_set_up', "The labels tool isn't set up on this server yet.")
-    return
+function writeAllowed(res: ServerResponse, who: string): boolean {
+  if (!takeWriteToken(who)) {
+    sendError(res, 429, 'slow_down', "You're going a bit fast — wait a minute and try again.")
+    return false
   }
-  if (!codeMatches(header(req, 'x-prompt-code'), expected)) {
-    sendError(res, 401, 'wrong_code', "That code isn't right.")
-    return
+  if (!underDailyCap(who)) {
+    sendError(res, 429, 'daily_cap', `That's ${WRITES_PER_PERSON_PER_DAY} saves today — the rest can wait for tomorrow.`)
+    return false
   }
+  return true
+}
+
+export async function handleLabels(req: IncomingMessage, res: ServerResponse, parts: string[], actor: Actor): Promise<void> {
   const method = req.method ?? 'GET'
-  const [what, id] = parts
+  const [what, id, extra] = parts
   const s = getStore()
 
   if (method === 'GET' && what === undefined) {
     sendJson(res, 200, await s.snapshot())
     return
   }
-  if (method === 'GET' && what === 'file' && id === undefined) {
-    const { text, version } = await s.file()
-    sendJson(res, 200, { text, version })
-    return
-  }
-
-  const author = authorOf(req)
-  if (!author) {
-    sendError(res, 400, 'no_name', 'Tell us your name first.')
-    return
-  }
-  if (!takeWriteToken(req)) {
-    sendError(res, 429, 'slow_down', "You're going a bit fast — wait a minute and try again.")
-    return
-  }
-  if (!underDailyCap(author)) {
-    sendError(res, 429, 'daily_cap', `That's ${WRITES_PER_PERSON_PER_DAY} saves today — the rest can wait for tomorrow.`)
-    return
-  }
-
-  if (method === 'PATCH' && what === 'rows' && id) {
+  if (method === 'PATCH' && what === 'rows' && id && extra === undefined) {
+    if (!writeAllowed(res, actor.email)) return
     const body = parse(EditSchema, await readJson(req))
-    const row = await s.editRow(decodeURIComponent(id), body.category, body, author, body.seen)
+    const row = await s.editRow(decodeURIComponent(id), body.category, body, actor.name, body.seen)
     sendJson(res, 200, { row })
-    return
-  }
-  if (method === 'PUT' && what === 'file' && id === undefined) {
-    const body = parse(FileSchema, await readJson(req, MAX_FILE_BYTES))
-    sendJson(res, 200, await s.replaceFile(body.text, body.base))
     return
   }
   sendError(res, 404, 'not_found', 'not found')
 }
 
-export function handleLabelsRequest(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
-  const parts = url.pathname.split('/').filter(Boolean) // ['api', 'labels', what?, id?]
-  if (parts[0] !== 'api' || parts[1] !== 'labels') return false
-  const rest = parts.slice(2)
-  if (rest.length > 2) {
-    sendError(res, 404, 'not_found', 'not found')
-    return true
-  }
-  handle(req, res, rest).catch((err: unknown) => {
-    if (err instanceof PromptError) {
-      sendError(res, err.status, err.code, err.message)
-      return
-    }
-    console.error('[labels] unhandled error:', err instanceof Error ? err.message : err)
-    sendError(res, 500, 'internal', 'Something went wrong. Try again.')
-  })
+// true when the path was ours (answered, one way or another)
+export function handleLabelsSyncRequest(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+  if (url.pathname !== '/api/labels/file') return false
+  answer(res, 'labels', sync(req, res))
   return true
+}
+
+async function sync(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const key = labelsSyncKey()
+  if (!key) {
+    sendError(res, 503, 'not_set_up', 'Labels sync isn’t set up on this server — set LABELS_SYNC_KEY in server/.env.')
+    return
+  }
+  const given = /^Bearer (.+)$/.exec(header(req, 'authorization'))?.[1] ?? ''
+  if (!secretMatches(given, key)) {
+    sendError(res, 401, 'wrong_key', 'That key isn’t right — LABELS_SYNC_KEY in tools/.env must match the server’s.')
+    return
+  }
+  if (!takeSyncToken(LAPTOP)) {
+    sendError(res, 429, 'slow_down', 'That’s a lot of syncs at once — wait a minute and try again.')
+    return
+  }
+  const s = getStore()
+  if (req.method === 'GET') {
+    const { text, version } = await s.file()
+    sendJson(res, 200, { text, version })
+    return
+  }
+  if (req.method === 'PUT') {
+    if (!writeAllowed(res, LAPTOP)) return
+    const body = parse(FileSchema, await readJson(req, MAX_FILE_BYTES))
+    sendJson(res, 200, await s.replaceFile(body.text, body.base))
+    return
+  }
+  sendError(res, 405, 'method_not_allowed', 'GET to pull, PUT to push.')
 }

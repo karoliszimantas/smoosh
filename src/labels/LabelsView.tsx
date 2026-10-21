@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'r
 import type { LabelRow } from '@smoosh/protocol'
 import { LocalAssetSource } from '../assets'
 import type { Asset } from '../assets/types'
-import { getCode, getName, setCode } from '../prompts/access'
-import Gate from '../prompts/Gate'
 import { missingWords } from '../assets/missingWords'
-import { LabelsApiError, labelsApi } from './api'
+import { AdminApiError } from '../admin/api'
+import DetailSheet from '../admin/DetailSheet'
+import { useOnVisible } from '../admin/useOnVisible'
+import { labelsApi } from './api'
 import { completeTag, isLoneTag, suggestTags, tagVocabulary } from './suggest'
 
-// /labels — labelling the asset library from a phone. The work is the
+// /admin/labels — labelling the asset library from a phone. The work is the
 // grid: tap an asset, give it a label and tags, Save & next takes you to the
 // next one, so a batch is a rhythm rather than a run of decisions.
 //
@@ -46,8 +47,6 @@ async function loadLibrary(): Promise<{ assets: Asset[]; categories: { id: strin
 }
 
 export default function LabelsView() {
-  const [ready, setReady] = useState(() => getCode() !== '' && getName() !== '')
-  const [gateError, setGateError] = useState<string | null>(null)
   const [rows, setRows] = useState<LabelRow[] | null>(null)
   const [library, setLibrary] = useState<{ assets: Asset[]; categories: { id: string; label: string }[] } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -57,13 +56,8 @@ export default function LabelsView() {
   const [editing, setEditing] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  // a session that ran out goes back to sign-in — the admin shell sees to that
   const fail = useCallback((err: unknown) => {
-    if (err instanceof LabelsApiError && err.code === 'wrong_code') {
-      setCode('')
-      setGateError(err.message)
-      setReady(false)
-      return
-    }
     setLoadError(err instanceof Error ? err.message : 'Something went wrong.')
   }, [])
 
@@ -75,18 +69,10 @@ export default function LabelsView() {
   }, [fail])
 
   useEffect(() => {
-    if (!ready) return
     refresh()
     loadLibrary().then(setLibrary, () => setLoadError('The asset library didn’t load.'))
-  }, [ready, refresh])
-
-  // coming back to the tab picks up the others' edits
-  useEffect(() => {
-    if (!ready) return
-    const onVisible = () => document.visibilityState === 'visible' && refresh()
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [ready, refresh])
+  }, [refresh])
+  useOnVisible(refresh)
 
   const items = useMemo((): Item[] => {
     if (!rows || !library) return []
@@ -121,26 +107,10 @@ export default function LabelsView() {
 
   const vocabulary = useMemo(() => tagVocabulary(rows ?? []), [rows])
 
-  if (!ready) {
-    return (
-      <div className="prompts-view">
-        <Gate
-          title="Labels"
-          error={gateError}
-          onDone={() => {
-            setGateError(null)
-            setReady(true)
-          }}
-        />
-      </div>
-    )
-  }
-
   const current = editing ? items.find((i) => i.id === editing) : undefined
 
   return (
     <div className="prompts-view labels-view">
-      <h1 className="labels-title">Labels</h1>
       <div className="labels-filters" role="tablist" aria-label="Show">
         {(['needs', 'tags', 'removed', 'all', 'gaps'] as const).map((f) => (
           <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)}>
@@ -218,7 +188,6 @@ export default function LabelsView() {
             setEditing(nextId)
             if (!nextId) setNotice('Saved — that was the last one here.')
           }}
-          onAuthFail={fail}
           onStale={refresh}
           nextId={(() => {
             const at = shown.findIndex((i) => i.id === current.id)
@@ -239,7 +208,6 @@ function Editor({
   onClose,
   onSkip,
   onSaved,
-  onAuthFail,
   onStale,
 }: {
   item: Item
@@ -250,7 +218,6 @@ function Editor({
   // on to the next without saving anything
   onSkip: (nextId: string) => void
   onSaved: (row: LabelRow, nextId: string | null) => void
-  onAuthFail: (err: unknown) => void
   onStale: () => void
 }) {
   const row = item.row
@@ -289,23 +256,20 @@ function Editor({
       .then(
         ({ row: saved }) => onSaved(saved, goNext ? nextId : null),
         (err: unknown) => {
-          if (err instanceof LabelsApiError && err.code === 'wrong_code') return onAuthFail(err)
           setError(err instanceof Error ? err.message : 'That didn’t save.')
-          if (err instanceof LabelsApiError && err.code === 'changed') onStale()
+          if (err instanceof AdminApiError && err.code === 'changed') onStale()
         },
       )
       .finally(() => setBusy(false))
   }
 
   return (
-    <div className="labels-editor" role="dialog" aria-modal="true" aria-label={`Label ${item.id}`}>
-      <div className="labels-editor-bar">
-        <button onClick={onClose}>Close</button>
-        <span className="labels-editor-id">{item.id}</span>
-        {nextId && (
-          <button onClick={() => onSkip(nextId)}>Skip</button>
-        )}
-      </div>
+    <DetailSheet
+      label={`Label ${item.id}`}
+      title={<small>{item.id}</small>}
+      action={nextId && <button onClick={() => onSkip(nextId)}>Skip</button>}
+      onClose={onClose}
+    >
       <div className="labels-editor-picture">
         {item.asset ? <img src={item.asset.full} alt="" /> : <p className="prompts-empty">Not in the published library — restore it to bring it back.</p>}
       </div>
@@ -378,7 +342,7 @@ function Editor({
           {busy ? 'Saving…' : nextId ? 'Save & next' : 'Save'}
         </button>
       </div>
-    </div>
+    </DetailSheet>
   )
 }
 

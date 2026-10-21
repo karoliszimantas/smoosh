@@ -170,7 +170,10 @@ export function previewImport(
 
     if (text === '') return row('invalid', 'No text')
     if (modeRaw !== null && !isMode(modeRaw)) return row('invalid', `Mode “${r.mode ?? ''}” — use guess, gallery or both`)
-    if (author.length > MAX_PROMPT_AUTHOR_LENGTH) {
+    // the importer's own credit is the account's, and may be longer; a typed
+    // name can't look like one
+    if (author !== who.me && author.includes('@')) return row('invalid', 'Author names can’t contain @')
+    if (author !== who.me && author.length > MAX_PROMPT_AUTHOR_LENGTH) {
       return row('invalid', `Author name over ${MAX_PROMPT_AUTHOR_LENGTH} characters`)
     }
 

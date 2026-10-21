@@ -41,6 +41,9 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: ['.trycloudflare.com'],
     headers: isolationHeaders,
+    // the admin area talks to its own origin, as through the Worker in
+    // production (worker/index.ts), so its session cookie is first-party
+    proxy: { '/api/admin': { target: 'http://localhost:3001', xfwd: true } },
   },
   preview: { headers: isolationHeaders },
 })

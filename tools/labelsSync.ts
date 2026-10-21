@@ -12,7 +12,8 @@
 // takes the live one — yours is written to .labels-sync/conflicts.tsv to
 // look at. Commit the file after a pull or push as usual.
 //
-// Needs in tools/.env:  SMOOSH_SERVER_URL=https://…   LABELS_CODE=<the shared code>
+// Needs in tools/.env:  SMOOSH_SERVER_URL=https://…   LABELS_SYNC_KEY=<the server's LABELS_SYNC_KEY>
+// Machine to machine: a key no browser holds, never a Google sign-in.
 
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -27,8 +28,7 @@ const BASE = path.join(STATE_DIR, 'base.tsv')
 const CONFLICTS = path.join(STATE_DIR, 'conflicts.tsv')
 
 const SERVER = (process.env.SMOOSH_SERVER_URL ?? '').replace(/\/+$/, '')
-const CODE = process.env.LABELS_CODE ?? ''
-const WHO = process.env.LABELS_NAME ?? 'laptop'
+const KEY = process.env.LABELS_SYNC_KEY ?? ''
 
 function versionOf(text: string | null): string {
   return text === null ? 'empty' : createHash('sha256').update(text).digest('hex').slice(0, 16)
@@ -45,7 +45,7 @@ async function read(file: string): Promise<string | null> {
 async function api(method: string, body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
   const res = await fetch(`${SERVER}/api/labels/file`, {
     method,
-    headers: { 'x-prompt-code': CODE, 'x-prompt-author': encodeURIComponent(WHO), 'Content-Type': 'application/json' },
+    headers: { authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
   return { status: res.status, data: (await res.json()) as Record<string, unknown> }
@@ -126,8 +126,12 @@ async function push(): Promise<void> {
   console.log(`Pushed ${parseLabels(data.text).doc.rows.length} rows${data.text === local ? '' : ' (tidied into the standard layout)'}.`)
 }
 
-if (!SERVER || !CODE) {
-  console.error('Set SMOOSH_SERVER_URL and LABELS_CODE in tools/.env (LABELS_NAME too, to be credited for pushes).')
+if (!SERVER || !KEY) {
+  console.error(
+    process.env.LABELS_CODE
+      ? 'LABELS_CODE is gone — the shared code no longer opens anything. Set LABELS_SYNC_KEY in tools/.env to the server’s LABELS_SYNC_KEY.'
+      : 'Set SMOOSH_SERVER_URL and LABELS_SYNC_KEY in tools/.env.',
+  )
   process.exit(1)
 }
 const command = process.argv[2]

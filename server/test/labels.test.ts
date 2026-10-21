@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import http from 'node:http'
-import type { AddressInfo } from 'node:net'
+import type http from 'node:http'
 import { readFileSync } from 'node:fs'
-import { parseLabels } from '@smoosh/protocol'
+import { parseLabels, serializeLabels } from '@smoosh/protocol'
 import type { PoolBackend } from '../src/prompts/store.ts'
 import { LabelStore, versionOf } from '../src/labels/store.ts'
-import { handleLabelsRequest, setLabelStoreForTests } from '../src/labels/routes.ts'
+import { setLabelStoreForTests } from '../src/labels/routes.ts'
+import { adminEnv, sessionCookie, startAdminServer, SYNC_KEY } from './adminHelpers.ts'
 
 const REAL = readFileSync(new URL('../../tools/asset-labels.tsv', import.meta.url), 'utf8')
 
@@ -23,16 +23,14 @@ function memory(initial: string | null = null) {
   return { backend, state }
 }
 
+let origin = ''
 let base = ''
 let server: http.Server
 let mem = memory(REAL)
 beforeAll(async () => {
-  process.env.PROMPT_WRITE_KEY = 'letmein'
-  server = http.createServer((req, res) => {
-    handleLabelsRequest(req, res, new URL(req.url ?? '/', 'http://localhost'))
-  })
-  await new Promise<void>((r) => server.listen(0, r))
-  base = `http://localhost:${(server.address() as AddressInfo).port}/api/labels`
+  adminEnv()
+  ;({ server, origin } = await startAdminServer())
+  base = `${origin}/api/admin/labels`
 })
 afterAll(() => server.close())
 beforeEach(() => {
@@ -40,44 +38,47 @@ beforeEach(() => {
   setLabelStoreForTests(new LabelStore(mem.backend))
 })
 
-let ip = 0
-const call = (method: string, path: string, body?: unknown, author = 'Ana') =>
+// as the signed-in page sends it
+const call = (method: string, path: string, body?: unknown, who = 'ana') =>
   fetch(`${base}${path}`, {
     method,
-    headers: {
-      'x-prompt-code': 'letmein',
-      'x-prompt-author': author,
-      'x-forwarded-for': `10.1.0.${++ip}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { cookie: sessionCookie(`${who}@example.com`), origin, 'Content-Type': 'application/json' },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
-const edit = (id: string, category: string, patch: Partial<{ label: string; tags: string[]; remove: boolean; note: string; seen: string | null }>, author = 'Ana') =>
-  call('PATCH', `/rows/${encodeURIComponent(id)}`, { category, label: '', tags: [], remove: false, note: '', seen: null, ...patch }, author)
+// as the laptop sends it
+const sync = (method: string, body?: unknown, key = SYNC_KEY) =>
+  fetch(`${origin}/api/labels/file`, {
+    method,
+    headers: { authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  })
+const edit = (id: string, category: string, patch: Partial<{ label: string; tags: string[]; remove: boolean; note: string; seen: string | null }>, who = 'ana') =>
+  call('PATCH', `/rows/${encodeURIComponent(id)}`, { category, label: '', tags: [], remove: false, note: '', seen: null, ...patch }, who)
 
-describe('/api/labels', () => {
-  it('serves every row; a wrong code is refused', async () => {
+describe('/api/admin/labels', () => {
+  it('serves every row; without a session it is refused', async () => {
     const res = await call('GET', '')
     const data = (await res.json()) as { rows: unknown[]; version: string }
     expect(data.rows).toHaveLength(552)
     expect(data.version).toBe(versionOf(REAL))
-    const wrong = await fetch(base, { headers: { 'x-prompt-code': 'nope' } })
-    expect(wrong.status).toBe(401)
+    expect((await fetch(base)).status).toBe(401)
+    // the old shared code does nothing now
+    expect((await fetch(base, { headers: { 'x-prompt-code': 'letmein', 'x-prompt-author': 'Ana' } })).status).toBe(401)
   })
 
-  it('an edit round-trips: the saved file still reads, and only that row changed — attributed', async () => {
+  it('an edit round-trips: the saved file still reads, and only that row changed — credited to the account', async () => {
     const res = await edit('animals-alpaca-7313977', 'animals', { label: 'Alpaca', tags: ['alpaca', 'llama', 'fluffy'] })
     expect(res.status).toBe(200)
     const { doc, problems } = parseLabels(mem.state.text ?? '')
     expect(problems).toEqual([])
     const changed = doc.rows.filter((r, i) => JSON.stringify(r) !== JSON.stringify(parseLabels(REAL).doc.rows[i]))
-    expect(changed.map((r) => [r.id, r.editedBy])).toEqual([['animals-alpaca-7313977', 'Ana']])
+    expect(changed.map((r) => [r.id, r.editedBy])).toEqual([['animals-alpaca-7313977', '@ana']])
   })
 
   it('two people editing different assets at once both land', async () => {
     const [a, b] = await Promise.all([
-      edit('animals-alpaca-7313977', 'animals', { label: 'Alpaca A', tags: ['alpaca'] }, 'Ana'),
-      edit('animals-animal-6756619', 'animals', { label: 'Goat B', tags: ['goat'] }, 'Ben'),
+      edit('animals-alpaca-7313977', 'animals', { label: 'Alpaca A', tags: ['alpaca'] }, 'ana'),
+      edit('animals-animal-6756619', 'animals', { label: 'Goat B', tags: ['goat'] }, 'ben'),
     ])
     expect([a.status, b.status]).toEqual([200, 200])
     const rows = parseLabels(mem.state.text ?? '').doc.rows
@@ -86,10 +87,10 @@ describe('/api/labels', () => {
   })
 
   it('the same asset saved twice from what each saw: the second is asked to look again', async () => {
-    await edit('animals-alpaca-7313977', 'animals', { label: 'One', tags: ['a'], seen: '' }, 'Ana')
-    const second = await edit('animals-alpaca-7313977', 'animals', { label: 'Two', tags: ['b'], seen: '' }, 'Ben')
+    await edit('animals-alpaca-7313977', 'animals', { label: 'One', tags: ['a'], seen: '' }, 'ana')
+    const second = await edit('animals-alpaca-7313977', 'animals', { label: 'Two', tags: ['b'], seen: '' }, 'ben')
     expect(second.status).toBe(409)
-    expect(((await second.json()) as { message: string }).message).toMatch(/Ana changed this a moment ago/)
+    expect(((await second.json()) as { message: string }).message).toMatch(/@ana changed this a moment ago/)
   })
 
   it('a tab inside a cell is refused in plain words', async () => {
@@ -116,19 +117,47 @@ describe('/api/labels', () => {
     const res = await edit('animals-alpaca-7313977', 'animals', { label: 'Alpaca', tags: [] })
     expect(res.status).toBe(409)
     // the first push seeds it
-    const push = await call('PUT', '/file', { text: REAL, base: 'empty' })
+    const push = await sync('PUT', { text: REAL, base: 'empty' })
     expect(push.status).toBe(200)
     expect(mem.state.text).toBe(REAL)
   })
 
   it('a push from a laptop that is behind is refused; one in step lands, in the standard layout', async () => {
     await edit('animals-alpaca-7313977', 'animals', { label: 'Live edit', tags: ['x'] })
-    const behind = await call('PUT', '/file', { text: REAL, base: versionOf(REAL) })
+    const behind = await sync('PUT', { text: REAL, base: versionOf(REAL) })
     expect(behind.status).toBe(409)
-    const { text: live, version } = (await (await call('GET', '/file')).json()) as { text: string; version: string }
+    const { text: live, version } = (await (await sync('GET')).json()) as { text: string; version: string }
     const handEdited = live.replace('\tLive edit\tx\t', '\tLive edit\tx,y\t') // typed without the space
-    const res = await call('PUT', '/file', { text: handEdited, base: version })
+    const res = await sync('PUT', { text: handEdited, base: version })
     expect(res.status).toBe(200)
     expect(((await res.json()) as { text: string }).text).toContain('\tLive edit\tx, y\t')
+  })
+})
+
+describe('/api/labels/file — the laptop', () => {
+  it('takes the sync key and nothing else', async () => {
+    expect((await sync('GET')).status).toBe(200)
+    expect((await sync('GET', undefined, 'wrong'.repeat(10))).status).toBe(401)
+    // a signed-in browser's cookie is no use here…
+    const withCookie = await fetch(`${origin}/api/labels/file`, { headers: { cookie: sessionCookie('ana@example.com') } })
+    expect(withCookie.status).toBe(401)
+    // …and the key is no use in the browser's routes
+    expect((await fetch(base, { headers: { authorization: `Bearer ${SYNC_KEY}` } })).status).toBe(401)
+  })
+
+  it('leaves rows written under a typed name exactly as they were', async () => {
+    const doc = parseLabels(REAL).doc
+    const withOld = { ...doc, rows: doc.rows.map((r) => (r.id === 'animals-animal-6756619' ? { ...r, editedBy: 'Karolis', editedAt: '2026-09-01T10:00:00.000Z' } : r)) }
+    const seeded = serializeLabels(withOld)
+    mem = memory(seeded)
+    setLabelStoreForTests(new LabelStore(mem.backend))
+    await edit('animals-alpaca-7313977', 'animals', { label: 'Alpaca', tags: ['alpaca'] })
+    const rows = parseLabels(mem.state.text ?? '').doc.rows
+    expect(rows.find((r) => r.id === 'animals-animal-6756619')).toMatchObject({ editedBy: 'Karolis', editedAt: '2026-09-01T10:00:00.000Z' })
+    expect(rows.find((r) => r.id === 'animals-alpaca-7313977')?.editedBy).toBe('@ana')
+    // and a pull hands the laptop back the same old row, byte for byte
+    const { text } = (await (await sync('GET')).json()) as { text: string }
+    const oldLine = seeded.split('\n').find((l) => l.startsWith('animals-animal-6756619\t'))
+    expect(text.split('\n')).toContain(oldLine)
   })
 })

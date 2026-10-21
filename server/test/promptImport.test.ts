@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import http from 'node:http'
-import type { AddressInfo } from 'node:net'
+import type http from 'node:http'
 import { PromptStore, type PoolBackend } from '../src/prompts/store.ts'
-import { handlePromptsRequest, setPromptStoreForTests } from '../src/prompts/routes.ts'
+import { setPromptStoreForTests } from '../src/prompts/routes.ts'
+import { adminEnv, sessionCookie, startAdminServer } from './adminHelpers.ts'
 
 function memoryBackend() {
   const state = { json: null as string | null, saves: 0, failSave: false }
@@ -65,26 +65,25 @@ describe('importing into the store', () => {
   })
 })
 
-describe('POST /api/prompts/import', () => {
+describe('POST /api/admin/prompts/import', () => {
   let server: http.Server
+  let origin = ''
   let base = ''
   beforeAll(async () => {
-    process.env.PROMPT_WRITE_KEY = 'letmein'
-    server = http.createServer((req, res) => {
-      handlePromptsRequest(req, res, new URL(req.url ?? '/', 'http://localhost'))
-    })
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    base = `http://localhost:${(server.address() as AddressInfo).port}/api/prompts`
+    adminEnv()
+    // rate limits are per account: one each, so they don't carry over
+    process.env.ADMIN_EMAILS = Array.from({ length: 20 }, (_, i) => `writer${i}@example.com`).join(',')
+    ;({ server, origin } = await startAdminServer())
+    base = `${origin}/api/admin/prompts`
   })
   afterAll(() => server.close())
   beforeEach(() => setPromptStoreForTests(new PromptStore(memoryBackend().backend)))
 
-  // each test its own client address, so rate limits don't carry over
-  let client = 0
-  const post = (path: string, body: unknown, ip = `10.0.0.${++client}`) =>
+  let account = 0
+  const post = (path: string, body: unknown, who = `writer${++account}@example.com`) =>
     fetch(`${base}${path}`, {
       method: 'POST',
-      headers: { 'x-prompt-code': 'letmein', 'x-prompt-author': 'Karolis', 'x-forwarded-for': ip, 'Content-Type': 'application/json' },
+      headers: { cookie: sessionCookie(who), origin, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
 
@@ -102,7 +101,7 @@ describe('POST /api/prompts/import', () => {
     expect(((await res.json()) as { message: string }).message).toBe(
       'At most 200 prompts in one import — split it into smaller batches.',
     )
-    const list = await fetch(base, { headers: { 'x-prompt-code': 'letmein' } })
+    const list = await fetch(base, { headers: { cookie: sessionCookie('writer0@example.com') } })
     expect(((await list.json()) as { prompts: unknown[] }).prompts).toHaveLength(0)
   })
 
@@ -113,10 +112,24 @@ describe('POST /api/prompts/import', () => {
   })
 
   it('imports have their own rate limit, apart from single writes', async () => {
-    const ip = '10.9.9.9'
-    for (let i = 0; i < 5; i++) expect((await post('/import', { rows: [row(`Batch Prompt ${i}`)] }, ip)).status).toBe(200)
-    expect((await post('/import', { rows: [row('One More Batch')] }, ip)).status).toBe(429)
+    const who = 'writer19@example.com'
+    for (let i = 0; i < 5; i++) expect((await post('/import', { rows: [row(`Batch Prompt ${i}`)] }, who)).status).toBe(200)
+    expect((await post('/import', { rows: [row('One More Batch')] }, who)).status).toBe(429)
     // single writes from the same person still go through
-    expect((await post('', { text: 'Single Prompt', mode: 'guess' }, ip)).status).toBe(200)
+    expect((await post('', { text: 'Single Prompt', mode: 'guess' }, who)).status).toBe(200)
+  })
+
+  it('credits a typed author as typed, the importer as their account — and refuses an @ in a typed one', async () => {
+    const who = 'writer18@example.com'
+    const res = await post('/import', { rows: [{ ...row('From A Friend'), author: 'Mia' }, { ...row('From Me'), author: '@writer18' }] }, who)
+    expect(res.status).toBe(200)
+    const { prompts } = (await res.json()) as { prompts: { text: string; author: string }[] }
+    expect(prompts.map((p) => [p.text, p.author])).toEqual([
+      ['From A Friend', 'Mia'],
+      ['From Me', '@writer18'],
+    ])
+    const forged = await post('/import', { rows: [{ ...row('Pretending'), author: '@writer17' }] }, who)
+    expect(forged.status).toBe(400)
+    expect(((await forged.json()) as { message: string }).message).toMatch(/can’t contain @/)
   })
 })

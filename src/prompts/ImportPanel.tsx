@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { MAX_IMPORT_ROWS, MAX_PROMPT_AUTHOR_LENGTH } from '@smoosh/protocol'
-import { PromptApiError, promptApi, type Prompt, type PromptMode } from './api'
+import { promptApi, type Prompt, type PromptMode } from './api'
 import { parseImport, previewImport, summarize, type RowStatus } from './importParse'
 
 const MODE_LABEL: Record<PromptMode, string> = { both: 'Both', guess: 'Guess', gallery: 'Gallery' }
@@ -15,10 +15,9 @@ const MAX_FILE_BYTES = 1_000_000
 
 type Props = {
   pool: readonly Prompt[]
+  // the importer's credit, "@karolis": rows with no author of their own
   me: string
   onImported: (result: { prompts: Prompt[]; added: string[] }) => void
-  // a failure the page handles itself (a wrong code goes back to the gate)
-  onAuthFail: (err: unknown) => void
   // fetch the pool again — after a refusal, the preview should judge
   // against what's really there now
   onRefresh: () => void
@@ -27,7 +26,7 @@ type Props = {
 
 // Paste (or pick a file), see what would happen, untick anything unwanted,
 // import. Nothing is sent until the Import button.
-export default function ImportPanel({ pool, me, onImported, onAuthFail, onRefresh, onClose }: Props) {
+export default function ImportPanel({ pool, me, onImported, onRefresh, onClose }: Props) {
   const [input, setInput] = useState('')
   const [importAllAs, setImportAllAs] = useState('')
   // rows unticked by hand; every new row starts ticked
@@ -83,10 +82,6 @@ export default function ImportPanel({ pool, me, onImported, onAuthFail, onRefres
     promptApi
       .import(chosen.map((r) => ({ text: r.text, mode: r.mode, author: r.author })))
       .then(onImported, (err: unknown) => {
-        if (err instanceof PromptApiError && err.code === 'wrong_code') {
-          onAuthFail(err)
-          return
-        }
         setError(err instanceof Error ? err.message : 'Something went wrong. Nothing was imported.')
         onRefresh()
       })

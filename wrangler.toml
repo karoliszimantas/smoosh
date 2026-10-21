@@ -1,6 +1,13 @@
 name = "smoosh"
 compatibility_date = "2026-09-01"
+# only for /api/admin/* (run_worker_first below) — see worker/index.ts
+main = "worker/index.ts"
+
+[vars]
+GAME_SERVER_URL = "https://132-145-224-22.sslip.io"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = ["/api/admin/*"]

@@ -2997,6 +2997,253 @@ button.theme-choice-option.active {
   color: var(--text-muted);
 }
 
+/* ---------- /admin: the shell around prompts, labels and logs ---------- */
+
+/* one bar on top — the sections, and who's signed in — and the section's
+   own scroll under it. Built for a 390px phone first. */
+.admin-shell {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--surface-text);
+}
+
+.admin-nav {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.admin-nav a {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  color: var(--surface-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-nav a[aria-current='page'] {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.admin-account {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 34vw;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--surface-text);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-account-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-sunken);
+  color: var(--surface-sunken-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-account-panel button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--surface-text);
+  font-size: 14px;
+}
+
+/* the section scrolls inside this, not the page */
+.admin-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-main > .prompts-view,
+.admin-main > .prompts-import {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* building a prompt takes the whole screen, nav and all */
+.admin-main > .prompt-test {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  height: auto;
+  background: var(--page-bg);
+}
+
+.admin-break-glass {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  background: var(--danger);
+  color: var(--danger-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-break-glass + .admin-bar {
+  padding-top: 8px;
+}
+
+.admin-gate h1 {
+  font-size: 22px;
+}
+
+.admin-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-refusal {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* one thing from a list, taking the screen: an asset being labelled, a
+   room's log */
+.admin-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px calc(16px + env(safe-area-inset-bottom));
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: var(--page-bg);
+}
+
+.admin-sheet-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-sheet-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-sheet-title small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.admin-log-rooms {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prompts-view .admin-log-rooms button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.admin-log-code {
+  grid-row: span 2;
+  align-self: center;
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin-log-when {
+  font-size: 14px;
+}
+
+.admin-log-meta {
+  font-size: 12px;
+  color: var(--surface-text-muted);
+}
+
+.admin-log-problems {
+  color: var(--danger-on-desk);
+  font-weight: 700;
+}
+
+/* long lines wrap: a phone never scrolls sideways */
+.admin-log-lines {
+  list-style: none;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-log-lines li {
+  padding: 3px 0;
+  border-top: 1px solid var(--chrome-border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-log-lines time {
+  color: var(--text-muted);
+}
+
+.admin-log-lines li.problem {
+  color: var(--danger-on-desk);
+  font-weight: 700;
+}
+
 /* ---------- /prompts: the team's prompt list ---------- */
 
 /* an internal tool: plain list, no theme flourishes, no animation. Its own
@@ -4550,11 +4797,6 @@ h1.prompt-window-kicker {
 
 /* ---------- /labels: labelling the asset library ---------- */
 
-.labels-title {
-  font-size: 20px;
-  margin-bottom: 8px;
-}
-
 .labels-filters {
   display: flex;
   gap: 6px;
@@ -4657,35 +4899,6 @@ h1.prompt-window-kicker {
 .labels-tile-meta {
   font-size: 12px;
   color: var(--surface-text-muted);
-}
-
-/* the editor takes the screen: the picture first, the fields under it */
-.labels-editor {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 10px 12px calc(16px + env(safe-area-inset-bottom));
-  background: var(--page-bg);
-}
-
-.labels-editor-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.labels-editor-id {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .labels-editor-picture {

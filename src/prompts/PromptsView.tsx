@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { getCode, getName, setCode } from './access'
-import { PROMPT_MODES, PromptApiError, promptApi, score, voterKey, type Prompt, type PromptMode } from './api'
+import { PROMPT_MODES, promptApi, score, voterKey, type Prompt, type PromptMode } from './api'
+import { useOnVisible } from '../admin/useOnVisible'
 import { promptsAsTs } from './exportTs'
 import { downloadCsv, promptsAsCsv } from './exportCsv'
 import ImportPanel from './ImportPanel'
 import PromptTestView from './PromptTestView'
-import Gate from './Gate'
 
 // Past this many, the list grows by a page at a time, so a phone stays quick
 const PAGE_SIZE = 100
@@ -15,9 +14,8 @@ const MODE_LABEL: Record<PromptMode, string> = { both: 'Both', guess: 'Guess', g
 type Status = 'active' | 'archived' | 'all'
 type Sort = 'newest' | 'score' | 'least'
 
-export default function PromptsView() {
-  const [ready, setReady] = useState(() => getCode() !== '' && getName() !== '')
-  const [gateError, setGateError] = useState<string | null>(null)
+// `me`: the signed-in account's credit, "@karolis" — whose votes are whose
+export default function PromptsView({ me }: { me: string }) {
   const [prompts, setPrompts] = useState<Prompt[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -49,17 +47,11 @@ export default function PromptsView() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const savedScroll = useRef(0)
 
-  const me = voterKey(getName())
+  const myVoteKey = voterKey(me)
 
-  // any failed call: a wrong code sends you back to the gate, everything
-  // else is a plain sentence at the top
+  // any failed call is a plain sentence at the top (a session that ran out
+  // goes back to sign-in — the admin shell sees to that)
   const fail = useCallback((err: unknown, show: (msg: string) => void = setNotice) => {
-    if (err instanceof PromptApiError && err.code === 'wrong_code') {
-      setCode('')
-      setGateError(err.message)
-      setReady(false)
-      return
-    }
     show(err instanceof Error ? err.message : 'Something went wrong. Try again.')
   }, [])
 
@@ -86,19 +78,8 @@ export default function PromptsView() {
     )
   }, [fail])
 
-  useEffect(() => {
-    if (ready) refresh()
-  }, [ready, refresh])
-
-  // coming back to the tab (or the phone) picks up everyone else's changes
-  useEffect(() => {
-    if (!ready) return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') refresh()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [ready, refresh])
+  useEffect(refresh, [refresh])
+  useOnVisible(refresh)
 
   // back from the sandbox or the import panel: exactly where the list was
   // (or, after an import, at the top where the new prompts are)
@@ -230,30 +211,14 @@ export default function PromptsView() {
     setImporting(true)
   }
 
-  if (!ready) {
-    return (
-      <div className="prompts-view">
-        <Gate
-          title="Prompts"
-          error={gateError}
-          onDone={() => {
-            setGateError(null)
-            setReady(true)
-          }}
-        />
-      </div>
-    )
-  }
-
   return (
     <>
       {building && <PromptTestView prompt={building.text} onDone={finishBuild} />}
       {importing && prompts && (
         <ImportPanel
           pool={prompts}
-          me={getName()}
+          me={me}
           onImported={finishImport}
-          onAuthFail={(err) => fail(err)}
           onRefresh={refresh}
           onClose={() => setImporting(false)}
         />
@@ -390,7 +355,7 @@ export default function PromptsView() {
 
         <ul className="prompts-list">
           {visible.slice(0, shown).map((p) => {
-            const myVote = p.votes[me]
+            const myVote = p.votes[myVoteKey]
             const isEditing = editing?.id === p.id
             return (
               <li
