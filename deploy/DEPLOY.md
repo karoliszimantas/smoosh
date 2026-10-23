@@ -160,6 +160,8 @@ On your laptop:
 ```bash
 # in .env.production:
 #   VITE_SERVER_URL=https://smoosh.<domain>
+# and in wrangler.toml, [vars] GAME_SERVER_URL must point at the same server:
+# the Worker proxies /api/admin/* to it (see worker/index.ts).
 
 pnpm exec wrangler login     # once
 pnpm run deploy:client       # tsc -b, vite build, wrangler deploy ./dist
