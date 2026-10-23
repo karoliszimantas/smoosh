@@ -1,0 +1,51 @@
+# systemd unit for the smoosh game server.
+# Install:
+#   sudo cp deploy/smoosh.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now smoosh
+#
+# IMPORTANT: exactly ONE process — rooms live in process memory. A second
+# instance (or a cluster) would split rooms between processes and break games.
+#
+# Binding: the server calls listen(PORT) with no host, so it listens on ALL
+# interfaces, not only localhost, and there is no HOST setting. Port 3001 is
+# kept off the internet by the firewall (ufw allows only 22/80/443); Caddy on
+# 443 is the only way in.
+
+[Unit]
+Description=smoosh game server
+After=network.target
+
+[Service]
+Type=simple
+User=smoosh
+Group=smoosh
+# server/ as cwd, same as `pnpm -C server start`. The data dir doesn't depend
+# on it: moderation.ts resolves server/data from its own file location.
+WorkingDirectory=/opt/smoosh/server
+# Secrets. Variables in this file win over the Environment= lines below, so
+# don't put PORT or NODE_ENV in it.
+EnvironmentFile=/opt/smoosh/server/.env
+Environment=PORT=3001
+Environment=NODE_ENV=production
+# What `pnpm start` runs (tsx --env-file-if-exists=.env src/index.ts), minus
+# the wrappers: node loads tsx in-process from server/node_modules (tsx is a
+# devDependency, so the install must include devDeps). Not through corepack's
+# pnpm, which wants to write its cache under the user's home — read-only here
+# because of ProtectSystem=strict. The .env comes from EnvironmentFile above.
+# Node's path: `command -v node` (NodeSource puts it at /usr/bin/node).
+ExecStart=/usr/bin/node --import tsx src/index.ts
+Restart=on-failure
+RestartSec=3
+
+# Hardening. The only runtime writes are server/data (blocklist.json,
+# reports.jsonl, and the prompt list and cuts when R2 is unset) and tsx's
+# compile cache in /tmp, which PrivateTmp provides. sharp writes nothing.
+# server/data must exist before the service starts, or systemd refuses to.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/smoosh/server/data
+
+[Install]
+WantedBy=multi-user.target
